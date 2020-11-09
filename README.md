@@ -22,13 +22,13 @@ When you open an article and start reading, NodCast automatically highlights the
 
 Example of nodes are:
 
-### Positive nods: 
+#### Positive nods: 
  - **okay**, when you have almost understood the purpose of a sentence or a fragment of the text
  - **I see!**, when you have completely understood the meaning and purpose of a sentence and you admit it.
  - **interesting!**, when you found the sentence or paragraph has a useful point.
  - **important!**, when you think it contains an important point that can be useful for you.
 
-### Negative nods: 
+#### Negative nods: 
  - **okay so?**, when you understand the meaning of a sentence but you don't know its purpose and you are waiting for a complementary sentence or paragraph.
  - **didn't get, but okay**, when you didn't get the purpose or meaning of a sentence, but it's not currently important for you and you can continue.
  - **didn't get**, when you didn't get the purpose or meaning of a sentence, and you are confused.
