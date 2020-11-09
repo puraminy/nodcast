@@ -1,4 +1,4 @@
-## What is NodReader
+## What is NodCast
 
 Using Nodreader you can search, study and manage scientific papers or any other article.
 
