@@ -1,24 +1,24 @@
 ## What is NodCast
 
-Using Nodreader you can search, study and manage scientific papers or any other article.
+Using NodCast you can search, study and manage scientific papers or any other article.
 
-However, the main goal of Nodreader is to provide a new experience of study. The program is text-based and relies mainly on the keyboard. The program offers you the summaries of the articles when you want to concentrate on the purpose and main ideas within an article. You can also view the figures of the article in a browser. If you want to access the original article, you can download and open the original pdf file for each article.
+However, the main goal of NodCast is to provide a new experience of study. The program is text-based and relies mainly on the keyboard. The program offers you the summaries of the articles when you want to concentrate on the purpose and main ideas within an article. You can also view the figures of the article in a browser. If you want to access the original article, you can download and open the original pdf file for each article.
 
 ## Installation
 
 Installation on linux:
 ```
-pip install nodreader
+pip install nodcast
 ```
 ### Installation on Windows
 For Windows you need to instll `windows-curses` package too, so use the following command:
 ```
-pip install windows-curses nodreader
+pip install windows-curses nodcast
 ```
 
 ## Nods
 Nods are feedbacks you give to a sentence or a portion of text. It resembles the way you listen to the talks of a lecturer. You may admit what you've heard with 'okay, yes, etc.' or you may have a problem in getting the purpose of a sentence.
-When you open an article and start reading, Nodreader automatically highlights the first sentence of an article. To expand the selection to more sentences press the `<Down>` arrow key. After selecting and reading a fragment of text (a paragraph or a certain number of sentences) you need to provide a Nod to be able to move to the next part. 
+When you open an article and start reading, NodCast automatically highlights the first sentence of an article. To expand the selection to more sentences press the `<Down>` arrow key. After selecting and reading a fragment of text (a paragraph or a certain number of sentences) you need to provide a Nod to be able to move to the next part. 
 
 Example of nodes are:
 
@@ -57,7 +57,7 @@ The bar at the bottom of an article has the capacity of a single line note. If y
 
 ## other features
 
-Nodreader has many other features, which you can discover when you work with it. Some hotkeys are listed below. They are accessible when you open an article. You can hit h to see the following list. 
+NodCast has many other features, which you can discover when you work with it. Some hotkeys are listed below. They are accessible when you open an article. You can hit h to see the following list. 
 
 ```
  Down)          expand the selection to the next sentence
@@ -96,7 +96,7 @@ If you want to fetch and read the articles of a website, or a specific webpage, 
 pip install newspaper3k
 ```
 
-Then, when you start Nodreader, two new options are added to the main menu, namely `website articles` and `webpage`.  
+Then, when you start NodCast, two new options are added to the main menu, namely `website articles` and `webpage`.  
  
  
 
