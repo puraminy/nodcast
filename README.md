@@ -37,7 +37,7 @@ Example of nodes are:
 
 ### How to enter a nod
 
-For positive nods, press the `<Right>` arrow key once or multiple times. They appear in order with each keystroke. For negative nods, do the same but with `<Left>` arrow key. After entering a nod press the `<Down>` arrow key to move to the next sentence. You can also press `<Enter>` to enter `okay' and move to the next sentence, or press `<TAB>` to skip the current fragment and move to the next one.  
+For positive nods, press the `<Right>` arrow key once or multiple times. They appear in order with each keystroke. For negative nods, do the same but with `<Left>` arrow key. After entering a nod press the `<Down>` arrow key to move to the next sentence. You can also press `<Enter>` to enter `okay` and move to the next sentence, or press `<TAB>` to skip the current fragment and move to the next one.  
 
 
 ### Categorizing articles
