@@ -31,13 +31,14 @@ Example of nodes are:
 #### Negative nods: 
  - **okay so?**, when you understand the meaning of a sentence but you don't know its purpose and you are waiting for a complementary sentence or paragraph.
  - **didn't get, but okay**, when you didn't get the purpose or meaning of a sentence, but it's not currently important for you and you can continue.
- - **didn't get**, when you didn't get the purpose or meaning of a sentence, and you are confused.
+ - **what?!**, when you didn't get the purpose or meaning of a sentence, and you are confused.
  - **needs research** when there are some points or jargon in the sentence that needs to be researched.
   
 
 ### How to enter a nod
 
-For positive nods, press the `<Right>` arrow key once or multiple times. They appear in order with each keystroke. For negative nods, do the same but with `<Left>` arrow key. After entering a nod press the `<Down>` arrow key to move to the next sentence. 
+For positive nods, press the `<Right>` arrow key once or multiple times. They appear in order with each keystroke. For negative nods, do the same but with `<Left>` arrow key. After entering a nod press the `<Down>` arrow key to move to the next sentence. You can also press `<Enter>` to enter `okay' and move to the next sentence, or press `<TAB>` to skip the current fragment and move to the next one.  
+
 
 ### Categorizing articles
 
@@ -60,7 +61,9 @@ NodCast has many other features, which you can discover when you are working wit
 ```
  Down)          expand the selection to the next sentence
  Right)         nod the selected sentences with the positie nods
- Right)         nod the selected sentences with the negative nods
+ Left)          nod the selected sentences with negative feedback
+ Enter)         nod the selected sentences with okay and move to the next sentence
+ +/-)           show the list of positive and negative nods
  o)             download/open pdf file externally
  f)             list figures
  t)             tag the article
@@ -69,9 +72,10 @@ NodCast has many other features, which you can discover when you are working wit
  p)             select an output file format
  m)             change the color theme
  u)             reset comments and nods
+ e)             expand/collapse sections
  DEL)           remove the current nod from the selected sentence
  n)             filter the sentences by a nod
- +/-)           increase/decrease the width of the text
+ >/<)           increase/decrease the width of the text
  :)             add a comment to the selected fragment
  k/j)           previous/next section
  l/;)           previous/next fragment
