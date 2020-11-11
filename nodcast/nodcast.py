@@ -122,10 +122,12 @@ nod_color = {
         "important!":(97,141),
         "has an idea!":(114,115),
         "didn't get!":(88,196),
-        "didn't get, needs review":(88,196),
+        "didn't get, needs review":(88,161),
+        "what?!":(88,161),
+        "what?! needs review":(88,161),
         #"didn't get, but okay":(89,199),
         "didn't get, but okay":(58,178),
-        "so!":(138,138),
+        "so?":(32,39),
         "okay, so?":(32,39),
         "almost got the idea?":(32,32),
         "explain more":(58,178),
@@ -156,6 +158,8 @@ cllC = 83
 cO =  209
 back_color = None
 
+def is_enter(ch):
+    return ch == cur.KEY_ENTER or ch == 10 or ch == 13 
 
 def reset_colors(theme, bg = None):
     global back_color
@@ -544,7 +548,7 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod =""):
         show_info("Enter) view article       PageDown) next page (load more...)     h) other commands " + str(N) + " " + str(N))
         print_there(0, cols - 15, "|" + str(N) + "|" + str(_p + 1) +  " of " + str(all_pages), win_info, INFO_COLOR)
         ch = get_key(std)
-        if ch == cur.KEY_ENTER or ch == 10:
+        if is_enter(ch):
             k = max(k, 0)
             k = min(k, N-1)
             main_win.erase()
@@ -726,8 +730,8 @@ def write_article(article, folder=""):
     f.close()
     show_info("Artice was writen to " + fpath + '...')
 
-pos_nods = ["okay, so?", "okay", "I see!", "interesting!", "important!"]
-neg_nods = ["okay, so?", "didn't get, but okay", "didn't get, needs review", "needs research"]
+pos_nods = ["", "okay", "I see!", "interesting!", "important!"]
+neg_nods = ["so?", "didn't get, but okay", "what?!", "needs research", "skipped"]
 sent_types = ["problem", "definition", "solution", "goal", "contribution", "feature", "constraint", "example"]
 art_nods = ["interesting!", "favorite!", "important!", "needs review", "needs research", "almost got it!", "got the idea!", "didn't get!", "archive", "not reviewed", "to read later", "skipped"]
 def sel_nod(opts, ypos, left, ni, si, no_win = False):
@@ -784,7 +788,7 @@ def show_article(art, show_nod=""):
     # text_win = std
     bg = ""
     saved_articles = load_obj("saved_articles", "articles", [])
-    expand = 3
+    expand = 2
     frags_text = ""
     art_id = -1
     fc = 1
@@ -949,7 +953,7 @@ def show_article(art, show_nod=""):
             else:
                 sect_title = b["title"]
  
-            if visible[fsn] and sect_title != "all":
+            if (visible[fsn] and sect_title != "all") or expand == 0:
                 mprint(sect_title, text_win, _color, attr = cur.A_BOLD)
 
             pos[fsn],_ = text_win.getyx()
@@ -1073,7 +1077,7 @@ def show_article(art, show_nod=""):
         offset = art["sections"][sc]["sents_offset"] 
         # show_info("frags:"+ str(total_frags) + " start row:" + str(start_row) + " frag offset:"+ str(f_offset)  + " fc:" + str(fc) + " si:" + str(si) + " sent offset:" + str(offset))
         if not (ch == ord('.') or ch == ord(',')): 
-            if pos[bmark] > rows // 3:    
+            if expand != 0 and pos[bmark] > rows // 3:    
                 start_row = pos[bmark] - rows //3 
             else:
                 start_row = 0
@@ -1105,7 +1109,7 @@ def show_article(art, show_nod=""):
                 visible = [True]*total_sents
             else:
                 ypos = pos[bmark]-start_row
-                tmp, _ = sel_nod(art_nod_opts, ypos, left, ni, 0)
+                tmp, _ = sel_nod(pos_nods + neg_nods, ypos, left, ni, 0)
                 show_nod = tmp if tmp != "NULL" else ""
         if ch == ord('o'):
             if "save_folder" in art and art["save_folder"] != "":
@@ -1133,7 +1137,7 @@ def show_article(art, show_nod=""):
                 print(art, file = f)
         if ch == ord('r'):
            si = total_sents - 1 
-           while (nods[si] == "" or not visible[si]) and si > 2:
+           while (nods[si] == "" or nods[si] == "skipped" or nods[si] == "next" or not visible[si]) and si > 2:
                si -= 1
            si = max(si, 1)
            bmark = si 
@@ -1155,6 +1159,8 @@ def show_article(art, show_nod=""):
                        '  Down)          expand the selection to next sentence\n'
                        '  Right)         nod the selected sentences with positive feedback\n'
                        '  Left)          nod the selected sentences with negative feedback\n'
+                       '  Enter)         nod the selected sentences with okay and move to the next sentence\n'
+                       '  +/-)           show the list of positive and negative nods\n'
                        '  o)             download/open the pdf file externally\n'
                        '  f)             list figures\n'
                        '  t)             tag the article\n'
@@ -1163,10 +1169,11 @@ def show_article(art, show_nod=""):
                        '  p)             select the output file format\n'
                        '  m)             change the color theme\n'
                        '  u)             reset comments and nods\n'
-                       '  DEL)           remove current nod\n'
-                       '  v)             restore removed sentences\n'
                        '  n)             filter sentences by a nod\n'
-                       '  +/-)           increase/decrease the width of text\n'
+                       '  DEL)           remove current nod\n'
+                       '  TAB)           skip current fragment\n'
+                       '  e)             expand/collapse sections\n'
+                       '  >/<)           increase/decrease the width of text\n'
                        '  :)             add a comment \n'
                        '  k/j)           previous/next section\n'
                        '  l/;)           previous/next fragment\n'
@@ -1195,11 +1202,12 @@ def show_article(art, show_nod=""):
                 si = 2
                 art_changed = True
                 update_si = True
-        if ch == ord('e'):
-            if expand < 3:
+        if ch == ord('e') or (expand == 0 and is_enter(ch)):
+            if expand < 2:
                 expand += 1
             else:
                 expand = 0
+                start_row = 0
 
         if ch == ord('s'):
             cur_sect = art["sections"][sc]["title"].lower()
@@ -1211,36 +1219,44 @@ def show_article(art, show_nod=""):
             else:
                 sel_sects[art_id] = [cur_sect]
         ## kkk (bookmark)
-        if (ch == cur.KEY_LEFT or 
+        if expand != 0 and (ch == cur.KEY_LEFT or 
                 ch == cur.KEY_RIGHT or 
                 ch == cur.KEY_DOWN or chr(ch).isdigit() or 
                 ch == ord('\t') or 
                 ch == ord('+') or 
-                ch == ord('-')):
+                ch == ord('-') or 
+                is_enter(ch)):
             _nod = nods[si] 
-            if ch == ord('\t') or (ch == cur.KEY_DOWN and needs_nod and not nod_set):
+            if ch == ord('\t') or is_enter(ch) or (ch == cur.KEY_DOWN and needs_nod and not nod_set):
                for ii in range(bmark, si + 1):
                    if ii < si:
                        nods[ii] = "next"
-               nods[si] = "skipped"
+               if is_enter(ch):
+                   _nod = "okay"
+                   nods[si] = "okay"
+                   ch = cur.KEY_DOWN
+               else:
+                   _nod = "skipped"
+                   ch = cur.KEY_DOWN
+                   nods[si] = "skipped"
                nod_set = True
             else:
                 nod_set = False
             if ch == cur.KEY_RIGHT or ch == cur.KEY_LEFT:
                 if si == 0:
-                    ypos = pos[bmark]-start_row
+                    ypos = pos[bmark] - start_row
                     ni = art_nods.index(_nod) if _nod in art_nods else 0 
                     tmp_nod, nod_index = sel_nod(art_nods, ypos, left, abs(ni), si)
                     if tmp_nod != "NULL":
                         _nod = tmp_nod
                     ch = cur.KEY_RIGHT
                 else:
-                    if _nod in pos_nods:
+                    if _nod == "" and ch == cur.KEY_LEFT:
+                        ni = 1 
+                    elif _nod in pos_nods:
                         ni = pos_nods.index(_nod) 
                     elif _nod in neg_nods:
                         ni = -1*neg_nods.index(_nod)  
-                    else:
-                        ni = 0
                     ni = ni + 1 if ch == cur.KEY_RIGHT else ni - 1
                     if ni > 0:
                         #ni = nod_opts[0].index(_nod) if _nod in nod_opts[0] else 0
@@ -1250,8 +1266,6 @@ def show_article(art, show_nod=""):
                         #ni = nod_opts[1].index(_nod) if _nod in nod_opts[1] else 0 
                         ni = max(ni,-1*(len(neg_nods) - 1))
                         _nod = neg_nods[abs(ni)]
-                    else:
-                        _nod = ""
                 nod_set = True
                 #if _nod == "" or _nod == "next":
                 #elif not "so?" in _nod:
@@ -1363,7 +1377,7 @@ def show_article(art, show_nod=""):
                 si = 0
 
         update_si = False
-        if ch == ord('j'):
+        if (expand == 0 and ch == cur.KEY_UP) or ch == ord('j'):
             if sc > 0:
                 sc -= 1
                 fc = art["sections"][sc]["frags_offset"] + 1 
@@ -1371,7 +1385,7 @@ def show_article(art, show_nod=""):
             else:
                 mbeep()
                 sc = 0
-        if ch == ord('k'):
+        if (expand == 0 and ch == cur.KEY_DOWN) or ch == ord('k'):
             if sc < total_sects - 1:
                 sc += 1
                 fc = art["sections"][sc]["frags_offset"] + 1
@@ -1502,20 +1516,23 @@ def show_article(art, show_nod=""):
             fig_win.border()
             opts = []
             fig_num =1
-            for fig in figures:
-                fig_num +=1
-                caption = fig["caption"]
-                if not caption.startswith("Figure"):
-                   caption = "Figure " + str(fig_num) + ":" + caption
-                opts.append(caption)
+            if not figures:
+                show_msg("No figure to show")
+            else:
+                for fig in figures:
+                    fig_num +=1
+                    caption = fig["caption"]
+                    if not caption.startswith("Figure"):
+                       caption = "Figure " + str(fig_num) + ":" + caption
+                    opts.append(caption)
 
-            fi,_ = select_box(fig_win, opts, fi, in_row = False)
-            if fi >= 0:
-                fname = app_path + "/nodcast_temp.html" 
-                if not figures_created:
-                    create_figures_file(figures, fname)
-                    figures_created = True
-                webbrowser.open("file://" + fname + "#fig" + str(fi))
+                fi,_ = select_box(fig_win, opts, fi, in_row = False)
+                if fi >= 0:
+                    fname = app_path + "/nodcast_temp.html" 
+                    if not figures_created:
+                        create_figures_file(figures, fname)
+                        figures_created = True
+                    webbrowser.open("file://" + fname + "#fig" + str(fi))
         if ch == ord('m'):
             choice = '' 
             while choice != 'q':
@@ -1739,6 +1756,9 @@ def load_preset(new_preset, options, folder=""):
 def select_box(win, in_opts, ni, in_row = False, stack_index = 0, stack = []):
     ch = 0
     win.border()
+    if not in_opts:
+        show_err("No item to list")
+        return ni, stack_index
     while ch != 27 and ch != ord('q'):
         opts = []
         for i,k in enumerate(in_opts):
@@ -1769,7 +1789,7 @@ def select_box(win, in_opts, ni, in_row = False, stack_index = 0, stack = []):
             mprint("\n\n", win)
             win.refresh()
         ch = get_key(std)
-        if ch == cur.KEY_ENTER or ch == 10 or ch == 13 or (not in_row and ch == cur.KEY_RIGHT):
+        if is_enter(ch) or (not in_row and ch == cur.KEY_RIGHT):
            return ni, stack_index
         if chr(ch).isdigit():
             ni = int(chr(ch))
@@ -1969,7 +1989,7 @@ def show_menu(menu, options, shortkeys={}, title = "", mi = 0, subwins={}, info 
                 mi -= 10
             elif sel in options:
                 si -= 10
-        elif  ch == cur.KEY_ENTER or ch == 10 or ch == 13 or (chr(ch) in shortkeys and ch == prev_ch):
+        elif  is_enter(ch) or (chr(ch) in shortkeys and ch == prev_ch):
             is_button = str(menu[sel]).startswith("button")
             if is_button: 
               if sel == "save as" or sel == "reset" or sel == "delete" or sel == "save and quit":
