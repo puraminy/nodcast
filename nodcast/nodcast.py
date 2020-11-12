@@ -112,8 +112,8 @@ nod_color = {
         "goal":(22,22),
         "skipped":(244,245),
         "skip":(244,245),
-        "I see!":(29,76),
-        "interesting!":(28,71),
+        "I see!":(29,71),
+        "interesting!":(28,77),
         "favorite!":(53,219),
         "interesting, so?":(26,77),
         "contribution":(28,77),
@@ -501,7 +501,7 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod =""):
         while cc < start + 15 and jj < len(articles): 
             a = articles[jj]
             saved_index = get_index(saved_articles, a)
-            if saved_index > 0:
+            if saved_index >= 0:
                 a = articles[cc] = saved_articles[saved_index]
             if "year" in a:
                 h = a['year']
@@ -1251,8 +1251,10 @@ def show_article(art, show_nod=""):
                         _nod = tmp_nod
                     ch = cur.KEY_RIGHT
                 else:
-                    if _nod == "" and ch == cur.KEY_LEFT:
+                    if (_nod == "" or _nod == "skipped") and ch == cur.KEY_LEFT:
                         ni = 1 
+                    elif _nod == "skipped" and ch == cur.KEY_RIGHT:
+                        ni = 0
                     elif _nod in pos_nods:
                         ni = pos_nods.index(_nod) 
                     elif _nod in neg_nods:
