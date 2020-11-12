@@ -1,8 +1,8 @@
 ## What is NodCast
 
-Using NodCast you can search, study and manage scientific papers or any other article.
+Using NodCast you can search, study and manage scientific papers or any other article. Currently, you can search over 350,000 AI-related papers which are taken from IBM Science Summarizer website. If you want to fetch and read the articles of a website, or a specific webpage, you can install `newspaper3k`. 
 
-However, the main goal of NodCast is to provide a new experience of study. The program is text-based and relies mainly on the keyboard. The program offers you the summaries of the articles when you want to concentrate on the purpose and main ideas within an article. You can also view the figures of the article in a browser. If you want to access the original article, you can download and open the original pdf file for each article.
+However, the main goal of NodCast is to provide a new experience of study. The program is text-based and relies mainly on the keyboard and hotkeys. The first step is to search for the topic of your interest. The program offers you the summaries of the articles which you can start reading. You can also view the figures of the article in a browser. If you want to access the complete article, you can download and open the original pdf file for each article.
 
 ## Installation
 
@@ -16,7 +16,7 @@ For Windows you need to instll `windows-curses` package too, so use the followin
 pip install windows-curses nodcast
 ```
 
-## Nods
+## What are Nods
 Nods are feedbacks you give to a sentence or a portion of text. It resembles the way you listen to the talks of a lecturer. You may admit what you've heard with 'okay, yes, etc.' or you may have a problem in getting the purpose of a sentence.
 When you open an article and start reading, NodCast automatically highlights the first sentence of an article. To expand the selection to more sentences press the `<Down>` arrow key. After selecting and reading a fragment of text (a paragraph or a certain number of sentences) you need to provide a Nod to be able to move to the next part. 
 
@@ -37,7 +37,7 @@ Example of nodes are:
 
 ### How to enter a nod
 
-For positive nods, press the `<Right>` arrow key once or multiple times. They appear in order with each keystroke. For negative nods, do the same but with `<Left>` arrow key. After entering a nod press the `<Down>` arrow key to move to the next sentence. You can also press `<Enter>` to enter `okay` and move to the next sentence, or press `<TAB>` to skip the current fragment and move to the next one.  
+For positive nods, press the `<Right>` arrow key once or multiple times. The nods appear in order with each keystroke. For negative nods, do the same but with `<Left>` arrow key. After entering a nod press the `<Down>` arrow key to move to the next sentence. You can also press `<Enter>` to enter `okay` and move to the next sentence, or press `<TAB>` to skip the current fragment and move to the next one.  
 
 
 ### Categorizing articles
@@ -91,7 +91,7 @@ Press `<Down>` or `<Up>` keys to navigate between the items of a menu. Optionall
 
 ## Accessing website articles or opening a webpage
 
-If you want to fetch and read the articles of a website, or a specific webpage, you can install `newspaper3k`. 
+Currently, you can search over 350,000 AI-related papers which are taken from IBM Science Summarizer website. If you want to fetch and read the articles of a website, or a specific webpage, you can install `newspaper3k`. 
 
 ```
 pip install newspaper3k
