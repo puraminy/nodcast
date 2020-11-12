@@ -2,7 +2,9 @@
 
 Using NodCast you can search, study and manage scientific papers or any other article. Currently, you can search over 350,000 AI-related papers which are taken from IBM Science Summarizer website.
  
-However, the main goal of NodCast is to provide a new experience of study. The program is text-based and relies mainly on the keyboard and hotkeys. The first step is to search for the topic of your interest. The program offers you the summaries of related articles which you can start reading. You can also view the figures of the article in a browser. If you want to access the complete article, you can download and open the original pdf file for each article.
+However, the main goal of NodCast is to provide a new experience of study. The program is text-based and relies mainly on the keyboard and hotkeys.
+
+The first step is to search for the topic of your interest. The program offers you the summaries of related articles which you can start reading. You can also view the figures of the article in a browser. If you want to access the complete article, you can download and open the original pdf file for each article.
 
 ## Installation
 
