@@ -59,7 +59,7 @@ The bar shown below the article has the capacity of a single line note. If you w
 
 ## other features
 
-NodCast has many other features, which you can discover when you are working with it. Some hotkeys are listed below. They are accessible when you open an article. You can press `h` to see the list of available command in each section. 
+NodCast has many other features, which you can discover when you are working with it. Some hotkeys are listed below. They are accessible when you open an article. You can press `h` to see the list of available commands in each section. 
 
 ```
  Down)          expand the selection to the next sentence
