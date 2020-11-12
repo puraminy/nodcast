@@ -20,6 +20,7 @@ pip install windows-curses nodcast
 
 ## What are Nods
 Nods are feedbacks you give to a sentence or a portion of text. It resembles the way you listen to the talks of a lecturer. You may admit what you've heard with 'okay, yes, etc.' or you may have a problem in getting the purpose of a sentence.
+
 When you open an article and start reading, NodCast automatically highlights the first sentence of an article. To expand the selection to more sentences press the `<Down>` arrow key. After selecting and reading a fragment of text (a paragraph or a certain number of sentences) you need to provide a Nod to be able to move to the next part. 
 
 Example of nodes are:
