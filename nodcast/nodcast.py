@@ -1,3 +1,4 @@
+# Nodcast v 0.1.2 
 import requests
 import io
 import subprocess, os, platform
