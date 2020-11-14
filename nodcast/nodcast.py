@@ -121,13 +121,16 @@ nod_color = {
         "feature":(28,77),
         "constraint":(95,97),
         "important!":(97,141),
+        "point!":(97,141),
         "has an idea!":(114,115),
         "didn't get!":(88,196),
+        "didn't get":(88,161),
         "didn't get, needs review":(88,161),
         "what?!":(88,161),
         "what?! needs review":(88,161),
         #"didn't get, but okay":(89,199),
-        "didn't get, but okay":(58,178),
+        "didn't get, but okay":(93,178),
+        "didn't get, so?":(88,196),
         "so?":(32,39),
         "okay, so?":(32,39),
         "almost got the idea?":(32,32),
@@ -696,9 +699,10 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod =""):
                 show_err("No article was selected!! Select an article using s")
             else:
                 fid,_ = minput(win_info, 0, 1," Folder name (relative to documents root):", default = fid)
-                for a in sel_arts:
-                    write_article(a, fid)
-                show_msg(str(len(sel_arts))+ " articles were downloaded and saved into:" + fid)
+                if fid != "<ESC>":
+                    for a in sel_arts:
+                        write_article(a, fid)
+                    show_msg(str(len(sel_arts))+ " articles were downloaded and saved into:" + fid)
 
 def replace_template(template, old_val, new_val):
     ret = template.replace("{newline}","\n")
@@ -731,8 +735,8 @@ def write_article(article, folder=""):
     f.close()
     show_info("Artice was writen to " + fpath + '...')
 
-pos_nods = ["", "okay", "I see!", "interesting!", "important!"]
-neg_nods = ["so?", "didn't get, but okay", "what?!", "needs research", "skipped"]
+pos_nods = ["", "okay", "I see!", "interesting!", "point!"]
+neg_nods = ["didn't get, but okay", "didn't get", "needs research"]
 sent_types = ["problem", "definition", "solution", "goal", "contribution", "feature", "constraint", "example"]
 art_nods = ["interesting!", "favorite!", "important!", "needs review", "needs research", "almost got it!", "got the idea!", "didn't get!", "archive", "not reviewed", "to read later", "skipped"]
 def sel_nod(opts, ypos, left, ni, si, no_win = False):
@@ -758,11 +762,15 @@ def sel_nod(opts, ypos, left, ni, si, no_win = False):
         nod_win.erase()
         return 'NULL', -1
 
+def find_color(colors, nod):
+    ret = TEXT_COLOR, TEXT_COLOR
+    for key,val in colors.items():
+        if key in nod:
+            ret = val
+    return ret 
+
 def print_nod(text_win, nods, fsn, si, bmark, width):
-   if nods[fsn] in nod_color:
-       d_color,l_color = nod_color[nods[fsn]]
-   else:
-       d_color,l_color = TEXT_COLOR, TEXT_COLOR
+   d_color,l_color = find_color(nod_color, nods[fsn])
    if nods[fsn] != "" and nods[fsn] != "next":
        if False: #fsn > 0 and fsn >= bmark and fsn <= si:
            tmp = nods[fsn].ljust(width-2) 
@@ -889,6 +897,7 @@ def show_article(art, show_nod=""):
        rtime = art["times"]
     else:
        rtime = {} 
+    show_msg(str(total_sents))
     pos = [0]*total_sents
     art_changed = False
     art_changed = False
@@ -954,11 +963,12 @@ def show_article(art, show_nod=""):
             else:
                 sect_title = b["title"]
  
-            if (visible[fsn] and sect_title != "all") or expand == 0:
+            if sect_title != "all" or expand == 0:
                 mprint(sect_title, text_win, _color, attr = cur.A_BOLD)
 
-            pos[fsn],_ = text_win.getyx()
-            passable[fsn] = True
+            if fsn in pos:
+               pos[fsn],_ = text_win.getyx()
+               passable[fsn] = True
             ffn += 1
             fsn += 1
             if expand == 0:
@@ -1191,7 +1201,7 @@ def show_article(art, show_nod=""):
             fid,_ = minput(win_info, 0, 1," Folder name (relative to documents root, you can leave it blank):", default = "") 
             if fid != "<ESC>":
                 write_article(art, fid)
-            show_msg("The article was written in " + fid)
+                show_msg("The article was written in " + fid)
         if ch == ord('u'):
             _confirm = confirm(win_info, "reset the article")
             if _confirm == "y" or _confirm == "a":
@@ -1226,6 +1236,7 @@ def show_article(art, show_nod=""):
                 ch == ord('\t') or 
                 ch == ord('+') or 
                 ch == ord('-') or 
+                ch == ord('?') or 
                 is_enter(ch)):
             _nod = nods[si] 
             if ch == ord('\t') or is_enter(ch) or (ch == cur.KEY_DOWN and needs_nod and not nod_set):
@@ -1243,6 +1254,7 @@ def show_article(art, show_nod=""):
                nod_set = True
             else:
                 nod_set = False
+
             if ch == cur.KEY_RIGHT or ch == cur.KEY_LEFT:
                 if si == 0:
                     ypos = pos[bmark] - start_row
@@ -1294,7 +1306,10 @@ def show_article(art, show_nod=""):
                     ch = cur.KEY_RIGHT
                     nod_set = True
             elif chr(ch).isdigit():
-                ni = int(chr(ch))
+                try:
+                    ni = int(chr(ch))
+                except:
+                    ni = 0
                 _nod, nod_index = sel_nod(0, 0, ni, si, no_win = True)
                 nod_set = True
                 ch = cur.KEY_LEFT
@@ -1305,22 +1320,26 @@ def show_article(art, show_nod=""):
                 _nod = "skipped"
                 nod_set = True
                 ch = cur.KEY_RIGHT
+            elif ch == ord('?'):
+                if not "so?" in _nod:
+                    _nod = _nod +  ", so?" if _nod != "" else "so?"
+                nod_set = True
+                ch = cur.KEY_RIGHT
 
             if ch == cur.KEY_LEFT or ch == cur.KEY_RIGHT or ch == cur.KEY_DOWN:  
-                for ii in range(bmark, si + 1):
-                    if ii < si:
-                        nods[ii] = "next"
-                    if _nod == "remove":
-                        visible[ii] = False
-                if visible[si] and (nods[si] == "" or nod_set):
-                    nods[si] = _nod 
 
                 end_time = time.time()
                 cur_sent_length = len(cur_sent.split()) 
                 if cur_sent_length == 0:
                     cur_sent_length = 0.01
-                reading_time = (end_time - start_time)/cur_sent_length
+                elapsed_time = end_time - start_time
+                reading_time = elapsed_time/cur_sent_length
                 reading_time = round(reading_time, 2)
+                if elapsed_time > 3 and _nod == "":
+                    #_nod = "skipped"
+                    #mbeep()
+                    #nod_set = True
+                    pass
                 tries = 0
                 if si in rtime:
                     avg = rtime[si][1]
@@ -1328,6 +1347,13 @@ def show_article(art, show_nod=""):
                     reading_time = avg + 1/tries*(reading_time - avg)
 
                 rtime[si] = (tries, reading_time)
+                for ii in range(bmark, si + 1):
+                    if ii < si:
+                        nods[ii] = "next"
+                    if _nod == "remove":
+                        visible[ii] = False
+                if visible[si] and (nods[si] == "" or nod_set):
+                    nods[si] = _nod 
             can_inc = True
             next_frag_start = frags_sents[fc + 1][0] if fc+1 < total_frags else total_sents 
             if ch == cur.KEY_DOWN and not nod_set and ((si - bmark) >= 2 or si + 1 >= next_frag_start):
@@ -1353,13 +1379,12 @@ def show_article(art, show_nod=""):
                         bmark -= 1
                 needs_nod = False
             else:
-                needs_nod = True
+                needs_nod = False
                 for ii in range(bmark, si + 1):
                    if ii < si:
                        nods[ii] = "next"
-                nods[si] = "skipped"
-                nod_set = False 
                 nods[si] = "okay?"
+                nod_set = True 
                 mbeep()
                 show_info("Please use the <Left> or <Right> arrow keys to nod the sentence, and <Down> to skip.")
                 if si > total_sents - 1:
@@ -1721,16 +1746,18 @@ def show_err(msg, color=ERR_COLOR, bottom = True):
 def load_preset(new_preset, options, folder=""):
     menu = load_obj(new_preset, folder)
     if menu == None and folder == "theme":
-        dark ={'preset': 'dark',"sep1":"colors", 'text-color': '247', 'back-color': '-1', 'item-color': '71', 'cur-item-color': '236', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","faint-color":'241' ,"highlight-color":'238', "inverse-highlight":"True", "bold-highlight":"False"}
+        dark1 ={'preset': 'dark1',"sep1":"colors", 'text-color': '247', 'back-color': '234', 'item-color': '71', 'cur-item-color': '247', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","faint-color":'241' ,"highlight-color":'247', "inverse-highlight":"True", "bold-highlight":"True"}
+        dark2 ={'preset': 'dark2',"sep1":"colors", 'text-color': '247', 'back-color': '-1', 'item-color': '71', 'cur-item-color': '236', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","faint-color":'241' ,"highlight-color":'238', "inverse-highlight":"True", "bold-highlight":"False"}
         light = {'preset': 'light',"sep1":"colors", 'text-color': '233', 'back-color': '250', 'item-color': '22', 'cur-item-color': '24', 'sel-item-color': '25', 'title-color': '17', "sep2":"reading mode","faint-color":'239' ,"highlight-color":'24', "inverse-highlight":"True","bold-highlight":"False"}
-        for mm in [dark, light]:
+        for mm in [dark1, dark2, light]:
            mm["save as"] = "button"
            mm["reset"] = "button"
            mm["delete"] = "button"
            mm["save and quit"] = "button"
-        save_obj(dark, "dark", "theme")
+        save_obj(dark1, "dark1", "theme")
+        save_obj(dark2, "dark2", "theme")
         save_obj(light, "light", "theme")
-        new_preset = "dark"
+        new_preset = "dark1"
 
     if menu == None and folder == "template":
        text  = {"preset":"txt", "top":"", "title":"# {title}", "section-title":"## {section-title}","paragraph": "{paragraph}{newline}{newline}", "bottom":"{url}"}
@@ -2014,8 +2041,8 @@ def show_menu(menu, options, shortkeys={}, title = "", mi = 0, subwins={}, info 
                 if last_preset.strip() != "":
                     save_obj(menu, last_preset, title)
                 menu[sel] = options[sel][si]
-                #if "preset" in menu and title == "theme":
-                #    reset_colors(menu)
+                if "preset" in menu and title == "theme":
+                    reset_colors(menu)
                 if sel == "preset":
                     new_preset = menu[sel]
                     menu,options = load_preset(new_preset, options, title)
@@ -2168,6 +2195,7 @@ def start(stdscr):
     recent_arts = []
     width = 2*cols//3
     y_start = len(menu) + 5
+    hh = rows - y_start - 1
     for art in last_visited[:10]:
         recent_arts.append(art["title"][:60]+ "...")
     subwins = {}
@@ -2175,7 +2203,7 @@ def start(stdscr):
         menu["sep3"]=""
         menu["recent articles"] = ""
         options["recent articles"] =recent_arts 
-        subwins = {"recent articles":{"x":7,"y":y_start,"h":6,"w":width}}
+        subwins = {"recent articles":{"x":7,"y":y_start,"h":hh,"w":width}}
 
     if isFirst:
         for opt in menu:
