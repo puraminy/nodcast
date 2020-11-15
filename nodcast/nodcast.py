@@ -897,7 +897,6 @@ def show_article(art, show_nod=""):
        rtime = art["times"]
     else:
        rtime = {} 
-    show_msg(str(total_sents))
     pos = [0]*total_sents
     art_changed = False
     art_changed = False
