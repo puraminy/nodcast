@@ -1,6 +1,6 @@
 ## What is NodCast
 
-Using NodCast you can search, study and manage scientific papers or any other article. Currently, you can search over 350,000 AI-related papers which are taken from IBM Science Summarizer website.
+Using NodCast you can search, study and manage scientific papers or any other article. Currently, you can search over 350,000 AI-related papers.
  
 However, the main goal of NodCast is to provide a new experience of study. The program is text-based and relies mainly on the keyboard and hotkeys.
 
