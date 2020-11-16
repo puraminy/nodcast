@@ -32,9 +32,8 @@ Example of nods are:
  - **important!**, when you think it contains an important point that can be useful for you.
 
 #### Negative nods: 
- - **okay so?**, when you understand the meaning of a sentence but you don't know its purpose and you are waiting for a complementary sentence or paragraph.
  - **didn't get, but okay**, when you didn't get the purpose or meaning of a sentence, but it's not currently important for you and you can continue.
- - **what?!**, when you didn't get the purpose or meaning of a sentence, and you are confused.
+ - **didn't get**, when you didn't get the purpose or meaning of a sentence, and you are confused.
  - **needs research** when there are some points or jargon in the sentence that needs to be researched.
   
 
