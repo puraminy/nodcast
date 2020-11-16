@@ -797,7 +797,6 @@ def show_article(art, show_nod=""):
     # text_win = std
     bg = ""
     saved_articles = load_obj("saved_articles", "articles", [])
-    expand = 2
     frags_text = ""
     art_id = -1
     fc = 1
@@ -878,6 +877,8 @@ def show_article(art, show_nod=""):
         b['frags_num'] = len(b["fragments"])
     total_sents = fsn 
     total_frags = ffn
+    total_sects = len(art["sections"])
+    expand = 0 if total_sects > 1 else 2
     si = 2
     fc = 2
     if si >= total_sents -1:
@@ -898,6 +899,7 @@ def show_article(art, show_nod=""):
     else:
        rtime = {} 
     pos = [0]*total_sents
+    last_pos = 0
     art_changed = False
     art_changed = False
     show_info("r) resume from last position")
@@ -907,6 +909,9 @@ def show_article(art, show_nod=""):
     nod_set = False
     needs_nod = False
     interestings = 0
+
+    logging.info("Article:" + art["title"]) 
+    logging.info("Total Sents:" + str(total_sents)) 
     while ch != ord('q') and ch != 127:
         # clear_screen(text_win)
         text_win.erase()
@@ -920,7 +925,6 @@ def show_article(art, show_nod=""):
             text_win.erase()
         start_time = time.time()
         sn = 0
-        total_sects = len(art["sections"])
         sc = max(sc, 0)
         sc = min(sc, total_sects)
         title = "\n".join(textwrap.wrap(art["title"], width)) # wrap at 60 characters
@@ -965,13 +969,13 @@ def show_article(art, show_nod=""):
             if sect_title != "all" or expand == 0:
                 mprint(sect_title, text_win, _color, attr = cur.A_BOLD)
 
-            if fsn in pos:
-               pos[fsn],_ = text_win.getyx()
-               passable[fsn] = True
+            logging.info("Fsn:" + str(fsn)) 
+            pos[fsn],_ = text_win.getyx()
+            passable[fsn] = True
             ffn += 1
             fsn += 1
             if expand == 0:
-                fsn += b["sents_num"] 
+                fsn += b["sents_num"] - 1 
                 ffn += len(b["fragments"])
             else:
                 # mprint("", text_win)
@@ -1045,7 +1049,7 @@ def show_article(art, show_nod=""):
                                    if theme_menu["bold-highlight"]== "True":
                                        mprint(sent, text_win, hlcolor, attr=cur.A_BOLD, end=end)
                                    else:
-                                       mprint(sent, text_win, hlcolor, end=end)
+                                       mprint(sent, text_win, hlcolor, attr=cur.A_BOLD, end=end)
                                else:
                                    #if nods[fsn] in nod_color:
                                    #    d_color,l_color = nod_color[nods[fsn]]
@@ -1087,8 +1091,8 @@ def show_article(art, show_nod=""):
         offset = art["sections"][sc]["sents_offset"] 
         # show_info("frags:"+ str(total_frags) + " start row:" + str(start_row) + " frag offset:"+ str(f_offset)  + " fc:" + str(fc) + " si:" + str(si) + " sent offset:" + str(offset))
         if not (ch == ord('.') or ch == ord(',')): 
-            if expand != 0 and pos[bmark] > rows // 3:    
-                start_row = pos[bmark] - rows //3 
+            if expand != 0 and pos[bmark] > rows // 4:    
+                start_row = pos[bmark] - rows //4 
             else:
                 start_row = 0
 
@@ -1212,12 +1216,6 @@ def show_article(art, show_nod=""):
                 si = 2
                 art_changed = True
                 update_si = True
-        if ch == ord('e') or (expand == 0 and is_enter(ch)):
-            if expand < 2:
-                expand += 1
-            else:
-                expand = 0
-                start_row = 0
 
         if ch == ord('s'):
             cur_sect = art["sections"][sc]["title"].lower()
@@ -1236,7 +1234,7 @@ def show_article(art, show_nod=""):
                 ch == ord('+') or 
                 ch == ord('-') or 
                 ch == ord('?') or 
-                is_enter(ch)):
+                (is_enter(ch) and expand != 0)):
             _nod = nods[si] 
             if ch == ord('\t') or is_enter(ch) or (ch == cur.KEY_DOWN and needs_nod and not nod_set):
                for ii in range(bmark, si + 1):
@@ -1443,6 +1441,14 @@ def show_article(art, show_nod=""):
                 mbeep()
                 fc = 0
 
+        if ch == ord('e') or (expand == 0 and is_enter(ch)):
+            if expand == 0:
+                expand = 2
+            else:
+                expand = 0
+            start_row = 0
+            update_si = True
+
         if ch == ord('.'):
             if start_row < cury:
                 start_row += scroll
@@ -1475,7 +1481,8 @@ def show_article(art, show_nod=""):
             fc = max(fc, 0)
             fc = min(fc, total_frags-1)
             bmark = frags_sents[fc][0]
-            si = frags_sents[fc+1][0]-1 if fc+1 < total_frags else total_sents - 1
+            #si = frags_sents[fc+1][0]-1 if fc+1 < total_frags else total_sents - 1
+            si = frags_sents[fc][0]
         c = 0 
         while c < total_sects  and si >= art["sections"][c]["sents_offset"]:
             c += 1
@@ -1745,7 +1752,7 @@ def show_err(msg, color=ERR_COLOR, bottom = True):
 def load_preset(new_preset, options, folder=""):
     menu = load_obj(new_preset, folder)
     if menu == None and folder == "theme":
-        dark1 ={'preset': 'dark1',"sep1":"colors", 'text-color': '247', 'back-color': '234', 'item-color': '71', 'cur-item-color': '247', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","faint-color":'241' ,"highlight-color":'247', "inverse-highlight":"True", "bold-highlight":"True"}
+        dark1 ={'preset': 'dark1',"sep1":"colors", 'text-color': '247', 'back-color': '232', 'item-color': '71', 'cur-item-color': '247', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","faint-color":'241' ,"highlight-color":'247', "inverse-highlight":"True", "bold-highlight":"True"}
         dark2 ={'preset': 'dark2',"sep1":"colors", 'text-color': '247', 'back-color': '-1', 'item-color': '71', 'cur-item-color': '236', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","faint-color":'241' ,"highlight-color":'238', "inverse-highlight":"True", "bold-highlight":"False"}
         light = {'preset': 'light',"sep1":"colors", 'text-color': '233', 'back-color': '250', 'item-color': '22', 'cur-item-color': '24', 'sel-item-color': '25', 'title-color': '17', "sep2":"reading mode","faint-color":'239' ,"highlight-color":'24', "inverse-highlight":"True","bold-highlight":"False"}
         for mm in [dark1, dark2, light]:
