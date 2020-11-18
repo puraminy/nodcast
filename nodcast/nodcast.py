@@ -109,7 +109,7 @@ nod_color = {
         "okay":(30,36),
         "okay, okay!":(25,25),
         "okay?":(59,62),
-        "not reviewed":(59,62),
+        "not reviewed":(59,141),
         "goal":(22,22),
         "skipped":(244,245),
         "skip":(244,245),
@@ -129,7 +129,7 @@ nod_color = {
         "what?!":(88,161),
         "what?! needs review":(88,161),
         #"didn't get, but okay":(89,199),
-        "didn't get, but okay":(93,178),
+        "didn't get, but okay":(96,178),
         "didn't get, so?":(88,196),
         "so?":(32,39),
         "okay, so?":(32,39),
@@ -511,7 +511,7 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod =""):
                 h = a['year']
             else:
                 h = cc
-            color = ITEM_COLOR
+            color = TEXT_COLOR
             art_nod = ""
             if "nods" in a and a["nods"][0] != "":
                 nod = a["nods"][0]
@@ -736,7 +736,7 @@ def write_article(article, folder=""):
     show_info("Artice was writen to " + fpath + '...')
 
 pos_nods = ["", "okay", "I see!", "interesting!", "point!"]
-neg_nods = ["didn't get, but okay", "didn't get", "needs research"]
+neg_nods = ["okay, so?", "didn't get, but okay", "didn't get", "needs research"]
 sent_types = ["problem", "definition", "solution", "goal", "contribution", "feature", "constraint", "example"]
 art_nods = ["interesting!", "favorite!", "important!", "needs review", "needs research", "almost got it!", "got the idea!", "didn't get!", "archive", "not reviewed", "to read later", "skipped"]
 def sel_nod(opts, ypos, left, ni, si, no_win = False):
@@ -762,22 +762,31 @@ def sel_nod(opts, ypos, left, ni, si, no_win = False):
         nod_win.erase()
         return 'NULL', -1
 
-def find_color(colors, nod):
-    ret = TEXT_COLOR, TEXT_COLOR
-    for key,val in colors.items():
-        if key in nod:
-            ret = val
-    return ret 
+def find_color(colors, nods, fsn):
+   nod = nods[fsn]
+   if nod == "next":
+      ii = fsn
+      while nods[ii] == "next" and ii < len(nods):
+          ii += 1
+      nod = nods[ii] 
+   ret = TEXT_COLOR, TEXT_COLOR
+   for key,val in colors.items():
+       if key in nod:
+          ret = val
+   return ret 
 
 def print_nod(text_win, nods, fsn, si, bmark, width):
-   d_color,l_color = find_color(nod_color, nods[fsn])
+   d_color,l_color = find_color(nod_color, nods, fsn)
    if nods[fsn] != "" and nods[fsn] != "next":
-       if False: #fsn > 0 and fsn >= bmark and fsn <= si:
-           tmp = nods[fsn].ljust(width-2) 
+       if fsn >= 0 and fsn >= bmark and fsn <= si:
+           _nod = nods[fsn]
+           tmp = (" " + _nod).ljust(width-2) 
            cur.init_pair(TEMP_COLOR, back_color, d_color % cur.COLORS)
            mprint(tmp, text_win,TEMP_COLOR)
+           #mprint(' '*(2) + nods[fsn], text_win, l_color % cur.COLORS) 
        else:
-           mprint(' '*(4) + nods[fsn], text_win, l_color % cur.COLORS) 
+           pass
+           #mprint(' '*(4) + nods[fsn], text_win, l_color % cur.COLORS) 
 
 def show_article(art, show_nod=""):
     global theme_menu, theme_options, query, filters
@@ -878,7 +887,7 @@ def show_article(art, show_nod=""):
     total_sents = fsn 
     total_frags = ffn
     total_sects = len(art["sections"])
-    expand = 0 if total_sects > 1 else 2
+    expand = 0 if total_sects > 1 else 1
     si = 2
     fc = 2
     if si >= total_sents -1:
@@ -892,6 +901,7 @@ def show_article(art, show_nod=""):
     show_info(main_info)
     ni,fi = 0,0
     passable = [False]*total_sents
+    sect_opened = [False]*total_sects
     if not "comments" in art:
        comments = [""]*total_sents
     if "times" in art:
@@ -912,7 +922,7 @@ def show_article(art, show_nod=""):
 
     logging.info("Article:" + art["title"]) 
     logging.info("Total Sents:" + str(total_sents)) 
-    while ch != ord('q') and ch != 127:
+    while ch != ord('q'):
         # clear_screen(text_win)
         text_win.erase()
         start_row = max(0, start_row)
@@ -933,6 +943,9 @@ def show_article(art, show_nod=""):
         if si == 0:
             mprint(top,  text_win, HL_COLOR, attr = cur.A_BOLD) 
             cur_sent = top
+            if expand == 0:
+                for ii in range(len(sect_opened)):
+                    sect_opened[ii] = False
         else:
             mprint(top,  text_win, TITLE_COLOR, attr = cur.A_BOLD) 
         print_nod(text_win, nods, 0, 0, 0, width)
@@ -947,6 +960,7 @@ def show_article(art, show_nod=""):
         fsn = 1
         ffn = 1
         is_section = False
+        #mark sections
         for b in art["sections"]:
             fragments = b["fragments"]
             fnum = len(fragments)
@@ -955,32 +969,41 @@ def show_article(art, show_nod=""):
                 cur_sent = b["title"]
                 is_section = True
                 _color = HL_COLOR
-            if sn == sc:
+                #si = si + 1
+                #fc = art["sections"][sc]["frags_offset"] + 1
+            if (sn == sc and si > 0 and 
+                        (expand == 0 and sect_opened[sc])): # and si == b["sents_offset"]))):
+                text_win.erase()
+                #text_win.refresh(start_row,0, 0,0, rows-1, cols-1)
+            if sn == sc and si > 0:
                 sect_fc = fc - b["frags_offset"] + 1
                 sect_title = b["title"] # + f"({sect_fc+1}/{fnum})" 
-                if fsn != si:
+                if True: #fsn != si:
                     if art_id in sel_sects and b["title"].lower() in sel_sects[art_id]:
                         _color = HL_COLOR
                     else:
                         _color = SEL_ITEM_COLOR
+                        
             else:
                 sect_title = b["title"]
  
             if sect_title != "all" or expand == 0:
                 mprint(sect_title, text_win, _color, attr = cur.A_BOLD)
 
-            logging.info("Fsn:" + str(fsn)) 
             pos[fsn],_ = text_win.getyx()
             passable[fsn] = True
             ffn += 1
             fsn += 1
-            if expand == 0:
+            if (expand == 0 and sn != sc):
+                fsn += b["sents_num"] - 1 
+                ffn += len(b["fragments"])
+            elif (expand == 0 and not sect_opened[sc]):
                 fsn += b["sents_num"] - 1 
                 ffn += len(b["fragments"])
             else:
                 # mprint("", text_win)
                 for frag in fragments:
-                    if ffn != fc and expand == 1:
+                    if ffn != fc and expand == 3:
                         fsn += frag['sents_num']
                         ffn += 1
                     else:
@@ -1051,11 +1074,8 @@ def show_article(art, show_nod=""):
                                    else:
                                        mprint(sent, text_win, hlcolor, attr=cur.A_BOLD, end=end)
                                else:
-                                   #if nods[fsn] in nod_color:
-                                   #    d_color,l_color = nod_color[nods[fsn]]
-                                   #else:
-                                   #    d_color,l_color = color,color 
-                                   mprint(sent, text_win, color, end=end)
+                                   d_color,l_color = find_color(nod_color, nods, fsn)
+                                   mprint(sent, text_win, l_color, end=end)
                                if feedback != '' and passable[fsn] == False:
                                    print_nod(text_win, nods, fsn, si, bmark, width)
 
@@ -1089,10 +1109,11 @@ def show_article(art, show_nod=""):
         sc = min(sc, total_sects)
         f_offset = art['sections'][sc]['frags_offset'] 
         offset = art["sections"][sc]["sents_offset"] 
-        # show_info("frags:"+ str(total_frags) + " start row:" + str(start_row) + " frag offset:"+ str(f_offset)  + " fc:" + str(fc) + " si:" + str(si) + " sent offset:" + str(offset))
+        #show_info("frags:"+ str(total_frags) + " start row:" + str(start_row) + " frag offset:"+ str(f_offset)  + " fc:" + str(fc) + " si:" + str(si) + " bmark:" + str(bmark))
+        # mark get_key
         if not (ch == ord('.') or ch == ord(',')): 
-            if expand != 0 and pos[bmark] > rows // 4:    
-                start_row = pos[bmark] - rows //4 
+            if pos[bmark] > rows // 3:    
+                start_row = pos[bmark] - rows //3 
             else:
                 start_row = 0
 
@@ -1227,7 +1248,7 @@ def show_article(art, show_nod=""):
             else:
                 sel_sects[art_id] = [cur_sect]
         ## kkk (bookmark)
-        if expand != 0 and (ch == cur.KEY_LEFT or 
+        if ((si == 0 and not ch == cur.KEY_DOWN) or sect_opened[sc]) and (ch == cur.KEY_LEFT or 
                 ch == cur.KEY_RIGHT or 
                 ch == cur.KEY_DOWN or chr(ch).isdigit() or 
                 ch == ord('\t') or 
@@ -1402,17 +1423,17 @@ def show_article(art, show_nod=""):
                 si = 0
 
         update_si = False
-        if (expand == 0 and ch == cur.KEY_UP) or ch == ord('j'):
+        if si > 0 and (expand == 0 and ch == cur.KEY_UP and not sect_opened[sc]) or ch == ord('j'):
             if sc > 0:
                 sc -= 1
                 fc = art["sections"][sc]["frags_offset"] + 1 
                 update_si = True
             else:
-                mbeep()
                 sc = 0
-        if (expand == 0 and ch == cur.KEY_DOWN) or ch == ord('k'):
+        if  (expand == 0 and ch == cur.KEY_DOWN and not sect_opened[sc]) or ch == ord('k'):
             if sc < total_sects - 1:
-                sc += 1
+                if si > 0:
+                    sc += 1
                 fc = art["sections"][sc]["frags_offset"] + 1
                 update_si = True
             else:
@@ -1440,14 +1461,23 @@ def show_article(art, show_nod=""):
             else:
                 mbeep()
                 fc = 0
+        if  ((expand == 0 and is_enter(ch))
+            or si > 0 and (expand == 0 and ch == cur.KEY_RIGHT and not sect_opened[sc])):
+            for ii in range(len(sect_opened)):
+                sect_opened[ii] = False
+            sect_opened[sc] = True
 
-        if ch == ord('e') or (expand == 0 and is_enter(ch)):
-            if expand == 0:
-                expand = 2
-            else:
+        if ch == ord('e'):
+            if expand == 1:
                 expand = 0
-            start_row = 0
-            update_si = True
+                pos = [0]*total_sents
+                for ii in range(len(sect_opened)):
+                    sect_opened[ii] = False
+                #sect_opened[sc] = True
+            else:
+                expand = 1
+                for ii in range(len(sect_opened)):
+                    sect_opened[ii] = True
 
         if ch == ord('.'):
             if start_row < cury:
@@ -1486,13 +1516,21 @@ def show_article(art, show_nod=""):
         c = 0 
         while c < total_sects  and si >= art["sections"][c]["sents_offset"]:
             c += 1
-        sc = max(c - 1,0)
+        _sc = max(c - 1,0)
+        if _sc != sc:
+            sc = _sc
+            if expand == 0:
+                for ii in range(len(sect_opened)):
+                    sect_opened[ii] = False
         f = 0
         while f < total_frags and si >= frags_sents[f][0]:
             f += 1
         fc = max(f - 1,0)
 
         art['sections'][sc]['fc'] = fc 
+        if ch == 127 and expand == 0:
+            for ii in range(len(sect_opened)):
+                sect_opened[ii] = False
         if ch == ord(':'):
             _comment,_ = minput(win_info, 0, 1, ":", default = comments[si]) 
             show_info(main_info)
@@ -1574,7 +1612,7 @@ def show_article(art, show_nod=""):
             save_obj(theme_menu, conf["theme"], "theme")
             text_win.erase()
             text_win.refresh(0,0, 2,0, rows -2, cols-1)
-        if ch == ord('q') or ch == 127: # before exiting artilce
+        if ch == ord('q'): # before exiting artilce
             art["nods"] = nods
             art["times"] = rtime
             art["passable"] = passable
@@ -1910,7 +1948,7 @@ def show_menu(menu, options, shortkeys={}, title = "", mi = 0, subwins={}, info 
     height = rows - 1  
     width = cols  
 
-    menu_win = cur.newpad(rows*2, cols)
+    menu_win = cur.newpad(rows*5, cols)
     common_subwin = cur.newwin(rows - 6, width//2 + 5, 5, width//2 - 5)
 
     menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR)) # | cur.A_REVERSE)
