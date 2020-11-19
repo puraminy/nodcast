@@ -75,7 +75,7 @@ TITLE_COLOR = 104
 INFO_COLOR = 105
 ERR_COLOR = 106
 HL_COLOR = 107
-FAINT_COLOR = 108
+DIM_COLOR = 108
 MSG_COLOR = 109
 TEMP_COLOR = 110
 TEMP_COLOR2 = 111
@@ -99,7 +99,8 @@ color_map = {
         "sel-item-color":SEL_ITEM_COLOR,
         "title-color":TITLE_COLOR,
         "highlight-color":HL_COLOR,
-        "faint-color":FAINT_COLOR,
+        "hl-text-color":HL_COLOR,
+        "dim-color":DIM_COLOR,
         }
 nod_color = {
         "yes":(37,77),
@@ -129,7 +130,7 @@ nod_color = {
         "what?!":(88,161),
         "what?! needs review":(88,161),
         #"didn't get, but okay":(89,199),
-        "didn't get, but okay":(96,178),
+        "didn't get, but okay":(95,179),
         "didn't get, so?":(88,196),
         "so?":(32,39),
         "okay, so?":(32,39),
@@ -139,7 +140,7 @@ nod_color = {
         "needs review":(63, 177),
         "review later":(63, 177),
         "to read later":(63, 177),
-        "needs research":(94,179),
+        "needs research":(96,186),
         "problem":(94,179),
         "definition":(32,250),
         "got it!":(68,69),
@@ -178,10 +179,12 @@ def reset_colors(theme, bg = None):
     cur.init_pair(SEL_ITEM_COLOR, int(theme["sel-item-color"]) % cur.COLORS, bg)
     cur.init_pair(TITLE_COLOR, int(theme["title-color"]) % cur.COLORS, bg)
     if theme["inverse-highlight"] == "True":
-        cur.init_pair(HL_COLOR, bg, int(theme["highlight-color"]) % cur.COLORS)
+        cur.init_pair(HL_COLOR, int(theme["hl-text-color"]) % cur.COLORS,
+                int(theme["highlight-color"]) % cur.COLORS)
     else:
-        cur.init_pair(HL_COLOR, int(theme["highlight-color"]) % cur.COLORS, bg)
-    cur.init_pair(FAINT_COLOR, int(theme["faint-color"]) % cur.COLORS, bg)
+        cur.init_pair(HL_COLOR, int(theme["highlight-color"]) % cur.COLORS,
+                int(theme["hl-text-color"]) % cur.COLORS)
+    cur.init_pair(DIM_COLOR, int(theme["dim-color"]) % cur.COLORS, bg)
     cur.init_pair(ERR_COLOR, cW, cR % cur.COLORS)
     cur.init_pair(MSG_COLOR, cW, cB % cur.COLORS)
     cur.init_pair(INFO_COLOR, cW, cG % cur.COLORS)
@@ -507,10 +510,8 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod =""):
             saved_index = get_index(saved_articles, a)
             if saved_index >= 0:
                 a = articles[cc] = saved_articles[saved_index]
-            if "year" in a:
-                h = a['year']
-            else:
-                h = cc
+            h = a['year'] if "year" in a else cc
+            prog = a['total_prog'] if "total_prog" in a else 0
             color = TEXT_COLOR
             art_nod = ""
             if "nods" in a and a["nods"][0] != "":
@@ -524,9 +525,9 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod =""):
                 color = CUR_ITEM_COLOR
 
             paper_title =  a['title']
-            dots = ""
+            dots = " " + str(prog) + "%"
             if len(paper_title + art_nod) > width - 40:
-               dots = "..."
+               dots = "..." + str(prog) + "%"
             item = "[{}] {}".format(h, paper_title[:width - 40] + art_nod + dots)               
 
             mprint(item, main_win, color)
@@ -735,7 +736,7 @@ def write_article(article, folder=""):
     f.close()
     show_info("Artice was writen to " + fpath + '...')
 
-pos_nods = ["", "okay", "I see!", "interesting!", "point!"]
+pos_nods = ["None", "okay", "I see!", "interesting!", "point!"]
 neg_nods = ["okay, so?", "didn't get, but okay", "didn't get", "needs research"]
 sent_types = ["problem", "definition", "solution", "goal", "contribution", "feature", "constraint", "example"]
 art_nods = ["interesting!", "favorite!", "important!", "needs review", "needs research", "almost got it!", "got the idea!", "didn't get!", "archive", "not reviewed", "to read later", "skipped"]
@@ -775,12 +776,12 @@ def find_color(colors, nods, fsn):
           ret = val
    return ret 
 
-def print_nod(text_win, nods, fsn, si, bmark, width):
+def print_nod(text_win, nods, fsn, si, bmark, width, addinfo = ""):
    d_color,l_color = find_color(nod_color, nods, fsn)
    if nods[fsn] != "" and nods[fsn] != "next":
        if fsn >= 0 and fsn >= bmark and fsn <= si:
            _nod = nods[fsn]
-           tmp = (" " + _nod).ljust(width-2) 
+           tmp = (" " + _nod + addinfo).ljust(width-2) 
            cur.init_pair(TEMP_COLOR, back_color, d_color % cur.COLORS)
            mprint(tmp, text_win,TEMP_COLOR)
            #mprint(' '*(2) + nods[fsn], text_win, l_color % cur.COLORS) 
@@ -842,6 +843,9 @@ def show_article(art, show_nod=""):
     visible[0] = True
     art["sents"][0] = art["title"]
     last_sect = -1
+    progs = [0]*len(art["sections"])
+    sn = 0
+    total_pr = 0
     for b in art["sections"]:
         frags_text = ""
         b['frags_offset'] = ffn
@@ -852,12 +856,14 @@ def show_article(art, show_nod=""):
         visible[fsn] = True if show_nod == '' else False
         ffn += 1
         fsn += 1
+        pr = 0
         for c in b['fragments']:
             text = c['text']
             sents = split_into_sentences(text)
             frags_sents[ffn] = (fsn, sents)
             c['sents_offset'] = fsn 
             c['sents_num'] = len(sents)
+            nexts = 0
             for sent in sents:
                 art["sents"][fsn] = sent
                 visible[fsn] = True
@@ -867,6 +873,14 @@ def show_article(art, show_nod=""):
                     else:
                         visible[fsn] = False
                 elif has_nods:
+                    if nods[fsn] in pos_nods:
+                        nexts += 1
+                        pr += nexts 
+                        nexts = 0
+                    elif nods[fsn] == "next":
+                        nexts += 1
+                    else:
+                        nexts = 0
                     if show_nod == nods[fsn]:
                         visible[last_sect] = True
                     elif show_nod != '':
@@ -882,7 +896,13 @@ def show_article(art, show_nod=""):
             ffn += 1
         if not has_nods:
             nods.append("")
-        b["sents_num"] = fsn - b["sents_offset"]
+        sents_num = fsn - b["sents_offset"]
+        b["sents_num"] = sents_num 
+        prog = int(round(pr/(sents_num - 1), 2)*100)
+        total_pr += prog
+        progs[sn] = pr
+        b["prog"] = prog 
+        sn += 1
         b['frags_num'] = len(b["fragments"])
     total_sents = fsn 
     total_frags = ffn
@@ -940,6 +960,8 @@ def show_article(art, show_nod=""):
         title = "\n".join(textwrap.wrap(art["title"], width)) # wrap at 60 characters
         pdfurl = art["pdfUrl"]
         top =  "["+str(k)+"] " + title 
+        total_prog = int(round(total_pr/total_sects, 2))
+        art["total_prog"] = str(total_prog)
         if si == 0:
             mprint(top,  text_win, HL_COLOR, attr = cur.A_BOLD) 
             cur_sent = top
@@ -948,7 +970,8 @@ def show_article(art, show_nod=""):
                     sect_opened[ii] = False
         else:
             mprint(top,  text_win, TITLE_COLOR, attr = cur.A_BOLD) 
-        print_nod(text_win, nods, 0, 0, 0, width)
+        print_nod(text_win, nods, 0, 0, 0, int(width*total_prog/100), 
+                addinfo = " Progress:" + str(total_prog) + "%")
         mprint(pdfurl,  text_win, TITLE_COLOR, attr = cur.A_BOLD) 
         if comments[0] != "":
             com = textwrap.wrap(comments[0], width=width-5, replace_whitespace=False)
@@ -960,6 +983,8 @@ def show_article(art, show_nod=""):
         fsn = 1
         ffn = 1
         is_section = False
+        pr = 0
+        total_pr = 0
         #mark sections
         for b in art["sections"]:
             fragments = b["fragments"]
@@ -975,9 +1000,14 @@ def show_article(art, show_nod=""):
                         (expand == 0 and sect_opened[sc])): # and si == b["sents_offset"]))):
                 text_win.erase()
                 #text_win.refresh(start_row,0, 0,0, rows-1, cols-1)
+            sents_num = b["sents_num"] - 1
+            prog = int(round(progs[sn]/sents_num, 2)*100)
+            total_pr += prog
+            prog = str(prog) + "%" #+ " (" + str(progs[sn]) +  "/" + str(sents_num) + ")"
+            b["prog"] = prog
             if sn == sc and si > 0:
                 sect_fc = fc - b["frags_offset"] + 1
-                sect_title = b["title"] # + f"({sect_fc+1}/{fnum})" 
+                sect_title = b["title"] + " [" + str(prog) + "] " # + f"({sect_fc+1}/{fnum})" 
                 if True: #fsn != si:
                     if art_id in sel_sects and b["title"].lower() in sel_sects[art_id]:
                         _color = HL_COLOR
@@ -985,7 +1015,7 @@ def show_article(art, show_nod=""):
                         _color = SEL_ITEM_COLOR
                         
             else:
-                sect_title = b["title"]
+                sect_title = b["title"] + " [" + str(prog) + "] "
  
             if sect_title != "all" or expand == 0:
                 mprint(sect_title, text_win, _color, attr = cur.A_BOLD)
@@ -1016,10 +1046,21 @@ def show_article(art, show_nod=""):
                        # if "level" in frag:
                           # color = frag["level"] % 250
                        hlcolor = HL_COLOR
-                       color = FAINT_COLOR
+                       color = DIM_COLOR
                        if True:
+                           nexts = 0
                            for sent in frag_sents:
                                feedback = nods[fsn] + " " + comments[fsn]
+                               if sn == sc: 
+                                   if nods[fsn] in pos_nods:
+                                       nexts += 1
+                                       pr += nexts
+                                       progs[sc] = pr
+                                       nexts = 0
+                                   elif nods[fsn] == "next":
+                                       nexts += 1
+                                   else:
+                                        nexts = 0
                                if show_nod == "comments":
                                    if comments[fsn] != "":
                                        visible[fsn] = True
@@ -1790,9 +1831,9 @@ def show_err(msg, color=ERR_COLOR, bottom = True):
 def load_preset(new_preset, options, folder=""):
     menu = load_obj(new_preset, folder)
     if menu == None and folder == "theme":
-        dark1 ={'preset': 'dark1',"sep1":"colors", 'text-color': '247', 'back-color': '232', 'item-color': '71', 'cur-item-color': '247', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","faint-color":'241' ,"highlight-color":'247', "inverse-highlight":"True", "bold-highlight":"True"}
-        dark2 ={'preset': 'dark2',"sep1":"colors", 'text-color': '247', 'back-color': '-1', 'item-color': '71', 'cur-item-color': '236', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","faint-color":'241' ,"highlight-color":'238', "inverse-highlight":"True", "bold-highlight":"False"}
-        light = {'preset': 'light',"sep1":"colors", 'text-color': '233', 'back-color': '250', 'item-color': '22', 'cur-item-color': '24', 'sel-item-color': '25', 'title-color': '17', "sep2":"reading mode","faint-color":'239' ,"highlight-color":'24', "inverse-highlight":"True","bold-highlight":"False"}
+        dark1 ={'preset': 'dark1',"sep1":"colors", 'text-color': '247', 'back-color': '234', 'item-color': '71', 'cur-item-color': '247', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","dim-color":'241' ,"highlight-color":'247', "hl-text-color":'18',"inverse-highlight":"True", "bold-highlight":"True"}
+        dark2 ={'preset': 'dark2',"sep1":"colors", 'text-color': '247', 'back-color': '-1', 'item-color': '71', 'cur-item-color': '236', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","dim-color":'241' ,"highlight-color":'248', "hl-text-color":'18',"inverse-highlight":"True", "bold-highlight":"False"}
+        light = {'preset': 'light',"sep1":"colors", 'text-color': '233', 'back-color': '250', 'item-color': '22', 'cur-item-color': '24', 'sel-item-color': '25', 'title-color': '17', "sep2":"reading mode","dim-color":'239' ,"highlight-color":'24', "hl-text-color":'250', "inverse-highlight":"True","bold-highlight":"False"}
         for mm in [dark1, dark2, light]:
            mm["save as"] = "button"
            mm["reset"] = "button"
@@ -2215,7 +2256,7 @@ def start(stdscr):
     if menu is None or (newspaper_imported and not "webpage" in menu):
         isFirst = True
         menu = {}
-        menu["reviewed articles"]="button"
+        menu["مقالات مروری"]="button"
         menu["sep1"] ="Search AI-related papers"
         if is_obj("last_results", ""):
             menu["last results"]="button"
@@ -2271,7 +2312,8 @@ def start(stdscr):
             "sel-item-color":colors,
             "title-color":colors,
             "highlight-color":colors,
-            "faint-color":colors,
+            "hl-text-color":colors,
+            "dim-color":colors,
             "inverse-highlight":["True", "False"],
             "bold-highlight":["True", "False"],
             }
@@ -2842,7 +2884,7 @@ def show_last_results():
      obj_file = Path(last_results_file) 
      if  obj_file.is_file():
         cr_time = time.ctime(os.path.getmtime(last_results_file))
-        cr_date = datetime.datetime.strptime(str(cr_time), "%a %b %d %H:%M:%S %Y")
+        cr_date = str(cr_time)
      articles = load_obj("last_results", "", [])
      if articles:
          ret = list_articles(articles, "results at " + str(cr_date))
