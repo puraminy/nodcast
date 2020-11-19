@@ -1,8 +1,10 @@
 import sys
 import os
 import curses as cur
-
+import locale
 import sys
+#locale.setlocale(locale.LC_ALL, '')
+code = "utf-8" #locale.getpreferredencoding()
 
 if os.name == 'nt':
     import ctypes
@@ -165,7 +167,7 @@ def mprint(text, stdscr =None, color=0, attr = None, end="\n", refresh = False):
             c = cur.color_pair(color) | attr
         height, width = stdscr.getmaxyx()
         #stdscr.addnstr(text + end, height*width-1, c)
-        stdscr.addstr(text + end, c)
+        stdscr.addstr((text + end).encode(code), c)
         if not refresh:
             pass #stdscr.refresh(0,0, 0,0, height -5, width)
         else:
@@ -180,7 +182,7 @@ def print_there(x, y, text, stdscr = None, color=0, attr = None, pad = False):
         height, width = stdscr.getmaxyx()
         #stdscr.addnstr(x, y, text, height*width-1, c)
         _len = (height*width)-x
-        stdscr.addstr(x, y, text[:_len], c)
+        stdscr.addstr(x, y, text[:_len].encode(code), c)
         if pad:
             pass #stdscr.refresh(0,0, x,y, height -5, width)
         else:
@@ -197,13 +199,13 @@ def clear_screen(stdscr = None):
 def rinput(stdscr, r, c, prompt_string, default=""):
     show_cursor()
     cur.echo() 
-    stdscr.addstr(r, c, prompt_string)
+    stdscr.addstr(r, c, prompt_string.encode(code))
     stdscr.refresh()
     input = stdscr.getstr(r, len(prompt_string), 30)
     clear_screen(stdscr)
     hide_cursor()
     try:
-        inp = input.decode('UTF-8')  
+        inp = input.decode(code)  
         cur.noecho()
         return inp
     except:
@@ -234,7 +236,7 @@ def minput(stdscr, row, col, prompt_string, accept_on = [], default=""):
     show_cursor()
     cur.echo() 
     stdscr.keypad(True)
-    stdscr.addstr(row, col, prompt_string)
+    stdscr.addstr(row, col, prompt_string.encode(code))
     stdscr.clrtoeol()
     stdscr.refresh()
     out = default.split('\n')
@@ -249,7 +251,7 @@ def minput(stdscr, row, col, prompt_string, accept_on = [], default=""):
     ch = 0
     start = col + len(prompt_string)
     while ch not in accept_on:
-        stdscr.addstr(row, start, inp)
+        stdscr.addstr(row, start, inp.encode(code))
         stdscr.clrtoeol()
         pos = max(pos, 0)
         pos = min(pos, len(inp))
