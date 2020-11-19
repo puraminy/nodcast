@@ -1,17 +1,11 @@
 # Nodcast v 0.1.2 
 import requests
 import io
-import subprocess, os, platform
 import webbrowser
-from datetime import date
-import random
-import datetime, time
+import time
 from time import sleep
-import sys, os 
 import datetime
 import pickle
-import shlex
-import re
 import textwrap
 import json
 import urllib.request
@@ -21,7 +15,6 @@ except:
     from util import *
 import curses as cur
 from curses import wrapper
-from curses.textpad import rectangle
 from pathlib import Path
 from urllib.parse import urlparse
 from appdirs import *
@@ -79,7 +72,7 @@ DIM_COLOR = 108
 MSG_COLOR = 109
 TEMP_COLOR = 110
 TEMP_COLOR2 = 111
-COMMENT_COLOR = 32
+COMMENT_COLOR = 39
 
 class bcolors:
     HEADER = '\033[95m'
@@ -316,7 +309,6 @@ def save_obj(obj, name, directory):
     else:
         folder = user_data_dir(appname, appauthor)
     Path(folder).mkdir(parents=True, exist_ok=True)
-    fname = folder + '/' + name + '.pkl'
     with open(folder + '/'+ name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
@@ -475,9 +467,12 @@ def request(p = 0):
         return [], "Corrupt or no response...."
     return rsp,""
 
-def list_articles(in_articles, fid, show_nod = False, group="", filter_nod =""):
+def list_articles(in_articles, fid, show_nod = False, group="", filter_nod ="", sel_art = None):
     global template_menu
 
+    if sel_art != None:
+        show_article(sel_art)
+    
     if len(in_articles) <= 0:
         return "There is no article to list!"
 
@@ -552,7 +547,9 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod =""):
         all_pages = (N // 15) + (1 if N % 15 > 0 else 0) 
         show_info("Enter) view article       PageDown) next page (load more...)     h) other commands " + str(N) + " " + str(N))
         print_there(0, cols - 15, "|" + str(N) + "|" + str(_p + 1) +  " of " + str(all_pages), win_info, INFO_COLOR)
+
         ch = get_key(std)
+
         if is_enter(ch):
             k = max(k, 0)
             k = min(k, N-1)
@@ -737,7 +734,7 @@ def write_article(article, folder=""):
     show_info("Artice was writen to " + fpath + '...')
 
 pos_nods = ["None", "okay", "I see!", "interesting!", "point!"]
-neg_nods = ["okay, so?", "didn't get, but okay", "didn't get", "needs research"]
+neg_nods = ["didn't get, but okay", "didn't get", "needs research"]
 sent_types = ["problem", "definition", "solution", "goal", "contribution", "feature", "constraint", "example"]
 art_nods = ["interesting!", "favorite!", "important!", "needs review", "needs research", "almost got it!", "got the idea!", "didn't get!", "archive", "not reviewed", "to read later", "skipped"]
 def sel_nod(opts, ypos, left, ni, si, no_win = False):
@@ -791,18 +788,35 @@ def print_nod(text_win, nods, fsn, si, bmark, width, addinfo = ""):
 
 def show_article(art, show_nod=""):
     global theme_menu, theme_options, query, filters
-    total_sects = 0
     sel_sects = {}
-    sel_arts = []
     k,sc  = 0,0
     fast_read = False
-    show_prev = False
-    break_to_sent = False 
     start_row = 0
     rows, cols = std.getmaxyx()
     width = 2*cols // 3 
     text_win = cur.newpad(rows*50, cols -1)
     text_win.bkgd(' ', cur.color_pair(TEXT_COLOR)) # | cur.A_REVERSE)
+
+    figures = []
+    if "figures" in art:
+        figures = art["figures"]
+        fig_num = 0
+        has_figure = False
+        for sect in art["sections"]:
+            if sect["title"] == "Figures":
+                has_figure = True
+        if not has_figure:
+            new_sect = {}
+            new_sect["title"] = "Figures"
+            capts = ""
+            for fig in figures:
+                fig_num +=1
+                caption = fig["caption"]
+                if not caption.startswith("Figure"):
+                   caption = "Figure " + str(fig_num) + ":" + caption
+                capts += caption + "\n"
+            new_sect["fragments"] = get_frags(capts)
+            art["sections"].append(new_sect)
 
     # text_win = std
     bg = ""
@@ -843,9 +857,10 @@ def show_article(art, show_nod=""):
     visible[0] = True
     art["sents"][0] = art["title"]
     last_sect = -1
-    progs = [0]*len(art["sections"])
     sn = 0
     total_pr = 0
+    progs = [0]*len(art["sections"])
+
     for b in art["sections"]:
         frags_text = ""
         b['frags_offset'] = ffn
@@ -907,7 +922,12 @@ def show_article(art, show_nod=""):
     total_sents = fsn 
     total_frags = ffn
     total_sects = len(art["sections"])
-    expand = 0 if total_sects > 1 else 1
+    if total_sects > 1: 
+        expand = 0 
+        sect_opened = [False]*total_sects
+    else:
+        expand = 1 
+        sect_opened = [True]*total_sects
     si = 2
     fc = 2
     if si >= total_sents -1:
@@ -921,9 +941,10 @@ def show_article(art, show_nod=""):
     show_info(main_info)
     ni,fi = 0,0
     passable = [False]*total_sents
-    sect_opened = [False]*total_sects
     if not "comments" in art:
        comments = [""]*total_sents
+    if len(comments) < total_sents:
+        comments += [""]*(total_sents - len(comments))
     if "times" in art:
        rtime = art["times"]
     else:
@@ -933,9 +954,6 @@ def show_article(art, show_nod=""):
     art_changed = False
     art_changed = False
     show_info("r) resume from last position")
-    figures = []
-    if "figures" in art:
-        figures = art["figures"]
     nod_set = False
     needs_nod = False
     interestings = 0
@@ -1007,7 +1025,10 @@ def show_article(art, show_nod=""):
             b["prog"] = prog
             if sn == sc and si > 0:
                 sect_fc = fc - b["frags_offset"] + 1
-                sect_title = b["title"] + " [" + str(prog) + "] " # + f"({sect_fc+1}/{fnum})" 
+                if b["title"] == "Figures":
+                    sect_title = b["title"] + " (" + str(len(figures)) + ") "
+                else:
+                    sect_title = b["title"] + " [" + str(prog) + "] " # + f"({sect_fc+1}/{fnum})" 
                 if True: #fsn != si:
                     if art_id in sel_sects and b["title"].lower() in sel_sects[art_id]:
                         _color = HL_COLOR
@@ -1015,7 +1036,10 @@ def show_article(art, show_nod=""):
                         _color = SEL_ITEM_COLOR
                         
             else:
-                sect_title = b["title"] + " [" + str(prog) + "] "
+                if b["title"] == "Figures":
+                    sect_title = b["title"] + " (" + str(len(figures)) + ") "
+                else:
+                    sect_title = b["title"] + " [" + str(prog) + "] "
  
             if sect_title != "all" or expand == 0:
                 mprint(sect_title, text_win, _color, attr = cur.A_BOLD)
@@ -1206,7 +1230,7 @@ def show_article(art, show_nod=""):
                 delete_file(art)
                 art["save_folder"] = ""
         if ch == cur.KEY_DC:
-            nods[si] = ""
+            nods[si] = "next"
             ch = cur.KEY_DOWN
         if ch == ord('y'):
             with open(art["title"]  + ".txt","w") as f:
@@ -1233,6 +1257,7 @@ def show_article(art, show_nod=""):
         if ch == ord('h'): # article help
             show_info(('\n'
                        '  Down)          expand the selection to next sentence\n'
+                       '  Right)         expaned a collapsed section\n'
                        '  Right)         nod the selected sentences with positive feedback\n'
                        '  Left)          nod the selected sentences with negative feedback\n'
                        '  Enter)         nod the selected sentences with okay and move to the next sentence\n'
@@ -1246,9 +1271,10 @@ def show_article(art, show_nod=""):
                        '  m)             change the color theme\n'
                        '  u)             reset comments and nods\n'
                        '  n)             filter sentences by a nod\n'
-                       '  DEL)           remove current nod\n'
+                       '  DEL)           remove current nod and expand to the next sentence\n'
                        '  TAB)           skip current fragment\n'
                        '  e)             expand/collapse sections\n'
+                       '  BackSpace)     collapse the current section\n'
                        '  >/<)           increase/decrease the width of text\n'
                        '  :)             add a comment \n'
                        '  k/j)           previous/next section\n'
@@ -1506,7 +1532,10 @@ def show_article(art, show_nod=""):
             or si > 0 and (expand == 0 and ch == cur.KEY_RIGHT and not sect_opened[sc])):
             for ii in range(len(sect_opened)):
                 sect_opened[ii] = False
-            sect_opened[sc] = True
+            if art["sections"][sc]["title"] == "Figures":
+                ch = ord('f')
+            else:
+                sect_opened[sc] = True
 
         if ch == ord('e'):
             if expand == 1:
@@ -2256,7 +2285,7 @@ def start(stdscr):
     if menu is None or (newspaper_imported and not "webpage" in menu):
         isFirst = True
         menu = {}
-        menu["مقالات مروری"]="button"
+        menu["reviewed articles"]="button"
         menu["sep1"] ="Search AI-related papers"
         if is_obj("last_results", ""):
             menu["last results"]="button"
@@ -2339,16 +2368,7 @@ def start(stdscr):
         elif ch == "last results":
             show_last_results()
         elif ch == 'v' or ch == "reviewed articles":
-            saved_articles = load_obj("saved_articles","articles", [])
-            rev_articles = []
-            for art in saved_articles:
-                if "nods" in art and art["nods"][0] != "":
-                    rev_articles.append(art)
-            if len(rev_articles) == 0:
-                show_msg("There is no article reviewed yet, to review an article enter a nod for its title.")
-            else:
-                list_articles(rev_articles, "Reviewed Articles")
-
+            rev_articles()
         elif ch == 's' or ch == "saved items":
             saved_items()
         elif ch == "Go!":
@@ -2395,7 +2415,7 @@ def start(stdscr):
         elif ch == "r" or ch == "recent articles":
              si = options["recent articles"].index(menu["recent articles"]) 
              clear_screen(std)
-             show_article(last_visited[si])
+             rev_articles(last_visited[si])
         elif ch == 'text files':
             save_folder = doc_path + '/txt'
             Path(save_folder).mkdir(parents=True, exist_ok=True)
@@ -2414,6 +2434,17 @@ def start(stdscr):
                      ret = list_articles(articles, "sel articles")
                  else:
                      show_err("Unable to load the file....")
+
+def rev_articles(sel_art = None):
+    saved_articles = load_obj("saved_articles","articles", [])
+    rev_articles = []
+    for art in saved_articles:
+        if "nods" in art and art["nods"][0] != "":
+            rev_articles.append(art)
+    if len(rev_articles) == 0:
+        show_msg("There is no article reviewed yet, to review an article enter a nod for its title.")
+    else:
+        list_articles(rev_articles, "Reviewed Articles", sel_art = sel_art)
 
 def show_texts(save_folder):
     subfolders = [ f.name for f in os.scandir(save_folder) if f.is_dir() ]
