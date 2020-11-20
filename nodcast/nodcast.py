@@ -115,7 +115,8 @@ nod_color = {
         "feature":(28,77),
         "constraint":(95,97),
         "important!":(97,141),
-        "point!":(97,141),
+        "point!":(97,142),
+        "main idea!":(98,142),
         "has an idea!":(114,115),
         "didn't get!":(88,196),
         "didn't get":(88,161),
@@ -185,26 +186,25 @@ def reset_colors(theme, bg = None):
        # cur.init_pair(val[0], bg, val[0])
 
 
-def scale_color(rtime):
-    rtime = float(rtime)
-    rtime *= 4
-    if rtime == 0:
-        return 255
-    elif rtime < 1:
-        return 34
-    elif rtime < 2:
+def scale_color(value, factor = 1):
+    value = float(value)
+    if value == 0:
+        return 245
+    elif value < 10:
+        return 42
+    elif value < 20:
         return 76
-    elif rtime < 3:
+    elif value < 30:
         return 119
-    elif rtime < 4:
+    elif value < 40:
         return 186
-    elif rtime < 5:
+    elif value < 50:
         return 190
-    elif rtime < 6:
+    elif value < 60:
         return 220 
-    elif rtime < 7:
+    elif value < 70:
         return 208
-    elif rtime < 8:
+    elif value < 80:
         return 202
     else:
         return 124
@@ -500,6 +500,7 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod ="", 
         N = len(articles)
         cc = start
         jj = start
+        cur_title = ""
         while cc < start + 15 and jj < len(articles): 
             a = articles[jj]
             saved_index = get_index(saved_articles, a)
@@ -507,25 +508,33 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod ="", 
                 a = articles[cc] = saved_articles[saved_index]
             h = a['year'] if "year" in a else cc
             prog = a['total_prog'] if "total_prog" in a else 0
-            color = TEXT_COLOR
-            art_nod = ""
+            art_nod = " [" + "not viewed".ljust(12) + "]"
+            art_nod_color = TEXT_COLOR
             if "nods" in a and a["nods"][0] != "":
                 nod = a["nods"][0]
-                color = nod_color[nod][1]  % cur.COLORS if nod in nod_color else TEXT_COLOR
-                art_nod = " [" + nod + "]"
+                art_nod_color = nod_color[nod][1]  % cur.COLORS if nod in nod_color else TEXT_COLOR
+                art_nod = " [" + nod.ljust(12) + "]"
 
+            color = art_nod_color
             if a in sel_arts:
                 color = SEL_ITEM_COLOR
             if cc == k:
                 color = CUR_ITEM_COLOR
+                cur_title = a["title"]
 
             paper_title =  a['title']
-            dots = " " + str(prog) + "%"
+            dots = ""
             if len(paper_title + art_nod) > width - 40:
-               dots = "..." + str(prog) + "%"
-            item = "[{}] {}".format(h, paper_title[:width - 40] + art_nod + dots)               
-
-            mprint(item, main_win, color)
+               dots = "..." 
+            h = "[{:04}]".format(h)
+            prog_str = "{:02d}%".format(int(prog))
+            prog_str = "[" + prog_str.rjust(4) + "]"
+            art_title = " " + paper_title[:width - 40] + dots               
+            p = 0 if int(prog) == 0 else 1 if int(prog) == 100 else 100 - int(prog)
+            mprint(prog_str, main_win, scale_color(p), end = "")
+            mprint(art_nod, main_win, art_nod_color, end = " ")
+            mprint(h, main_win, color, end = "")
+            mprint(art_title, main_win, color)
             _list = "nods"
             if show_nod and fid == "comments":
                 _list = "comments"
@@ -541,16 +550,18 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod ="", 
             cc += 1
             jj += 1
             # Endf while
+        mprint("", main_win)
+        mprint(cur_title, main_win, ITEM_COLOR)
         rows, cols = std.getmaxyx()
         main_win.refresh(0,0, 2, 5, rows - 2, cols - 6)
         _p = k // 15
         all_pages = (N // 15) + (1 if N % 15 > 0 else 0) 
-        show_info("Enter) view article       PageDown) next page (load more...)     h) other commands " + str(N) + " " + str(N))
+        show_info("Enter) view article       PageDown) next page (load more...)     h) other commands ")
         print_there(0, cols - 15, "|" + str(N) + "|" + str(_p + 1) +  " of " + str(all_pages), win_info, INFO_COLOR)
 
         ch = get_key(std)
 
-        if is_enter(ch):
+        if ch == ord("r") or is_enter(ch):
             k = max(k, 0)
             k = min(k, N-1)
             main_win.erase()
@@ -607,9 +618,10 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod ="", 
             show_info(('\n'
                        ' s)          select/deselect an article\n'
                        ' a)          select all articles\n'
-                       " Left)          filter the articles by the title's nod \n"
+                       ' r/Enter)    open the selected article\n'
+                       " f/Left)     filter the articles by the title's nod \n"
                        ' t)          tag the selected items\n'
-                       ' d)          delete the selected items from list\n'
+                       ' d/DEL)      delete the selected items from list\n'
                        ' w)          write the selected items into files\n'
                        ' p)          select the output file format\n'
                        ' m)          change the color theme\n'
@@ -624,11 +636,11 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod ="", 
                 sel_arts.append(articles[k])
             else:
                 sel_arts.remove(articles[k])
-        if ch == ord('n') or ch == cur.KEY_LEFT:
+        if ch == ord('f') or ch == cur.KEY_LEFT:
             if filter_nod != '':
                 ch = ord('q')
             else:
-                tmp = sel_nod(5, 10, ni, 0)
+                tmp,_ = sel_nod(art_nods, 5, 10,  ni, 0)
                 _nod = tmp if tmp != "NULL" else ""
                 if _nod != "":
                     list_articles(articles, fid, show_nod, group, _nod)
@@ -639,7 +651,21 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod ="", 
                       sel_arts.append(art)
                   else:
                       sel_arts.remove(art)
-        if ch == ord('d') and group =="tags":
+        if (ch == ord('d') or ch == cur.KEY_DC) and group !="tags":
+            art = articles[k]
+            articles.remove(art)
+            if group != "":
+                _confirm = confirm(win_info, "remove the article " + art["title"][:20])
+                if _confirm == "y":
+                    if art in saved_articles:
+                        saved_articles.remove(art)
+                        save_obj(saved_articles, "saved_articles", "articles")
+                    if group != "saved_articles":
+                        group_articles = load_obj(group, "articles", [])
+                        group_articles.remove(art)
+                        save_obj(group_articles, group, "articles")
+
+        if (ch == ord('d') or ch == cur.KEY_DC) and group =="tags":
             if not sel_arts:
                 art = articles[k]
                 if len(art["tags"]) == 1:
@@ -733,8 +759,8 @@ def write_article(article, folder=""):
     f.close()
     show_info("Artice was writen to " + fpath + '...')
 
-pos_nods = ["None", "okay", "I see!", "interesting!", "point!"]
-neg_nods = ["didn't get, but okay", "didn't get", "needs research"]
+pos_nods = ["so?", "okay", "I see!", "interesting!", "point!"]
+neg_nods = ["so?", "didn't get, but okay", "didn't get", "needs research"]
 sent_types = ["problem", "definition", "solution", "goal", "contribution", "feature", "constraint", "example"]
 art_nods = ["interesting!", "favorite!", "important!", "needs review", "needs research", "almost got it!", "got the idea!", "didn't get!", "archive", "not reviewed", "to read later", "skipped"]
 def sel_nod(opts, ypos, left, ni, si, no_win = False):
@@ -1007,11 +1033,11 @@ def show_article(art, show_nod=""):
         for b in art["sections"]:
             fragments = b["fragments"]
             fnum = len(fragments)
-            _color = ITEM_COLOR
+            title_color = ITEM_COLOR
             if fsn == si:
                 cur_sent = b["title"]
                 is_section = True
-                _color = HL_COLOR
+                title_color = HL_COLOR
                 #si = si + 1
                 #fc = art["sections"][sc]["frags_offset"] + 1
             if (sn == sc and si > 0 and 
@@ -1020,29 +1046,37 @@ def show_article(art, show_nod=""):
                 #text_win.refresh(start_row,0, 0,0, rows-1, cols-1)
             sents_num = b["sents_num"] - 1
             prog = int(round(progs[sn]/sents_num, 2)*100)
+            prog_color = title_color
+            if prog <= 100:
+                p = 0 if prog== 0 else 1 if prog == 100 else 100 - prog
+                prog_color = scale_color(p)
             total_pr += prog
             prog = str(prog) + "%" #+ " (" + str(progs[sn]) +  "/" + str(sents_num) + ")"
             b["prog"] = prog
+            
             if sn == sc and si > 0:
                 sect_fc = fc - b["frags_offset"] + 1
                 if b["title"] == "Figures":
-                    sect_title = b["title"] + " (" + str(len(figures)) + ") "
+                    sect_title = " (" + str(len(figures)) + ") "
                 else:
-                    sect_title = b["title"] + " [" + str(prog) + "] " # + f"({sect_fc+1}/{fnum})" 
+                    sect_title = " [" + str(prog) + "] " # + f"({sect_fc+1}/{fnum})" 
                 if True: #fsn != si:
-                    if art_id in sel_sects and b["title"].lower() in sel_sects[art_id]:
-                        _color = HL_COLOR
+                    #if art_id in sel_sects and b["title"].lower() in sel_sects[art_id]:
+                    if sect_opened[sc]:
+                        title_color = SEL_ITEM_COLOR #HL_COLOR
                     else:
-                        _color = SEL_ITEM_COLOR
+                        title_color = CUR_ITEM_COLOR
+                        prog_color = title_color
                         
             else:
                 if b["title"] == "Figures":
-                    sect_title = b["title"] + " (" + str(len(figures)) + ") "
+                    sect_title = " (" + str(len(figures)) + ") "
                 else:
-                    sect_title = b["title"] + " [" + str(prog) + "] "
+                    sect_title = " [" + str(prog) + "] "
  
-            if sect_title != "all" or expand == 0:
-                mprint(sect_title, text_win, _color, attr = cur.A_BOLD)
+            if b["title"] != "all" or expand == 0:
+                mprint(b["title"], text_win, title_color, end = "", attr = cur.A_BOLD)
+                mprint(sect_title, text_win, prog_color, attr = cur.A_BOLD)
 
             pos[fsn],_ = text_win.getyx()
             passable[fsn] = True
@@ -1113,7 +1147,7 @@ def show_article(art, show_nod=""):
                                f_color = HL_COLOR
                                hline = "-"*(width)
                                if show_reading_time:
-                                   f_color = scale_color(reading_time)
+                                   f_color = scale_color(reading_time*4, 0.1)
                                    mprint(str(reading_time), text_win, f_color)
                                lines = textwrap.wrap(sent, width-4) 
                                lines = filter(None, lines)
@@ -1351,7 +1385,7 @@ def show_article(art, show_nod=""):
                 else:
                     if (_nod == "" or _nod == "skipped") and ch == cur.KEY_LEFT:
                         ni = 1 
-                    elif _nod == "skipped" and ch == cur.KEY_RIGHT:
+                    elif _nod == "" and ch == cur.KEY_RIGHT:
                         ni = 0
                     elif _nod in pos_nods:
                         ni = pos_nods.index(_nod) 
@@ -2280,11 +2314,14 @@ def start(stdscr):
     filters = {}
     now = datetime.datetime.now()
     filter_items = ["year", "conference", "dataset", "task"]
+    last_visited = load_obj("last_visited", "articles", [])
     menu =  None #load_obj("main_menu", "")
     isFirst = False
     if menu is None or (newspaper_imported and not "webpage" in menu):
         isFirst = True
         menu = {}
+        if last_visited:
+            menu["recent articles"] = "button"
         menu["reviewed articles"]="button"
         menu["sep1"] ="Search AI-related papers"
         if is_obj("last_results", ""):
@@ -2302,10 +2339,9 @@ def start(stdscr):
 
     options = {
             "saved articles":["None"],
-            "recent articles":["None"],
+            #"recent articles":["None"],
             }
 
-    last_visited = load_obj("last_visited", "articles", [])
     recent_arts = []
     width = 2*cols//3
     y_start = len(menu) + 5
@@ -2313,11 +2349,8 @@ def start(stdscr):
     for art in last_visited[:10]:
         recent_arts.append(art["title"][:60]+ "...")
     subwins = {}
-    if recent_arts:
-        menu["sep3"]=""
-        menu["recent articles"] = ""
-        options["recent articles"] =recent_arts 
-        subwins = {"recent articles":{"x":7,"y":y_start,"h":hh,"w":width}}
+        #options["recent articles"] =recent_arts 
+        #subwins = {"recent articles":{"x":7,"y":y_start,"h":hh,"w":width}}
 
     if isFirst:
         for opt in menu:
@@ -2413,9 +2446,7 @@ def start(stdscr):
         elif ch == 'w' or ch == "website articles":
              website()
         elif ch == "r" or ch == "recent articles":
-             si = options["recent articles"].index(menu["recent articles"]) 
-             clear_screen(std)
-             rev_articles(last_visited[si])
+            list_articles(last_visited, "Recent Articles", group = "last_visited")
         elif ch == 'text files':
             save_folder = doc_path + '/txt'
             Path(save_folder).mkdir(parents=True, exist_ok=True)
@@ -2439,12 +2470,12 @@ def rev_articles(sel_art = None):
     saved_articles = load_obj("saved_articles","articles", [])
     rev_articles = []
     for art in saved_articles:
-        if "nods" in art and art["nods"][0] != "":
+        if "nods" in art and art["nods"][0] != "" and art["nods"][0] != "not reviewed":
             rev_articles.append(art)
     if len(rev_articles) == 0:
         show_msg("There is no article reviewed yet, to review an article enter a nod for its title.")
     else:
-        list_articles(rev_articles, "Reviewed Articles", sel_art = sel_art)
+        list_articles(rev_articles, "Reviewed Articles", group = "saved_articles", sel_art = sel_art)
 
 def show_texts(save_folder):
     subfolders = [ f.name for f in os.scandir(save_folder) if f.is_dir() ]
@@ -2846,7 +2877,7 @@ def search():
     filters = {}
     now = datetime.datetime.now()
     filter_items = ["year", "conference", "dataset", "task"]
-    menu = None #load_obj("query_menu", "")
+    menu = load_obj("query_menu", "")
     isFirst = False
     if menu is None:
         isFirst = True 
@@ -2918,7 +2949,7 @@ def show_last_results():
         cr_date = str(cr_time)
      articles = load_obj("last_results", "", [])
      if articles:
-         ret = list_articles(articles, "results at " + str(cr_date))
+         ret = list_articles(articles, "results at " + str(cr_date) + " for " + last_query)
      else:
          show_msg("Last results is missing....")
 
