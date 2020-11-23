@@ -23,6 +23,7 @@ import traceback
 
 appname = "NodCast"
 appauthor = "App"
+user = 'na'
 
 doc_path = os.path.expanduser('~/Documents/Nodcast')
 app_path = user_data_dir(appname, appauthor)
@@ -102,15 +103,15 @@ nod_color = {
         "archive":(145,145),
         "okay":(30,36),
         "okay, okay!":(25,25),
-        "okay?":(59,62),
+        "okay?":(96,180),
         "not reviewed":(59,141),
         "goal":(22,22),
         "skipped":(244,245),
         "skip":(244,245),
         "I see!":(29,71),
-        "interesting!":(28,77),
+        "interesting!":(28,76),
         "favorite!":(53,219),
-        "interesting, so?":(26,77),
+        "interesting, so?":(26,76),
         "contribution":(28,77),
         "feature":(28,77),
         "constraint":(95,97),
@@ -437,21 +438,26 @@ def request(p = 0):
         'Accept': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.89 Mobile Safari/537.36',
         'Content-Type': 'application/json',
-        'Origin': 'https://dimsum.eu-gb.containers.appdomain.cloud',
         'Sec-Fetch-Site': 'same-origin',
         'Sec-Fetch-Mode': 'cors',
         'Sec-Fetch-Dest': 'empty',
-        'Referer': 'https://dimsum.eu-gb.containers.appdomain.cloud/',
         'Accept-Language': 'en-US,en;q=0.9',
     }
     size = int(size)
     filters_str = json.dumps(filters)
     data = f'{{"query":"{query}","filters":{filters_str},"page":{page},"size":{size},"sort":null,"sessionInfo":""}}'
-    #data ='{"query":"reading comprehension","filters":{},"page":0,"size":30,"sort":null,"sessionInfo":""}'
+    data2 = f'{{"user":"{user}","query":"{query}","filters":{filters_str},"page":{page},"size":{size},"sort":null,"sessionInfo":""}}'
 
-    # return [], data
+    item  = 'https://dimsum.eu-gb.containers.appdomain.cloud/api/scholar/search'
+    #item = ''
+    #try:
+    #    response = requests.post('http://checkideh.com/search.php', headers=headers, data=data)
+    #    item = response.json()["a"]
+    #    show_msg(str(item))
+    #except:
+    #    pass
     try:
-        response = requests.post('https://dimsum.eu-gb.containers.appdomain.cloud/api/scholar/search', headers=headers, data=data)
+        response = requests.post(item, headers=headers, data=data)
     except requests.exceptions.HTTPError as errh:
         return [],("Http Error:" + str(errh))
     except requests.exceptions.ConnectionError as errc:
@@ -496,7 +502,7 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod ="", 
     while ch != ord('q'):
         main_win.erase()
         mprint("", main_win)
-        mprint(fid + " " + query, main_win, cW)
+        mprint((fid + " " + query).ljust(width-36) + "     progess  " + "status", main_win, cW)
         N = len(articles)
         cc = start
         jj = start
@@ -512,15 +518,20 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod ="", 
             art_nod_color = TEXT_COLOR
             if "nods" in a and a["nods"][0] != "":
                 nod = a["nods"][0]
-                art_nod_color = nod_color[nod][1]  % cur.COLORS if nod in nod_color else TEXT_COLOR
+                art_nod_color,_ = find_color(nod_color, a["nods"], 0) 
                 art_nod = " [" + nod.ljust(12) + "]"
 
             color = art_nod_color
+            p = 0 if int(prog) == 0 else 1 if int(prog) == 100 else 100 - int(prog)
+            prog_color = scale_color(p)
             if a in sel_arts:
                 color = SEL_ITEM_COLOR
             if cc == k:
                 color = CUR_ITEM_COLOR
+                prog_color = color
+                art_nod_color = color
                 cur_title = a["title"]
+
 
             paper_title =  a['title']
             dots = ""
@@ -529,12 +540,11 @@ def list_articles(in_articles, fid, show_nod = False, group="", filter_nod ="", 
             h = "[{:04}]".format(h)
             prog_str = "{:02d}%".format(int(prog))
             prog_str = "[" + prog_str.rjust(4) + "]"
-            art_title = " " + paper_title[:width - 40] + dots               
-            p = 0 if int(prog) == 0 else 1 if int(prog) == 100 else 100 - int(prog)
-            mprint(prog_str, main_win, scale_color(p), end = "")
-            mprint(art_nod, main_win, art_nod_color, end = " ")
+            art_title = (" " + paper_title[:width - 40] + dots).ljust(width - 36)               
             mprint(h, main_win, color, end = "")
-            mprint(art_title, main_win, color)
+            mprint(art_title, main_win, color, end = "")
+            mprint(prog_str, main_win, prog_color, end = "")
+            mprint(art_nod, main_win, art_nod_color, end = "\n")
             _list = "nods"
             if show_nod and fid == "comments":
                 _list = "comments"
@@ -793,24 +803,27 @@ def find_color(colors, nods, fsn):
       while nods[ii] == "next" and ii < len(nods):
           ii += 1
       nod = nods[ii] 
-   ret = TEXT_COLOR, TEXT_COLOR
+   ret = int(theme_menu["hl-text-color"]), int(theme_menu["hl-text-color"]) 
    for key,val in colors.items():
        if key in nod:
           ret = val
    return ret 
 
-def print_nod(text_win, nods, fsn, si, bmark, width, addinfo = ""):
-   d_color,l_color = find_color(nod_color, nods, fsn)
-   if nods[fsn] != "" and nods[fsn] != "next":
-       if fsn >= 0 and fsn >= bmark and fsn <= si:
-           _nod = nods[fsn]
-           tmp = (" " + _nod + addinfo).ljust(width-2) 
-           cur.init_pair(TEMP_COLOR, back_color, d_color % cur.COLORS)
-           mprint(tmp, text_win,TEMP_COLOR)
-           #mprint(' '*(2) + nods[fsn], text_win, l_color % cur.COLORS) 
-       else:
-           pass
-           #mprint(' '*(4) + nods[fsn], text_win, l_color % cur.COLORS) 
+def print_nod(nods, ypos, left, fsn, si, width):
+    d_color,l_color = find_color(nod_color, nods, si)
+    nod_win = cur.newwin(8, 30, ypos, width + left)
+    nod_win.bkgd(' ', cur.color_pair(TEXT_COLOR)) # | cur.A_REVERSE)
+    cur.init_pair(TEMP_COLOR2, back_color, d_color % cur.COLORS)
+    if nods[si] != "":
+        mprint(' '*(4) + nods[si], nod_win, l_color) 
+    nod_win.refresh()
+
+def print_prog(text_win, prog, width):
+   w = int(width*prog/100)   
+   d_color = scale_color(100 - prog) 
+   cur.init_pair(TEMP_COLOR2, back_color, d_color % cur.COLORS)
+   addinfo = (" Progress:" + str(prog) + "%")
+   mprint(addinfo, text_win, d_color) 
 
 def show_article(art, show_nod=""):
     global theme_menu, theme_options, query, filters
@@ -913,7 +926,7 @@ def show_article(art, show_nod=""):
                         visible[last_sect] = True
                     else:
                         visible[fsn] = False
-                elif has_nods:
+                elif has_nods and fsn < len(nods):
                     if nods[fsn] in pos_nods:
                         nexts += 1
                         pr += nexts 
@@ -926,7 +939,7 @@ def show_article(art, show_nod=""):
                         visible[last_sect] = True
                     elif show_nod != '':
                         visible[fsn] = False
-                elif not has_nods:
+                elif not has_nods or fsn >= len(nods):
                     if fsn % 3 == 0:
                         nods.append("")
                     else:
@@ -1014,8 +1027,9 @@ def show_article(art, show_nod=""):
                     sect_opened[ii] = False
         else:
             mprint(top,  text_win, TITLE_COLOR, attr = cur.A_BOLD) 
-        print_nod(text_win, nods, 0, 0, 0, int(width*total_prog/100), 
-                addinfo = " Progress:" + str(total_prog) + "%")
+        d_color,l_color = find_color(nod_color, nods, 0)
+        mprint(nods[0], text_win, l_color, end = "")
+        print_prog(text_win, total_prog, width)
         mprint(pdfurl,  text_win, TITLE_COLOR, attr = cur.A_BOLD) 
         if comments[0] != "":
             com = textwrap.wrap(comments[0], width=width-5, replace_whitespace=False)
@@ -1168,15 +1182,27 @@ def show_article(art, show_nod=""):
                                    hl_pos = text_win.getyx() 
                                    cur_sent = sent
                                    hlcolor = HL_COLOR
-                                   if theme_menu["bold-highlight"]== "True":
-                                       mprint(sent, text_win, hlcolor, attr=cur.A_BOLD, end=end)
-                                   else:
-                                       mprint(sent, text_win, hlcolor, attr=cur.A_BOLD, end=end)
-                               else:
                                    d_color,l_color = find_color(nod_color, nods, fsn)
-                                   mprint(sent, text_win, l_color, end=end)
+                                   if nods[fsn] == "":
+                                       b_color = int(theme_menu["highlight-color"]) % cur.COLORS
+                                   else:
+                                       b_color = 238
+                                   cur.init_pair(TEMP_COLOR, l_color % cur.COLORS, b_color) 
+                                   if theme_menu["bold-highlight"]== "True":
+                                       mprint(sent, text_win, TEMP_COLOR, attr=cur.A_BOLD, end=end)
+                                   else:
+                                       mprint(sent, text_win, TEMP_COLOR, attr=cur.A_BOLD, end=end)
+                               else:
+                                   _color = DIM_COLOR
+                                   if nods[fsn] != "":
+                                       _color,_ = find_color(nod_color, nods, fsn)
+                                   if theme_menu["bold-text"]== "True":
+                                       mprint(sent, text_win, _color, attr=cur.A_BOLD, end=end)
+                                   else:
+                                       mprint(sent, text_win, _color, end=end)
                                if feedback != '' and passable[fsn] == False:
-                                   print_nod(text_win, nods, fsn, si, bmark, width)
+                                   #left = (cols - width)//2
+                                   #print_nod2(nods, ypos, left, fsn, fsn, width)
 
                                    if comments[fsn] != "":
                                        if False: #fsn >= bmark and fsn <= si:
@@ -1195,7 +1221,7 @@ def show_article(art, show_nod=""):
                                fsn += 1
                        
                        if fsn >= bmark and fsn <= si:
-                           mprint(" "*(width-2), text_win, HL_COLOR)
+                           mprint(" "*(width-2), text_win, TEMP_COLOR)
                        else:
                            mprint(" ", text_win, color)
                        ffn += 1
@@ -1219,8 +1245,11 @@ def show_article(art, show_nod=""):
         #if ch != cur.KEY_LEFT:
         rows, cols = std.getmaxyx()
         #width = 2*cols // 3 
-        left = (cols - width)//2
+        left = ((cols - width)//2) 
+        ypos = pos[bmark]-start_row
         text_win.refresh(start_row,0, 2,left, rows -2, cols-1)
+        if not is_section and sect_opened[sc]:
+            print_nod(nods, ypos, left, fsn, si, width)
         ch = get_key(std)
         show_info(main_info)
         if ch == ord('>'):
@@ -1504,7 +1533,6 @@ def show_article(art, show_nod=""):
                        nods[ii] = "next"
                 nods[si] = "okay?"
                 nod_set = True 
-                mbeep()
                 show_info("Please use the <Left> or <Right> arrow keys to nod the sentence, and <Down> to skip.")
                 if si > total_sents - 1:
                     si = total_sents - 1
@@ -1564,12 +1592,11 @@ def show_article(art, show_nod=""):
                 fc = 0
         if  ((expand == 0 and is_enter(ch))
             or si > 0 and (expand == 0 and ch == cur.KEY_RIGHT and not sect_opened[sc])):
+            expand = 1
             for ii in range(len(sect_opened)):
-                sect_opened[ii] = False
+                sect_opened[ii] = True
             if art["sections"][sc]["title"] == "Figures":
                 ch = ord('f')
-            else:
-                sect_opened[sc] = True
 
         if ch == ord('e'):
             if expand == 1:
@@ -1632,7 +1659,13 @@ def show_article(art, show_nod=""):
         fc = max(f - 1,0)
 
         art['sections'][sc]['fc'] = fc 
-        if ch == 127 and expand == 0:
+        if ch == 127:
+            ch = 'q'
+            
+        if ch == ord('q') and sect_opened[sc]:
+            ch = 0
+            expand = 0
+            pos = [0]*total_sents
             for ii in range(len(sect_opened)):
                 sect_opened[ii] = False
         if ch == ord(':'):
@@ -1885,27 +1918,27 @@ def show_msg(msg, color=MSG_COLOR):
    std.getch()
 
 def show_err(msg, color=ERR_COLOR, bottom = True):
-    if not bottom:
+    if bottom:
         msg += " press any key..."
     show_info(msg, color, bottom)
-    if not bottom:
+    if bottom:
         std.getch()
 
 def load_preset(new_preset, options, folder=""):
     menu = load_obj(new_preset, folder)
     if menu == None and folder == "theme":
-        dark1 ={'preset': 'dark1',"sep1":"colors", 'text-color': '247', 'back-color': '234', 'item-color': '71', 'cur-item-color': '247', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","dim-color":'241' ,"highlight-color":'247', "hl-text-color":'18',"inverse-highlight":"True", "bold-highlight":"True"}
-        dark2 ={'preset': 'dark2',"sep1":"colors", 'text-color': '247', 'back-color': '-1', 'item-color': '71', 'cur-item-color': '236', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","dim-color":'241' ,"highlight-color":'248', "hl-text-color":'18',"inverse-highlight":"True", "bold-highlight":"False"}
-        light = {'preset': 'light',"sep1":"colors", 'text-color': '233', 'back-color': '250', 'item-color': '22', 'cur-item-color': '24', 'sel-item-color': '25', 'title-color': '17', "sep2":"reading mode","dim-color":'239' ,"highlight-color":'24', "hl-text-color":'250', "inverse-highlight":"True","bold-highlight":"False"}
-        for mm in [dark1, dark2, light]:
+        gray ={'preset': 'gray',"sep1":"colors", 'text-color': '247', "bold-text":"False", 'back-color': '237', 'item-color': '71', 'cur-item-color': '247', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","dim-color":'241' ,"highlight-color":'235', "hl-text-color":'94',"inverse-highlight":"True", "bold-highlight":"True"}
+        dark ={'preset': 'dark',"sep1":"colors", 'text-color': '247', "bold-text":"False", 'back-color': '-1', 'item-color': '71', 'cur-item-color': '236', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","dim-color":'241' ,"highlight-color":'248', "hl-text-color":'18',"inverse-highlight":"True", "bold-highlight":"False"}
+        light = {'preset': 'light',"sep1":"colors", 'text-color': '233', "bold-text":"True", 'back-color': '250', 'item-color': '22', 'cur-item-color': '24', 'sel-item-color': '25', 'title-color': '17', "sep2":"reading mode","dim-color":'239' ,"highlight-color":'24', "hl-text-color":'250', "inverse-highlight":"True","bold-highlight":"False"}
+        for mm in [gray, dark, light]:
            mm["save as"] = "button"
            mm["reset"] = "button"
            mm["delete"] = "button"
            mm["save and quit"] = "button"
-        save_obj(dark1, "dark1", "theme")
-        save_obj(dark2, "dark2", "theme")
+        save_obj(gray, "gray", "theme")
+        save_obj(dark, "dark", "theme")
         save_obj(light, "light", "theme")
-        new_preset = "dark1"
+        new_preset = "gray"
 
     if menu == None and folder == "template":
        text  = {"preset":"txt", "top":"", "title":"# {title}", "section-title":"## {section-title}","paragraph": "{paragraph}{newline}{newline}", "bottom":"{url}"}
@@ -2378,6 +2411,7 @@ def start(stdscr):
             "dim-color":colors,
             "inverse-highlight":["True", "False"],
             "bold-highlight":["True", "False"],
+            "bold-text":["True", "False"],
             }
 
     theme_menu, theme_options = load_preset(conf["theme"], theme_options, "theme") 
