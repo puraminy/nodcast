@@ -4,6 +4,7 @@ import io
 import platform
 import webbrowser
 import time
+import string
 from time import sleep
 import datetime
 import pickle
@@ -24,9 +25,10 @@ import logging, sys
 import traceback
 import subprocess
 
-appname = "NodCast"
+appname = "Checkideh"
 appauthor = "App"
 user = 'na'
+profile = "All"
 
 hotkey = ""
 
@@ -316,7 +318,7 @@ def save_obj(obj, name, directory, data_dir=True):
         folder = directory
     else:
         if directory != "":
-            folder = user_data_dir(appname, appauthor) + "/" + directory
+            folder = user_data_dir(appname, appauthor) + "/" + profile + "/" + directory
         else:
             folder = user_data_dir(appname, appauthor)
     Path(folder).mkdir(parents=True, exist_ok=True)
@@ -328,9 +330,9 @@ def load_obj(name, directory, default=None, data_dir=True):
         folder = directory
     else:
         if directory != "":
-            folder = user_data_dir(appname, appauthor) + "/" + directory
+            folder = user_data_dir(appname, appauthor) + "/" + profile + "/" + directory
         else:
-            folder = user_data_dir(appname, appauthor)
+            folder = user_data_dir(appname, appauthor) + "/" + profile
     fname = folder + '/' + name + '.pkl'
     obj_file = Path(fname) 
     if not obj_file.is_file():
@@ -340,9 +342,9 @@ def load_obj(name, directory, default=None, data_dir=True):
 
 def is_obj(name, directory):
     if directory != "":
-        folder = user_data_dir(appname, appauthor) + "/" + directory
+        folder = user_data_dir(appname, appauthor) + "/" + profile + "/" + directory
     else:
-        folder = user_data_dir(appname, appauthor)
+        folder = user_data_dir(appname, appauthor) + "/" + profile
     if not name.endswith('.pkl'):
         name = name + '.pkl'
     fname = folder + '/' + name 
@@ -354,9 +356,9 @@ def is_obj(name, directory):
 
 def del_obj(name, directory):
     if directory != "":
-        folder = user_data_dir(appname, appauthor) + "/" + directory
+        folder = user_data_dir(appname, appauthor) + "/" + profile + "/" + directory
     else:
-        folder = user_data_dir(appname, appauthor)
+        folder = user_data_dir(appname, appauthor) + "/" + profile
     if not name.endswith('.pkl'):
         name = name + '.pkl'
     fname = folder + '/' + name 
@@ -694,10 +696,10 @@ def list_articles(in_articles, fid, show_note = False, group="", filter_nod ="",
                       sel_arts.remove(art)
         if (ch == ord('d') or ch == cur.KEY_DC) and group !="tags":
             art = articles[k]
-            articles.remove(art)
             if group != "":
                 _confirm = confirm(win_info, "remove the article " + art["title"][:20])
                 if _confirm == "y":
+                    articles.remove(art)
                     if art in saved_articles:
                         saved_articles.remove(art)
                         save_obj(saved_articles, "saved_articles", "articles")
@@ -936,7 +938,7 @@ def show_article(art, show_note=""):
     is_section = False
     art_id = art['id']
     
-    if False:
+    if True:
         with open("art.txt", "w") as f:
             print(str(art), file = f)
     sc = 0
@@ -2195,11 +2197,11 @@ def load_preset(new_preset, options, folder=""):
         dark = load_obj("chk_def_dark", folder, data_dir = False)
         light = load_obj("chk_def_light", folder, data_dir = False)
         neon = load_obj("chk_def_neon", folder, data_dir = False)
-        dark = save_obj(dark, "dark", folder, data_dir = True)
-        light = save_obj(light, "light", folder, data_dir = True)
-        neon = save_obj(neon, "neon", folder, data_dir = True)
+        save_obj(dark, "dark", folder, data_dir = True)
+        save_obj(light, "light", folder, data_dir = True)
+        save_obj(neon, "neon", folder, data_dir = True)
         if dark is None:
-            dark ={'preset': 'dark',"sep1":"colors", 'text-color': '247', 'back-color': '233', 'item-color': '71', 'cur-item-color': '251', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","dim-color":'241' ,"highlight-color":'238', "hl-text-color":"248", "inverse-highlight":"True", "bold-highlight":"True","bold-text":"False", "sep5":"Feedback Colors"}
+            dark ={'preset': 'dark',"sep1":"colors", 'text-color': '247', 'back-color': '233', 'item-color': '71', 'cur-item-color': '251', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","dim-color":'241' ,"highlight-color":'236', "hl-text-color":"250", "inverse-highlight":"True", "bold-highlight":"True","bold-text":"False", "sep5":"Feedback Colors"}
         for k in feedbacks:
             v = 250
             if k in nod_color_light:
@@ -2322,6 +2324,7 @@ def show_submenu(sub_menu_win, opts, si, is_color = False, color = ITEM_COLOR):
    if start > 0:
  	  mprint("...", sub_menu_win, color)
    footer = ""
+   is_color = opts == colors 
    for vi, v in enumerate(opts[start:start + win_rows]):
      if start + vi == si:
         sel_v = v
@@ -2348,7 +2351,7 @@ def show_submenu(sub_menu_win, opts, si, is_color = False, color = ITEM_COLOR):
 menu_win = None
 common_subwin = None
 def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwins={}, info = "h) help | q) quit"):
-    global menu_win, common_subwin, hotkey, hotkey
+    global menu_win, common_subwin, hotkey
 
     si = 0 #submenu index
     ch = 0 #user choice
@@ -2386,7 +2389,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
     mt, st = "", ""
     old_val = ""
     prev_ch = 0
-    while ch != ord('q'):
+    while mode != 'm' or ch != ord('q'):
         sel,mi = get_sel(menu, mi)
         sub_menu_win = common_subwin
         key_set = False
@@ -2398,7 +2401,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
             start_row = rows - 2
         if not sel.startswith("sep"):
             sub_menu_win.erase()
-            if mode == 'm':
+            if mode == 'm' or menu[sel] != old_val:
                 refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row)
         if sel not in options and not str(menu[sel]).startswith("button") and not sel.startswith("sep"): 
              # menu[sel]=""
@@ -2456,11 +2459,9 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
             ch = cur.KEY_DOWN
         elif sel.startswith('sep') and mi == len(menu) -1:
             ch = cur.KEY_UP
-            
         if ch == cur.KEY_RESIZE:
             mbeep()
             refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row)
-
         if ch == cur.KEY_DOWN:
             if mode == "m":
                 mi += 1
@@ -2483,7 +2484,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
                 mi -= 10
             elif sel in options:
                 si -= 10
-        elif is_enter(ch) or (chr(ch) in shortkeys and ch == prev_ch):
+        elif (is_enter(ch) or (mode == "m" and chr(ch) in shortkeys and ch == prev_ch)):
             is_button = str(menu[sel]).startswith("button")
             if is_button: 
               if sel == "save as" or sel == "reset" or sel == "delete" or sel == "save and quit":
@@ -2529,15 +2530,15 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
         elif ch == cur.KEY_LEFT or ch == 27:
             if old_val != "":
                 menu[sel] = old_val
-                #refresh_menu(menu, menu_win, sel, options, shortkeys, subwins)
-                #if "color" in sel:
-                #    reset_colors(menu)
+                #refresh_menu(men:u, menu_win, sel, options, shortkeys, subwins)
+                if "color" in sel:
+                    reset_colors(menu)
             old_val = ""
             mode = 'm'
             mt = ""
         if cmd == "save and quit":
             ch = ord('q')
-        elif ch == ord('d') or cmd == "delete":
+        elif ch == cur.KEY_DC or cmd == "delete":
             if mode == 'm':
                 item = menu[sel]
             else:
@@ -2568,12 +2569,12 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
                     show_info(item +  " was deleted")
                     return "del@" + sel+"@" + str(si), menu, mi
 
-        elif (ch == ord('r') or cmd == "reset") and "preset" in menu:
+        elif mode == "m" and (ch == ord('r') or cmd == "reset") and "preset" in menu:
             menu, options = load_preset("resett", options, title)
             last_preset = menu["preset"]
             #refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, horiz, start_row)
             show_info("Values were reset to defaults")
-        elif (ch == ord('s') or ch == ord('z') or cmd == "save as") and "preset" in menu:
+        elif mode == "m" and ((ch == ord('s') or ch == ord('z') or cmd == "save as") and "preset" in menu):
             if ch == ord('z'):
                 fname = "chk_def_" + menu["preset"]
             else:
@@ -2595,11 +2596,11 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
                 last_preset = fname
                 refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row)
                 mode = 'm'
-        elif ch == ord('h'):
+        elif mode == "m" and ch == ord('h'):
             return "h",menu, mi
-        elif chr(ch) in hotkeys:
+        elif mode == "m" and chr(ch) in hotkeys:
             return chr(ch), menu, mi
-        elif ch != ord('q') and chr(ch) in shortkeys:
+        elif mode == "m" and ch != ord('q') and chr(ch) in shortkeys:
             if not shortkeys[chr(ch)] in menu: # then it's a hotkey
                 return chr(ch), menu, mi
             else:
@@ -2611,26 +2612,30 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
                 old_val = menu[sel]
                 mode = 's'
                 st = ""
-        elif ch == ord('q') and title == "main":
+        elif mode == "m" and ch == ord('q') and title == "main":
             pass
             #mbeep()
             #_confirm = confirm(win_info, "you want to exit the program")
             #if _confirm != "y":
             #    ch = 0
         else:
-            if mode == 's' and chr(ch).isdigit() and sel in options:
-                si,st = find(options[sel], st, chr(ch), si)
+            if mode == 's' and sel in options:
+                if ch == 127 or ch == cur.KEY_BACKSPACE:
+                    st = st[:-1]
+                    menu[sel] = st
+                elif chr(ch).lower() in string.printable:
+                    si, st = find(options[sel], st, chr(ch), si)
+                    menu[sel] = st
     return chr(ch), menu, mi
 
 def find(list, st, ch, default):
-    str = st + ch
+    _find = st + ch
+    _find = _find.lower()
     for i, item in enumerate(list):
-        if item.startswith(str):
-            return i,str
-    for i, item in enumerate(list):
-        if item.startswith(ch):
-            return i,ch
-    return default,""
+        if item.lower().startswith(_find):
+            return i,_find
+    mbeep()
+    return default, st
 
 
 
@@ -2665,6 +2670,7 @@ def start(stdscr):
         if is_obj("last_results", ""):
             menu["last results"]="button"
         menu["keywords"]=""
+        menu["task"] = "All"
         menu["Go!"]="button"
         menu["advanced search"]="button"
         if newspaper_imported:
@@ -2678,17 +2684,19 @@ def start(stdscr):
     options = {
             "saved articles":["None"],
             #"recent articles":["None"],
+            "task": ["All", "Reading Comprehension", "Machine Reading Comprehension","Sentiment Analysis", "Question Answering", "Transfer Learning","Natural Language Inference", "Computer Vision", "Machine Translation", "Text Classification", "Decision Making"],
             }
 
     recent_arts = []
     width = 2*cols//3
-    y_start = len(menu) + 5
+    y_start = 5 # 5len(menu) + 5
+    x_start = 50
     hh = rows - y_start - 1
     for art in last_visited[:10]:
         recent_arts.append(art["title"][:60]+ "...")
     subwins = {}
         #options["recent articles"] =recent_arts 
-        #subwins = {"recent articles":{"x":7,"y":y_start,"h":hh,"w":width}}
+    #subwins = {"task":{"x":x_start,"y":y_start,"h":hh,"w":width}}
 
     if isFirst:
         for opt in menu:
@@ -2751,7 +2759,9 @@ def start(stdscr):
             saved_items()
         elif ch == "Go!":
             query = menu["keywords"]
-            fid = menu["keywords"]
+            if menu["task"] != "All":
+                filters = {"task":menu["task"]}
+            fid = menu["task"] + "|" + menu["keywords"]
             articles,ret = request(0)
             if len(articles) > 0 and ret == "":
                 if isinstance(articles, tuple):
