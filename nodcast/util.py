@@ -3,6 +3,7 @@ import os
 import curses as cur
 import locale
 import sys
+import textwrap
 #locale.setlocale(locale.LC_ALL, '')
 code = "utf-8" #locale.getpreferredencoding()
 
@@ -167,6 +168,7 @@ def mprint(text, stdscr =None, color=0, attr = None, end="\n", refresh = False):
             c = cur.color_pair(color) | attr
         height, width = stdscr.getmaxyx()
         #stdscr.addnstr(text + end, height*width-1, c)
+        #text = textwrap.shorten(text, width=height*width-5)
         stdscr.addstr((text + end).encode(code), c)
         if not refresh:
             pass #stdscr.refresh(0,0, 0,0, height -5, width)
@@ -190,6 +192,7 @@ def print_there(x, y, text, stdscr = None, color=0, attr = None, pad = False):
     else:
         sys.stdout.write("\x1b7\x1b[%d;%df%s\x1b8" % (x, y, text))
         sys.stdout.flush()
+
 def clear_screen(stdscr = None):
     if stdscr is not None:
         stdscr.erase()
@@ -213,28 +216,33 @@ def rinput(stdscr, r, c, prompt_string, default=""):
         cur.noecho()
         return default
 
-def confirm_all(win, msg):
-    return confirm(win, msg, acc = ['y','n','a']) 
 
-def confirm(win, msg, acc = ['y','n']):
-    c,_ = minput(win, 0, 1, 
-            "Are you sure you want to " + msg + "? (" + "/".join(acc)  + ")",
-            accept_on = acc)
+def get_confirm(win, msg, acc = ['y','n']):
+    win.erase()
+    print_there(0,1, msg, win) 
+    ch = 0
+    while chr(ch) not in acc:
+        ch = win.getch()
+        if not ch in acc:
+            mbeep()
+        else:
+            break
     win.clear()
     win.refresh()
-    return c.lower()
+    return chr(ch).lower()
 
-def minput(stdscr, row, col, prompt_string, accept_on = [], default=""):
-    on_enter = False
+def minput(stdscr, row, col, prompt_string, exit_on = [], default="", multi_line = False):
     rows, cols = stdscr.getmaxyx()
-    caps = cols - col - len(prompt_string) - 2
-    if not accept_on:
-        on_enter = True
-        accept_on = [10, cur.KEY_ENTER]
+    caps = rows*(cols -2) - col - len(prompt_string) - 2
+    if not multi_line:
+        exit_on = ['\n']
+        next_line = ">"
     else:
-        accept_on = [ord(ch) for ch in accept_on]
+        next_line = '\n'
+        if not exit_on:
+            exit_on = ['\t']
     show_cursor()
-    cur.echo() 
+    cur.noecho() 
     stdscr.keypad(True)
     stdscr.addstr(row, col, prompt_string.encode(code))
     stdscr.clrtoeol()
@@ -249,18 +257,57 @@ def minput(stdscr, row, col, prompt_string, accept_on = [], default=""):
         out.append(inp)
     pos = len(inp)
     ch = 0
-    start = col + len(prompt_string)
-    while ch not in accept_on:
-        stdscr.addstr(row, start, inp.encode(code))
-        stdscr.clrtoeol()
+    rtl = False
+    if not multi_line:
+        start = col + len(prompt_string)
+    else:
+        start = col
+    while ch not in exit_on:
+        if rtl:
+            cur.curs_set(0)
         pos = max(pos, 0)
         pos = min(pos, len(inp))
-        xloc = start + pos
-        yloc = row + (xloc // cols)
-        xloc = xloc % cols
-        stdscr.move(yloc, xloc)
-        ch = stdscr.getch()
-        if ch == 8 or ch == 127 or ch == cur.KEY_BACKSPACE:
+        if multi_line:
+            text = inp
+            out = []
+            temp = text.split("\n")
+            for line in temp:
+                if  len(line) < cols - 2:
+                    out += [line]
+                else:
+                    out += textwrap.wrap(line, width = cols -2, break_long_words=False, replace_whitespace=False, drop_whitespace=False)
+            #out = filter(None, out)
+            if not out:
+                out = [""]
+            r = row + 1
+            if len(out) > 1:
+                pass
+            c = 0
+            yloc = r
+            xloc = pos - c + 1
+            for i, l in enumerate(out):
+                enters = inp.count("\n", c, c + len(l) + 1)
+                if pos >= c and pos <= c + len(l):
+                    yloc = r
+                    xloc = pos - c + 1
+                if r < rows and start + len(l) < cols:
+                   if rtl and False:
+                       start = cols - len(l)-2
+                   stdscr.addstr(r, start, l.encode(code))
+                stdscr.clrtoeol()
+                r += 1
+                c += len(l) + enters 
+            stdscr.clrtobot()
+        else:
+            stdscr.addstr(row, start, inp.encode(code))
+            stdscr.clrtoeol()
+            xloc = start + pos
+            yloc = row + (xloc // cols)
+            xloc = xloc % cols
+        if yloc < rows and xloc < cols:
+            stdscr.move(yloc, xloc)
+        ch = stdscr.get_wch()
+        if type(ch) == str and ord(ch) == 127: # ch == 8 or ch == 127 or ch == cur.KEY_BACKSPACE:
             if pos > 0:
                 inp = inp[:pos-1] + inp[pos:]
                 pos -= 1
@@ -271,19 +318,26 @@ def minput(stdscr, row, col, prompt_string, accept_on = [], default=""):
                 inp = inp[:pos] + inp[pos+1:]
             else:
                 mbeep()
-        elif chr(ch)=='<':
-            if line == 0 and len(out) == 1:
+        elif ch == cur.KEY_IC:
+            #rtl = not rtl
+            pass
+        elif ch == cur.KEY_SDC:
+            if not multi_line:
                 inp = ""
-            else:
-                del out[line]
-                if line > len(out) - 1:
-                    line = len(out) - 1
-                inp = out[line]
-        elif chr(ch) == ">":
-            out[line] = inp
-            line = line + 1
-            out.insert(line, "")
-            inp = ""
+                pos = 0
+            elif len(inp) > 0:
+                temp = inp.split("\n")
+                c = 0
+                inp = ""
+                for line in temp:
+                    if pos >= c and pos < c + len(line):
+                        pos -= len(line)
+                    else:
+                        inp += line + "\n"
+                    c += len(line)
+        elif multi_line and type(ch) == str and ch == next_line:
+            inp = inp[:pos] + "\n" + inp[pos:]
+            pos += 1
         elif ch == cur.KEY_HOME:
             pos = 0
         elif ch == cur.KEY_END:
@@ -296,47 +350,45 @@ def minput(stdscr, row, col, prompt_string, accept_on = [], default=""):
         elif ch == cur.KEY_RIGHT:
             pos += 1
         elif ch == cur.KEY_UP: 
-            if line == 0:
+            if not multi_line:
                 break
-            elif line == 0:
+            if yloc <= 2:
                 mbeep()
             else:
-                out[line] =inp
-                line -= 1
-                inp = out[line]
+                pos = 0
+                for i in range(0, yloc - 3):
+                    pos += len(out[i])
+                enters = inp.count("\n", 0, pos + yloc - 3)
+                pos += enters
+                pos += min(xloc, len(out[yloc -3])) - 1
         elif ch == cur.KEY_DOWN:
-            if line == len(out) - 1:
+            if not multi_line:
                 break
+            if yloc >= rows or yloc - 1 >= len(out):
+                mbeep()
             else:
-                out[line] = inp
-                line += 1
-                inp = out[line]
+                pos = 0
+                for i in range(0, yloc - 1):
+                    pos += len(out[i])
+                enters = inp.count("\n", 0, pos + yloc - 1)
+                pos += enters
+                pos += min(xloc, len(out[yloc -1])) - 1
         elif ch == 27:
             hide_cursor()
             cur.noecho()
             return "<ESC>",ch
         else:
-            letter =chr(ch)
+            letter = ch
             if len(inp) >= caps:
                 mbeep()
-            elif on_enter:
-                if letter.isalnum() or letter in ["'",'#','%','$','@','!','^','&','(',')', '*',' ',',','/','-','_',':','.','?','+']:
-                    inp = inp[:pos] + letter + inp[pos:]
-                    pos += 1
-                else:
-                    mbeep()
+            elif ch in exit_on:
+                break
             else:
-                if ch in accept_on:
-                    inp = inp[:pos] + letter + inp[pos:]
-                else:
-                    mbeep()
+                inp = inp[:pos] + letter + inp[pos:]
+                pos += 1
     cur.noecho()
     hide_cursor()
-    if len(out) == 0:
-        return inp,ch  
-    else:
-        out[line] = inp
-        return "\n".join(out), ch
+    return inp, ch
 
 def mbeep(repeat=1):
     if os.name == "nt":
@@ -345,7 +397,8 @@ def mbeep(repeat=1):
         cur.beep()
 
 def get_key(stdscr = None):
-    return stdscr.getch()
+    ch1 = stdscr.getch()
+    return ch1
 
 # -*- coding: utf-8 -*-
 import re
