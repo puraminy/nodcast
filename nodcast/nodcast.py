@@ -2048,7 +2048,7 @@ def create_figures_file(figures, fname):
          f.write(html)
 
 
-def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, horiz= False, start_row = 0):
+def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row = 0, horiz=False):
     global clG
     menu_win.erase()
     mprint("", menu_win)
@@ -2199,9 +2199,12 @@ def load_preset(new_preset, options, folder=""):
         light = save_obj(light, "light", folder, data_dir = True)
         neon = save_obj(neon, "neon", folder, data_dir = True)
         if dark is None:
-            dark ={'preset': 'dark',"sep1":"colors", 'text-color': '247', 'back-color': '233', 'item-color': '71', 'cur-item-color': '236', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","dim-color":'241' ,"highlight-color":'238', "hl-text-color":"244", "inverse-highlight":"True", "bold-highlight":"True","bold-text":"False", "sep5":"Feedback Colors"}
-        for k,v in nod_color_light.items():
-            dark[k] = v
+            dark ={'preset': 'dark',"sep1":"colors", 'text-color': '247', 'back-color': '233', 'item-color': '71', 'cur-item-color': '251', 'sel-item-color': '33', 'title-color': '28', "sep2":"reading mode","dim-color":'241' ,"highlight-color":'238', "hl-text-color":"248", "inverse-highlight":"True", "bold-highlight":"True","bold-text":"False", "sep5":"Feedback Colors"}
+        for k in feedbacks:
+            v = 250
+            if k in nod_color_light:
+                v = nod_color_light[k]
+            dark[k] = str(v)
 
         dark["save as"] = "button"
         dark["reset"] = "button"
@@ -2355,7 +2358,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
     height = rows - 1  
     width = cols  
 
-    menu_win = cur.newpad(rows*2, cols)
+    menu_win = cur.newpad(rows*5, cols)
     common_subwin = cur.newwin(rows - 6, width//2 + 5, 5, width//2 - 5)
 
     menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR)) # | cur.A_REVERSE)
@@ -2383,16 +2386,16 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
     mt, st = "", ""
     old_val = ""
     prev_ch = 0
-    start_row = 0
     while ch != ord('q'):
         sel,mi = get_sel(menu, mi)
         sub_menu_win = common_subwin
         key_set = False
         cmd = ""
-        if row + start_row + mi > 2*rows:
-            start_row += 10 
-        elif row + start_row + mi > rows:
-            start_row += 10 
+        start_row = 0
+        if row + start_row + mi >= 2*rows - 2:
+            start_row = 2*rows - 2 
+        elif row + start_row + mi >= rows - 1:
+            start_row = rows - 2
         if not sel.startswith("sep"):
             sub_menu_win.erase()
             if mode == 'm':
@@ -2558,7 +2561,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
                     menu,options = load_preset(new_item, options, title)
                     last_preset = menu["preset"]
                     si = options["preset"].index(menu["preset"]) 
-                    refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, horiz, start_row)
+                    refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row)
                     show_info(new_item +  " was loaded")
                 else:
                     menu[sel] = new_item
@@ -2590,7 +2593,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
                 if not fname in options["preset"]:
                     options["preset"].append(fname)
                 last_preset = fname
-                refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, horiz, start_row)
+                refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row)
                 mode = 'm'
         elif ch == ord('h'):
             return "h",menu, mi
@@ -2602,7 +2605,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title = "", mi = 0, subwi
             else:
                 mi = list(menu.keys()).index(shortkeys[chr(ch)])
                 sel,mi = get_sel(menu, mi)
-                #refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, horiz, start_row)
+                #refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row)
                 if str(menu[sel]).startswith("button"):
                     return sel, menu, mi
                 old_val = menu[sel]
@@ -2658,14 +2661,12 @@ def start(stdscr):
         if last_visited:
             menu["recent articles"] = "button"
         menu["reviewed articles"]="button"
-        menu["sepb1"] =""
         menu["sep1"] ="Search AI-related papers"
         if is_obj("last_results", ""):
             menu["last results"]="button"
         menu["keywords"]=""
         menu["Go!"]="button"
         menu["advanced search"]="button"
-        menu["sepb2"] =""
         if newspaper_imported:
             menu["sep2"] = "Load website articles"
             menu["website articles"]="button"
