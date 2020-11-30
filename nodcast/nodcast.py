@@ -119,6 +119,7 @@ nod_color_light = {
     "okay?": 180,
     "not reviewed": 143,
     "goal": 22,
+    "idea!": 32,
     "skipped": 245,
     "skip": 245,
     "I see!": 71,
@@ -833,7 +834,7 @@ def write_article(article, folder=""):
 
 right_nods = ["okay", "okay"]
 left_nods = ["needs review"]
-notes_list = ["so?", "interesting!", "point!", "definition", "background", "problem", "proposed solution", "needs research"]
+notes_list = ["so?", "interesting!", "point!", "idea!", "definition", "background", "problem", "proposed solution","goal","support", "claim", "needs research"]
 nods_list = ["okay", "didn't get, but okay", "didn't get!"]
 sent_types = ["problem", "definition", "solution", "goal", "contribution", "feature", "constraint", "example"]
 art_nods = ["interesting!", "favorite!", "important!", "needs review", "needs research", "got the idea!",
@@ -927,7 +928,7 @@ def show_article(art, show_note=""):
     start_row = 0
     rows, cols = std.getmaxyx()
     width = 2 * cols // 3
-    text_win = cur.newpad(rows * 50, cols - 1)
+    text_win = cur.newpad(rows * 100, cols - 1)
     text_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
 
     figures = []
@@ -1800,7 +1801,7 @@ def show_article(art, show_note=""):
         if ch == cur.KEY_UP:
             end_time = time.time()
             elapsed_time = end_time - start_time
-            if elapsed_time > 0.3:  # prevent fast stroke by mouse
+            if elapsed_time > 0.1:  # prevent fast stroke by mouse
                 if si > 0:
                     si -= 1
                     while si > 0 and (not visible[si] or passable[si] or nods[si] == "next"):
@@ -2164,8 +2165,6 @@ def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, 
     if hotkey == "":
         menu_win.refresh(start_row, 0, 0, 0, rows - 2, cols - 1)
         for k, item in subwins.items():
-            if k == sel:
-                continue
             sub_menu_win = cur.newwin(item["h"],
                                       item["w"],
                                       item["y"],
@@ -2258,6 +2257,11 @@ def show_err(msg, color=ERR_COLOR, bottom=True):
 def load_preset(new_preset, options, folder=""):
     menu = load_obj(new_preset, folder)
     if menu == None and folder == "theme":
+        menu = load_obj("chk_def_" + new_preset, folder, data_dir=False)
+        if menu == None:
+            new_preset = "dark"
+            menu = load_obj(new_preset, folder)
+    if menu == None and folder == "theme":
         dark = load_obj("chk_def_dark", folder, data_dir=False)
         light = load_obj("chk_def_light", folder, data_dir=False)
         neon = load_obj("chk_def_neon", folder, data_dir=False)
@@ -2269,18 +2273,18 @@ def load_preset(new_preset, options, folder=""):
                     'cur-item-color': '251', 'sel-item-color': '33', 'title-color': '28', "sep2": "reading mode",
                     "dim-color": '241', "highlight-color": '236', "hl-text-color": "250", "inverse-highlight": "True",
                     "bold-highlight": "True", "bold-text": "False", "sep5": "Feedback Colors"}
-        for k in feedbacks:
-            v = 250
-            if k in nod_color_light:
-                v = nod_color_light[k]
-            dark[k] = str(v)
+            for k in feedbacks:
+                v = 250
+                if k in nod_color_light:
+                    v = nod_color_light[k]
+                dark[k] = str(v)
 
-        dark["save as"] = "button"
-        dark["reset"] = "button"
-        dark["delete"] = "button"
-        dark["save and quit"] = "button"
-        save_obj(dark, "dark", "theme")
-        new_preset = "dark"
+            dark["save as"] = "button"
+            dark["reset"] = "button"
+            dark["delete"] = "button"
+            dark["save and quit"] = "button"
+            save_obj(dark, "dark", "theme")
+            new_preset = "dark"
 
     if menu == None and folder == "template":
         text = {"preset": "txt", "top": "", "title": "# {title}", "section-title": "## {section-title}",
@@ -2385,9 +2389,9 @@ def select_box(win, in_opts, ni, in_row=False, stack_index=0, stack=[]):
     return -1, stack_index
 
 
-def show_submenu(sub_menu_win, opts, si, is_color=False, color=ITEM_COLOR, active_sel=True):
+def show_submenu(sub_menu_win, opts, si, is_color=False, color=ITEM_COLOR, active_sel=True, search=""):
     win_rows, win_cols = sub_menu_win.getmaxyx()
-    win_rows = min(win_rows - 3, 10)
+    win_rows = min(win_rows - 4, 10)
     start = si - win_rows // 2
     start = max(start, 0)
     if len(opts) > win_rows:
@@ -2418,6 +2422,7 @@ def show_submenu(sub_menu_win, opts, si, is_color=False, color=ITEM_COLOR, activ
                 mprint(" {:<8}".format(str(v)), sub_menu_win, color)
     if start + win_rows < len(opts):
         mprint("...", sub_menu_win, color)
+    mprint("Search: " + search, sub_menu_win, end ="")
     # if footer != "":
     #   mprint(footer, sub_menu_win, cW)
     sub_menu_win.refresh()
@@ -2430,10 +2435,7 @@ common_subwin = None
 def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={}, info="h) help | q) quit"):
     global menu_win, common_subwin, hotkey
 
-    si = 0  # submenu index
     ch = 0  # user choice
-    mode = 'm'  # 'm' means we are in menu, 's' means we are in submenu
-
     rows, cols = std.getmaxyx()
     height = rows - 1
     width = cols
@@ -2466,7 +2468,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
     mt, st, old_st  = "", "", ""
     old_val = ""
     prev_ch = 0
-    while mode != 'm' or ch != ord('q'):
+    while ch != ord('q'):
         sel, mi = get_sel(menu, mi)
         sub_menu_win = common_subwin
         key_set = False
@@ -2477,13 +2479,9 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
         elif row + start_row + mi >= rows - 1:
             start_row = rows - 2
         if not sel.startswith("sep"):
-            sub_menu_win.erase()
-            if mode == 'm': # or old_st != st:
-                refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, active_sel = mode == 'm')
+            refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, active_sel = True)
         if sel not in options and not str(menu[sel]).startswith("button") and not sel.startswith("sep"):
-            # menu[sel]=""
             cur_val = menu[sel]
-            # refresh_menu(menu, menu_win, sel, options, shortkeys, subwins)
             _m = max([len(x) for x in menu.keys()]) + 5
             win_input = cur.newwin(1, cols - 10, row + mi, col)
             win_input.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
@@ -2506,8 +2504,6 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             key_set = True
             if ch != cur.KEY_UP and ch != 27:
                 ch = cur.KEY_DOWN
-
-            mode = 'm'
             mt = ""
         if sel in subwins:
             if menu[sel] in options[sel]:
@@ -2518,13 +2514,6 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                                       subwins[sel]["y"],
                                       subwins[sel]["x"])
             sub_menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
-            show_submenu(sub_menu_win, options[sel], si, "color" in sel, active_sel=mode == 's')
-        elif mode == 's' and not str(menu[sel]).startswith("button"):
-            if sel in options:
-                si = min(si, len(options[sel]) - 1)
-                si = max(si, 0)
-                show_submenu(sub_menu_win, options[sel], si, "color" in sel)
-
         if not sel.startswith('sep') and not key_set:
             prev_ch = ch
             if  hotkey == "":
@@ -2541,54 +2530,37 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             mbeep()
             refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row)
         if ch == cur.KEY_DOWN:
-            if mode == "m":
-                mi += 1
-            elif sel in options:
-                si += 1
+            mi += 1
         elif ch == cur.KEY_UP:
-            if sel in subwins and si == 0:
-                mode = "m"
-            if mode == "m":
-                mi -= 1
-            elif sel in options:
-                si -= 1
+            mi -= 1
         elif ch == cur.KEY_NPAGE:
-            if mode == "m":
-                mi += 10
-            elif sel in options:
-                si += 10
+            mi += 10
         elif ch == cur.KEY_PPAGE:
-            if mode == "m":
-                mi -= 10
-            elif sel in options:
-                si -= 10
-        elif is_enter(ch) or ch == cur.KEY_RIGHT or (mode == "m" and chr(ch) in shortkeys and ch == prev_ch):
+            mi -= 10
+        elif ch == cur.KEY_LEFT or ch == 27:
+            if title != "main":
+                ch = ord('q')
+        elif is_enter(ch) or ch == cur.KEY_RIGHT or (chr(ch) in shortkeys and ch == prev_ch):
             is_button = str(menu[sel]).startswith("button")
             if is_button:
                 if sel == "save as" or sel == "reset" or sel == "delete" or sel == "save and quit":
                     cmd = sel
                 else:
                     return sel, menu, mi
-            elif sel in options:
-                si = min(si, len(options[sel]) - 1)
-                si = max(si, 0)
             elif sel.startswith("sep"):
                 mi += 1
-            if mode == 'm' and not is_button:
-                old_val = menu[sel]
-                mode = 's'
-                old_st = old_val
-                st = ""
-                ch = 10
+            if not is_button:
                 if sel in options and menu[sel] in options[sel]:
                     si = options[sel].index(menu[sel])
-            elif mode == 's' and not is_button:
-                if last_preset.strip() != "":
-                    save_obj(menu, last_preset, title)
+                if "preset" in menu and title == "theme":
+                    last_preset = menu["preset"]
+                refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, active_sel = False)
+                si = open_submenu(sub_menu_win, options, sel, si, title)
                 menu[sel] = options[sel][si]
-                # if "preset" in menu and title == "theme":
-                #    reset_colors(menu)
+                if "preset" in menu and title == "theme":
+                    reset_colors(menu)
                 if sel == "preset":
+                    save_obj(menu, last_preset, title)
                     new_preset = menu[sel]
                     menu, options = load_preset(new_preset, options, title)
                     last_preset = new_preset
@@ -2596,58 +2568,19 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                     show_info(new_preset + " was loaded")
                 if sel in shortkeys.values():
                     return sel, menu, mi
-                mode = 'm'
-                mt = ""
-                si = 0
-                old_val = ""
-        elif ch == cur.KEY_LEFT or ch == 27:
-            if old_val != "":
-                menu[sel] = old_val
-                # refresh_menu(men:u, menu_win, sel, options, shortkeys, subwins)
-                if "color" in sel:
-                    reset_colors(menu)
-            old_val = ""
-            mode = 'm'
-            mt = ""
+
         if cmd == "save and quit":
             ch = ord('q')
-        elif ch == cur.KEY_DC or cmd == "delete":
-            if mode == 'm':
-                item = menu[sel]
-            else:
-                item = options[sel][si]
-            if not is_obj(item, title) and not sel == "preset":
-                return "del@" + sel + "@" + str(si), menu, mi
-
-            _confirm = confirm(win_info,
-                               "delete '" + item)
-
-            if _confirm == "y" or _confirm == "a":
-                show_info("Deleting '" + item + "'")
-                del_obj(item, title)
-                if item in options[sel]:
-                    options[sel].remove(item)
-                if len(options[sel]) > 0:
-                    new_item = options[sel][si] if si < len(options[sel]) else options[sel][0]
-                else:
-                    new_item = "None"
-                if sel == "preset":
-                    menu, options = load_preset(new_item, options, title)
-                    last_preset = menu["preset"]
-                    si = options["preset"].index(menu["preset"])
-                    refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row)
-                    show_info(new_item + " was loaded")
-                else:
-                    menu[sel] = new_item
-                    show_info(item + " was deleted")
-                    return "del@" + sel + "@" + str(si), menu, mi
-
-        elif mode == "m" and (ch == ord('r') or cmd == "reset") and "preset" in menu:
+        elif cmd == "delete":
+            item = menu[sel]
+            delete_item(item, sel, title)
+            show_info(item + " was deleted")
+        elif (ch == ord('r') or cmd == "reset") and "preset" in menu:
             menu, options = load_preset("resett", options, title)
             last_preset = menu["preset"]
             # refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, horiz, start_row)
             show_info("Values were reset to defaults")
-        elif mode == "m" and ((ch == ord('s') or ch == ord('z') or cmd == "save as") and "preset" in menu):
+        elif ((ch == ord('s') or ch == ord('z') or cmd == "save as") and "preset" in menu):
             if ch == ord('z'):
                 fname = "chk_def_" + menu["preset"]
             else:
@@ -2668,49 +2601,77 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                     options["preset"].append(fname)
                 last_preset = fname
                 refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row)
-                mode = 'm'
-        elif mode == "m" and ch == ord('h'):
+        elif ch == ord('h'):
             return "h", menu, mi
-        elif mode == "m" and chr(ch) in hotkeys:
+        elif chr(ch) in hotkeys:
             return chr(ch), menu, mi
-        elif mode == "m" and ch != ord('q') and chr(ch) in shortkeys:
+        elif ch != ord('q') and chr(ch) in shortkeys:
             if not shortkeys[chr(ch)] in menu:  # then it's a hotkey
                 return chr(ch), menu, mi
             else:
                 mi = list(menu.keys()).index(shortkeys[chr(ch)])
                 sel, mi = get_sel(menu, mi)
-                # refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row)
                 if str(menu[sel]).startswith("button"):
                     return sel, menu, mi
-                old_val = menu[sel]
-                mode = 's'
-                old_st = old_val
-                st = ""
-        elif mode == "m" and ch == ord('q') and title == "main":
+        elif ch == ord('q') and title == "main":
             pass
             # mbeep()
             # _confirm = confirm(win_info, "you want to exit the program")
             # if _confirm != "y":
             #    ch = 0
-        else:
-            if mode == 's' and sel in options:
-                if ch == 127 or ch == cur.KEY_BACKSPACE:
-                    old_st = st
-                    st = st[:-1]
-                    menu[sel] = st
-                elif chr(ch).lower() in string.printable:
-                    old_st = st if ch != 10 else old_st
-                    si, st = find(options[sel], st, chr(ch), si)
-                _m = max([len(x) for x in menu.keys()]) + 5
-                win_input = cur.newwin(1, cols - 10, row + mi, col)
-                win_input.bkgd(' ', cur.color_pair(SEL_ITEM_COLOR))  # | cur.A_REVERSE)
-                win_input.erase()
-                prompt = "{:<{}}".format("Search " + sel, _m) + ": " + st
-                #prompt = st if st.strip() != "" else "Search:"
-                print_there(0, 0, prompt, win_input) 
-                win_input.refresh()
     return chr(ch), menu, mi
 
+def open_submenu(sub_menu_win, options, sel, si, title):
+    ch = 0
+    st = ""
+    old_si = si
+    while not is_enter(ch) and not ch == cur.KEY_RIGHT:
+        if ch == cur.KEY_UP:
+            si -= 1
+        elif ch == cur.KEY_DOWN:
+            si += 1
+        elif ch == cur.KEY_NPAGE:
+            si += 10
+        elif ch == cur.KEY_PPAGE:
+            si -= 10
+        elif ch == cur.KEY_HOME:
+            si = 0
+        elif ch == cur.KEY_END:
+            si = len(options) - 1
+        elif ch == cur.KEY_LEFT or ch == 27:
+            si = old_si
+            break
+        elif ch == cur.KEY_DC:
+            item = options[sel][si]
+            delete_item(item, sel, title)
+            if item in options[sel]:
+                options[sel].remove(item)
+            if si > len(options[sel]):
+                si = len(options[sel]) 
+            else:
+                new_item = "None"
+        elif ch != 0:
+            if ch == 127 or ch == cur.KEY_BACKSPACE:
+                st = st[:-1]
+            elif chr(ch).lower() in string.printable:
+                si, st = find(options[sel], st, chr(ch), si)
+        show_cursor()
+        si = min(si, len(options[sel]) - 1)
+        si = max(si, 0)
+        sub_menu_win.erase()
+        show_submenu(sub_menu_win, options[sel], si, "color" in sel, search=st)
+        ch = get_key(std)
+
+    hide_cursor()
+    sub_menu_win.erase()
+    return si
+
+def delete_item(item, sel, title):
+    _confirm = confirm(win_info,
+                       "delete '" + item)
+    if _confirm == "y" or _confirm == "a":
+        show_info("Deleting '" + item + "'")
+        del_obj(item, title)
 
 def find(list, st, ch, default):
     _find = st + ch
@@ -2940,6 +2901,8 @@ def show_texts(save_folder):
         menu["[>] " + sf] = "button"
     text_files = [str(Path(f)) for f in Path(save_folder).glob('*.txt') if f.is_file()]
     if not text_files and not subfolders:
+        menu["new document"] = "button"
+        menu["sep1"] = "------------"
         menu[".."] = "button"
     count = 1
     for text in text_files:
@@ -2959,6 +2922,16 @@ def show_texts(save_folder):
             show_texts(sfolder)
         elif ch == "..":
             ch = 'q'
+        elif ch == "new document":
+            rows, cols = std.getmaxyx()
+            width = 2 * cols // 3
+            #text_win = cur.newpad(rows * 50, cols - 1)
+            text_win = cur.newwin(rows-2, cols - 3, 1, 1)
+            text_win.border()
+            text_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
+            text, _ = minput(text_win, 1, 1, "article name:", default="", multi_line=True, pad =True)
+            with open(save_folder + "/newdoc.txt", 'w') as f:
+                print(text, file = f)
         elif ch != "q":
             index = mi - len(subfolders)
             text = text_files[index]
