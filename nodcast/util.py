@@ -223,7 +223,7 @@ def get_confirm(win, msg, acc = ['y','n']):
     ch = 0
     while chr(ch) not in acc:
         ch = win.getch()
-        if not ch in acc:
+        if not chr(ch) in acc:
             mbeep()
         else:
             break
@@ -231,7 +231,7 @@ def get_confirm(win, msg, acc = ['y','n']):
     win.refresh()
     return chr(ch).lower()
 
-def minput(stdscr, row, col, prompt_string, exit_on = [], default="", multi_line = False):
+def minput(stdscr, row, col, prompt_string, exit_on = [], default="", multi_line = False, pad = False):
     rows, cols = stdscr.getmaxyx()
     caps = rows*(cols -2) - col - len(prompt_string) - 2
     if not multi_line:
@@ -245,8 +245,7 @@ def minput(stdscr, row, col, prompt_string, exit_on = [], default="", multi_line
     cur.noecho() 
     stdscr.keypad(True)
     stdscr.addstr(row, col, prompt_string.encode(code))
-    stdscr.clrtoeol()
-    stdscr.refresh()
+    stdscr.clrtobot()
     out = default.split('\n')
     out = list(filter(None, out))
     line = 0
