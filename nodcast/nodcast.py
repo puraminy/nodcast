@@ -329,7 +329,7 @@ def save_obj(obj, name, directory, data_dir=True):
         if directory != "":
             folder = user_data_dir(appname, appauthor) + "/" + profile + "/" + directory
         else:
-            folder = user_data_dir(appname, appauthor)
+            folder = user_data_dir(appname, appauthor) + "/" + profile
     Path(folder).mkdir(parents=True, exist_ok=True)
     with open(folder + '/' + name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
@@ -389,14 +389,22 @@ def get_index(articles, art):
         i += 1
     return -1
 
+def get_article(articles, art_id):
+    for a in articles:
+        if a["id"] == art["id"]:
+            return a
+    return None
 
-def remove_article(articles, art):
+
+def remove_article_list(articles, art):
     i = get_index(articles, art)
     if i >= 0:
         articles.pop(i)
 
+def remove_article(articles, art):
+    del articles[art["id"]]
 
-def insert_article(articles, art):
+def insert_article_list(articles, art):
     i = get_index(articles, art)
     if i < 0:
         articles.insert(0, art)
@@ -404,6 +412,9 @@ def insert_article(articles, art):
         articles.pop(i)
         articles.insert(0, art)
 
+def insert_article(articles, art):
+    if not art["id"] in articles:
+        articles[art["id"]] = art
 
 def update_article(articles, art):
     insert_article(articles, art)
@@ -529,7 +540,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_nod="", se
     width = cols - 10
     main_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     sel_arts = []
-    saved_articles = load_obj("saved_articles", "articles", [])
+    saved_articles = load_obj("saved_articles", "articles", {})
     tags = load_obj("tags", "")
     ch = 0
     start = 0
@@ -545,11 +556,12 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_nod="", se
         cc = start
         jj = start
         cur_title = ""
+        loaded=[False]*N
         while cc < start + 15 and jj < len(articles):
             a = articles[jj]
-            saved_index = get_index(saved_articles, a)
-            if saved_index >= 0:
-                a = articles[cc] = saved_articles[saved_index]
+            if  not loaded[cc] and a["id"] in saved_articles:
+                loaded[cc] = True
+                a = articles[cc] = saved_articles[a["id"]]
             year = a['year'] if "year" in a else 0
             h = year if year > 0 else cc
             prog = a['total_prog'] if "total_prog" in a else 0
@@ -725,8 +737,8 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_nod="", se
                 _confirm = confirm(win_info, "remove the article " + art["title"][:20])
                 if _confirm == "y":
                     articles.remove(art)
-                    if art in saved_articles:
-                        saved_articles.remove(art)
+                    if art["id"] in saved_articles:
+                        del saved_articles[art["id"]]
                         save_obj(saved_articles, "saved_articles", "articles")
                     if group != "saved_articles":
                         group_articles = load_obj(group, "articles", [])
@@ -967,7 +979,8 @@ def show_article(art, show_note=""):
 
     # text_win = std
     bg = ""
-    saved_articles = load_obj("saved_articles", "articles", [])
+    saved_articles = load_obj("saved_articles", "articles", {})
+    articles_notes = load_obj("articles_notes", "articles", {})
     frags_text = ""
     art_id = -1
     fc = 1
@@ -996,7 +1009,7 @@ def show_article(art, show_note=""):
     if "nods" in art:
         nods = art["nods"]
         has_nods = True
-    comments = []
+    comments = {}
     if "comments" in art:
         comments = art["comments"]
     visible = {}
@@ -1030,7 +1043,7 @@ def show_article(art, show_note=""):
                 art["sents"][fsn] = sent
                 visible[fsn] = True
                 if show_note == "comments" and comments:
-                    if comments[fsn] != "":
+                    if fsn in comments:
                         visible[last_sect] = True
                     else:
                         visible[fsn] = False
@@ -1090,19 +1103,12 @@ def show_article(art, show_note=""):
         nods += [""] * (total_sents - len(nods))
     ni, fi = 0, 0
     passable = [False] * total_sents
-    if not "comments" in art:
-        comments = [""] * total_sents
-    if len(comments) < total_sents:
-        comments += [""] * (total_sents - len(comments))
-
     notes = []
     if not "notes" in art:
-        notes = [[""] for _ in range(total_sents)]
+        notes = {}
         notes[0] = ["not reviewed"]
     else:
         notes = art["notes"]
-    if len(notes) < total_sents:
-        notes += [[""] for _ in (total_sents - len(notes))]
     if "times" in art:
         rtime = art["times"]
     else:
@@ -1171,7 +1177,7 @@ def show_article(art, show_note=""):
         mprint(nods[0], text_win, d_color, end="")
         print_prog(text_win, total_prog, width)
         # mprint(pdfurl,  text_win, TITLE_COLOR, attr = cur.A_BOLD)
-        if comments[0] == "":
+        if not 0 in comments:
             comments[0] = "My review:"
         if comments[0] == "My review:":
             inst = "Select the title and then press : to add your review"
@@ -1264,7 +1270,7 @@ def show_article(art, show_note=""):
                         if True:
                             nexts = 0
                             for sent in frag_sents:
-                                feedback = nods[fsn] + " " + comments[fsn]
+                                feedback = nods[fsn] 
                                 if sn == sc:
                                     if nods[fsn] in right_nods:
                                         nexts += 1
@@ -1276,7 +1282,7 @@ def show_article(art, show_note=""):
                                     else:
                                         nexts = 0
                                 if show_note == "comments":
-                                    if comments[fsn] != "":
+                                    if fsn in comments and comments[fsn] != "":
                                         visible[fsn] = True
                                         tfsn = fsn - 1
                                         while tfsn > 0 and nods[tfsn] == "next":
@@ -1284,9 +1290,9 @@ def show_article(art, show_note=""):
                                             tfsn -= 1
                                     else:
                                         visible[fsn] = False
-                                elif (show_note != "" and not show_note in notes[fsn]) or "remove" in notes[fsn]:
+                                elif (show_note != "" and fsn in notes and not show_note in notes[fsn]) or fsn in notes and "remove" in notes[fsn]:
                                     visible[fsn] = False
-                                elif show_note != "" and not "remove" in notes[fsn]:
+                                elif show_note != "" and fsn in notes and not "remove" in notes[fsn]:
                                     visible[fsn] = True
                                     tfsn = fsn - 1
                                     while tfsn > 0 and nods[tfsn] == "next":
@@ -1352,15 +1358,15 @@ def show_article(art, show_note=""):
                                 ypos = pos[fsn - 1]
                                 _y, _x = text_win.getyx()
                                 nn = [mark]
-                                if notes[fsn] != [""]:
+                                if fsn in notes:
                                     nn += notes[fsn]
                                 if nods[fsn] in notes_list:
                                     nn.append(nods[fsn])
                                 print_notes(text_win, nn, ypos, width + 1)
                                 text_win.move(_y, _x)
 
-                                if feedback != '' and passable[fsn] == False:
-                                    if comments[fsn] != "":
+                                if not passable[fsn]:
+                                    if fsn in comments and comments[fsn] != "":
                                         if False:  # fsn >= bmark and fsn <= si:
                                             tmp = comments[fsn].ljust(width - 2)
                                             cur.init_pair(TEMP_COLOR2, back_color, COMMENT_COLOR % cur.COLORS)
@@ -1476,7 +1482,7 @@ def show_article(art, show_note=""):
                 delete_file(art)
                 art["save_folder"] = ""
         if ch == cur.KEY_DC:
-            if len(notes[si]) > 1:
+            if si in notes and len(notes[si]) > 0:
                 notes[si].pop()
             # std.timeout(500)
             # tmp_ch = get_key(std)
@@ -1485,7 +1491,7 @@ def show_article(art, show_note=""):
             #    remove_nod = True
             # std.timeout(-1)
         if ch == cur.KEY_SDC:
-            notes[si] = [""]
+            del notes[si] 
             if nods[si] != "":
                 nods[si] = ""
                 if si > 0:
@@ -1571,7 +1577,8 @@ def show_article(art, show_note=""):
             _confirm = confirm(win_info, "reset the article")
             if _confirm == "y" or _confirm == "a":
                 nods = [""] * total_sents
-                comments = [""] * total_sents
+                comments = {}
+                notes = {}
                 rtime = {}
                 visible = [True] * total_sents
                 passable = [False] * total_sents
@@ -1598,14 +1605,18 @@ def show_article(art, show_note=""):
             std.timeout(-1)
         if ch == ord('i') or ch == cur.KEY_IC or ch == ord(' ') or ch == ord('\t'):
             ypos = pos[bmark] - start_row
-            cur_note = notes[si][-1]
+            cur_note = notes[si][-1] if si in notes and len(notes[si]) > 0 else ""
             index = 0
             if cur_note != "":
                 index = notes_list.index(cur_note) if cur_note in notes_list else 0
             tmp_note, note_index = sel_nod(notes_list, ypos, left, index, si, in_row=True)
-            if tmp_note != 'NULL' and not tmp_note in notes[si]:
+            if tmp_note != 'NULL':
                 cur_note = tmp_note
-                notes[si].append(cur_note)
+                if not si in notes:
+                    notes[si] = [cur_note]
+                elif not cur_note in notes[si]:
+                    notes[si].append(cur_note)
+
                 art_changed = True
 
         elif chr(ch).isdigit():
@@ -1615,7 +1626,9 @@ def show_article(art, show_note=""):
                 index = 0
             if index < len(notes_list):
                 cur_note = notes_list[index]
-                if not cur_note in notes[si]:
+                if not si in notes:
+                    notes[si] = [cur_note]
+                elif not cur_note in notes[si]:
                     notes[si].append(cur_note)
 
         if is_enter(ch) and expand != 0:
@@ -1761,8 +1774,6 @@ def show_article(art, show_note=""):
                         nods[si] = cur_nod
                         if ch == cur.KEY_RIGHT or ch == key_neg:
                             ch = cur.KEY_DOWN
-                        if cur_nod in notes_list and not cur_nod in notes[si]:
-                            notes[si].append(cur_nod)
             can_inc = True
             next_frag_start = frags_sents[fc + 1][0] if fc + 1 < total_frags else total_sents
             if ch == cur.KEY_DOWN and not nod_set and ((si - bmark) >= 2 or si + 1 >= next_frag_start):
@@ -1950,16 +1961,22 @@ def show_article(art, show_note=""):
                     art_changed = True
                 else:
                     show_info(main_info)
-        if ch == ord('c'):
-            win = cur.newwin(5, width, 6, left)
-            win.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
-            win.refresh()
-            _comment, _ = minput(win, 1, 1, "My review of article:", default=comments[si], multi_line=True)
         if ch == ord(':'):
             win = cur.newwin(5, width, 6, left)
             win.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
             win.refresh()
-            _comment, _ = minput(win, 0, 1, "", default=comments[si], multi_line=True)
+            default = "" if not 0 in comments else comments[0]
+            _comment, _ = minput(win, 1, 1, "My review of article:", default=default, multi_line=True)
+            show_info(main_info)
+            _comment = _comment if _comment != "<ESC>" and _comment != "q" else comments[si]
+            art_changed = True
+            comments[0] = _comment
+        if ch == ord('c'):
+            win = cur.newwin(5, width, 6, left)
+            win.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
+            win.refresh()
+            default = "" if not si in comments else comments[si]
+            _comment, _ = minput(win, 0, 1, "Comment:", default=default, multi_line=True)
             show_info(main_info)
             _comment = _comment if _comment != "<ESC>" and _comment != "q" else comments[si]
             art_changed = True
@@ -2048,10 +2065,25 @@ def show_article(art, show_note=""):
             if show_note == "":
                 art["visible"] = visible
             if art_changed:
+                if not "visits" in art:
+                    art["visits"] = 1
+                else:
+                    art["visits"] += 1
+                art["last_visit"] = datetime.datetime.today().strftime('%Y-%m-%d')
                 insert_article(saved_articles, art)
                 save_obj(saved_articles, "saved_articles", "articles")
+                for ii, cur_note_list in notes.items():
+                    for note in cur_note_list:
+                        if note != "" and ii > 0:
+                            if not note in articles_notes:
+                                articles_notes[note] = {art_id:[(ii, art["sents"][ii])]}
+                            elif not art_id in articles_notes[note]:
+                                articles_notes[note][art_id] = [(ii, art["sents"][ii])]
+                            else:
+                                articles_notes[note][art_id].append((ii, art["sents"][ii]))
+                save_obj(articles_notes, "articles_notes", "articles")
             last_visited = load_obj("last_visited", "articles", [])
-            insert_article(last_visited, art)
+            insert_article_list(last_visited, art)
             save_obj(last_visited, "last_visited", "articles")
     return ""
 
@@ -2162,7 +2194,7 @@ def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, 
     rows, cols = std.getmaxyx()
     start_row = max(start_row, 0)
     start_row = min(start_row, 2 * rows)
-    if hotkey == "":
+    if True: #hotkey == "":
         menu_win.refresh(start_row, 0, 0, 0, rows - 2, cols - 1)
         for k, item in subwins.items():
             sub_menu_win = cur.newwin(item["h"],
@@ -2347,7 +2379,7 @@ def select_box(win, in_opts, ni, in_row=False, stack_index=0, stack=[]):
                     print_there(row, col, k, win, CUR_ITEM_COLOR)
                 else:
                     print_there(row, col, k, win, INFO_COLOR)
-            mprint("\n\n", win)
+            mprint("\n", win)
             win.refresh()
         ch = get_key(std)
         if is_enter(ch) or (not in_row and ch == cur.KEY_RIGHT):
@@ -2478,8 +2510,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             start_row = 2 * rows - 2
         elif row + start_row + mi >= rows - 1:
             start_row = rows - 2
-        if not sel.startswith("sep"):
-            refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, active_sel = True)
+        refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, active_sel = True)
         if sel not in options and not str(menu[sel]).startswith("button") and not sel.startswith("sep"):
             cur_val = menu[sel]
             _m = max([len(x) for x in menu.keys()]) + 5
@@ -2550,6 +2581,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             elif sel.startswith("sep"):
                 mi += 1
             if not is_button:
+                si = 0
                 if sel in options and menu[sel] in options[sel]:
                     si = options[sel].index(menu[sel])
                 if "preset" in menu and title == "theme":
@@ -2707,7 +2739,7 @@ def start(stdscr):
     now = datetime.datetime.now()
     filter_items = ["year", "conference", "dataset", "task"]
     last_visited = load_obj("last_visited", "articles", [])
-    menu = None  # load_obj("main_menu", "")
+    menu = load_obj("main_menu", "")
     isFirst = False
     if menu is None or (newspaper_imported and not "webpage" in menu):
         isFirst = True
@@ -2883,9 +2915,9 @@ def start(stdscr):
 
 
 def rev_articles(sel_art=None):
-    saved_articles = load_obj("saved_articles", "articles", [])
+    saved_articles = load_obj("saved_articles", "articles", {})
     rev_articles = []
-    for art in saved_articles:
+    for art_id, art in saved_articles.items():
         if "nods" in art and art["nods"][0] != "" and art["nods"][0] != "not reviewed":
             rev_articles.append(art)
     if len(rev_articles) == 0:
@@ -2948,26 +2980,34 @@ def saved_items():
     menu = {}
     # menu["reviewed articles"]="button"
     menu["tagged articles"] = "button"
-    menu["notes"] = "button"
     menu["comments"] = "button"
     shortkeys = {"s": "saved articles", "c": "comments", "n": "notes", "t": "tagged articles", 'x': "text files"}
     options = {}
+    notes, art_list = refresh_notes()
+    if not art_list:
+        menu["sep1"] = "Article Notes (No Note)"
+    else:
+        menu["sep1"] = "Article Notes"
+        for k in notes:
+            menu[k] = "button"
     mi = 0
     ch = ''
     while ch != 'q':
         info = "h) help         q) quit"
         show_info(info)
         ch, menu, mi = show_menu(menu, options, shortkeys=shortkeys, mi=mi)
-        if ch == "n" or ch == "notes":
-            list_notes("notes")
-        elif ch == "c" or ch == "comments":
+        if ch == "c" or ch == "comments":
             list_comments()
         elif ch == 't' or ch == "tagged articles":
             list_tags()
         elif ch == 's' or ch == "saved articles":
-            saved_articles = load_obj("saved_articles", "articles")
-            list_articles(saved_articles, "Saved Articles")
-
+            saved_articles = load_obj("saved_articles", "articles", [])
+            list_articles(saved_articles.values(), "Saved Articles")
+        elif ch != 'q':
+            sel_note = ch[:20]
+            sel_note = sel_note.strip()
+            articles = art_list[sel_note]
+            list_notes(sel_note)
 
 def settings():
     global theme_menu, doc_path
@@ -3007,38 +3047,32 @@ def settings():
     Path(doc_path).mkdir(parents=True, exist_ok=True)
     save_obj(menu, "options", "")
 
-
-def list_notes(notes="notes"):
-    subwins = {
-        notes: {"x": 7, "y": 5, "h": 15, "w": 68},
-    }
-    choice = ''
-    opts, art_list = refresh_notes(notes)
-    if not art_list:
-        show_msg("There is no article with nods!")
+def list_notes(note):
+    saved_articles = load_obj("saved_articles", "articles", {})
+    art_notes = load_obj("articles_notes", "articles", {})
+    if not note in art_notes:
         return
-    clear_screen(std)
-    mi = 0
-    while choice != 'q':
-        nods = ""
-        menu = {notes: ""}
-        choice, menu, mi = show_menu(menu, opts,
-                                     shortkeys={"n": "notes", "c": "comments"},
-                                     subwins=subwins, mi=mi, title=notes)
-        if choice == notes:
-            sel_nod = menu[notes][:-5]
-            sel_nod = sel_nod.strip()
-            articles = art_list[sel_nod]
-            if len(articles) > 0:
-                ret = list_articles(articles, sel_nod, True)
-            opts, art_list = refresh_notes()
-
+    arts = art_notes[note]
+    n_art = {"id":note, "title": "Sentences for " + note ,"pdfUrl":"na", "sections":[]}
+    for art_id, sents_list in arts.items():
+        if art_id in saved_articles:
+            title = saved_articles[art_id]["title"]
+        else:
+            title = "NA"
+        new_sect = {"title":title}
+        frags = []
+        for sent in sents_list:
+            frag = {"text":str(sent[0]) + ")" + sent[1]}
+            frags.append(frag)
+        new_sect["fragments"] = frags
+        n_art["sections"].append(new_sect)
+    show_article(n_art)
 
 def list_comments():
     saved_articles = load_obj("saved_articles", "articles", [])
     N = len(saved_articles)
     art_list = []
-    for art in saved_articles:
+    for art in saved_articles.values():
         if "comments" in art:
             art_list.append(art)
     if len(art_list) > 0:
@@ -3047,14 +3081,38 @@ def list_comments():
         show_msg("There is no article with comments!")
         return
 
-
 def refresh_notes(in_note="notes"):
-    saved_articles = load_obj("saved_articles", "articles", [])
+    saved_articles = load_obj("saved_articles", "articles", {})
+    art_notes = load_obj("articles_" + in_note, "articles", {})
     N = len(saved_articles)
     art_num = {}
     art_list = {}
     note_list = []
-    for art in saved_articles:
+    for note, arts in art_notes.items():
+        if note != "" and not note in note_list:
+            note_list.append(note)
+        for art_id in arts.keys():
+            if art_id in saved_articles:
+                art = saved_articles[art_id]
+                if note in art_num:
+                    art_num[note] = (art_num[note][0] + 1, art_num[note][1] + len(arts[art_id]))
+                    if not art in art_list[note]:
+                        art_list[note].append(art)
+                else:
+                    art_num[note] = (1, len(arts[art_id]))
+                    art_list[note] = [art]
+    ret = []
+    for note in note_list:
+        ret.append(note.ljust(20) + str(art_num[note][1]) + " cases in " +  str(art_num[note][0]) + " articles!")
+    return ret, art_list
+
+def refresh_notes_2(in_note="notes"):
+    saved_articles = load_obj("saved_articles", "articles", {})
+    N = len(saved_articles)
+    art_num = {}
+    art_list = {}
+    note_list = []
+    for art in saved_articles.values():
         if not in_note in art:
             continue
         art_notes = art[in_note]
@@ -3076,12 +3134,12 @@ def refresh_notes(in_note="notes"):
 
 
 def refresh_tags():
-    saved_articles = load_obj("saved_articles", "articles", [])
+    saved_articles = load_obj("saved_articles", "articles", {})
     N = len(saved_articles)
     art_num = {}
     art_list = {}
     tag_list = []
-    for art in saved_articles:
+    for art in saved_articles.values():
         if not "tags" in art:
             continue
         for tag in art["tags"]:
@@ -3297,7 +3355,7 @@ def webpage():
             if not url in history:
                 history.append(url)
                 save_obj(history, "history", "")
-            art = {"id": a.title, "pdfUrl": a.url, "title": a.title, "sections": get_sects(a.text)}
+            art = {"id": a.url, "pdfUrl": a.url, "title": a.title, "sections": get_sects(a.text)}
             insert_article(recent_pages, art)
             del recent_pages[100:]
             save_obj(recent_pages, "recent_pages", "articles")
