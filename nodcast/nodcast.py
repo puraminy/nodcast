@@ -82,6 +82,7 @@ DIM_COLOR = 108
 MSG_COLOR = 109
 TEMP_COLOR = 110
 TEMP_COLOR2 = 111
+WARNING_COLOR = 112
 COMMENT_COLOR = 39
 
 
@@ -169,7 +170,7 @@ cGray = 10
 clGray = 250
 clG = 12
 cllC = 83
-cO = 209
+cO = 94
 back_color = None
 
 
@@ -199,6 +200,7 @@ def reset_colors(theme, bg=None):
     cur.init_pair(ERR_COLOR, cW, cR % cur.COLORS)
     cur.init_pair(MSG_COLOR, cW, cB % cur.COLORS)
     cur.init_pair(INFO_COLOR, cW, cG % cur.COLORS)
+    cur.init_pair(WARNING_COLOR, cW, cO % cur.COLORS)
     # for key,val in nod_color.items():
     # cur.init_pair(val[0], bg, val[0])
 
@@ -319,30 +321,33 @@ def download(url, art, folder):
                 show_err("ERROR:" + str(e))
 
 
-def save_obj(obj, name, directory, data_dir=True):
+def save_obj(obj, name, directory, data_dir=True, common=False):
     if obj is None or name.strip() == "":
         logging.info(f"Empty object to save: {name}")
         return
     if not data_dir or name.startswith("chk_def_"):
         folder = directory
+    elif common:
+        folder = user_data_dir(appname, appauthor) + "/" + directory  
     else:
-        if directory != "":
-            folder = user_data_dir(appname, appauthor) + "/" + profile + "/" + directory
-        else:
-            folder = user_data_dir(appname, appauthor) + "/" + profile
+        folder = user_data_dir(appname, appauthor) + "/profiles/" + profile + "/" + directory
+    if folder.endswith("/"):
+        folder = folder[:-1]
     Path(folder).mkdir(parents=True, exist_ok=True)
     with open(folder + '/' + name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
 
-def load_obj(name, directory, default=None, data_dir=True):
+def load_obj(name, directory, default=None, data_dir=True, common =False):
     if not data_dir:
         folder = directory
+    elif common:
+        folder = user_data_dir(appname, appauthor) + "/" + directory  
     else:
-        if directory != "":
-            folder = user_data_dir(appname, appauthor) + "/" + profile + "/" + directory
-        else:
-            folder = user_data_dir(appname, appauthor) + "/" + profile
+        folder = user_data_dir(appname, appauthor) + "/profiles/" + profile + "/" + directory
+
+    if folder.endswith("/"):
+        folder = folder[:-1]
     fname = folder + '/' + name + '.pkl'
     obj_file = Path(fname)
     if not obj_file.is_file():
@@ -351,11 +356,13 @@ def load_obj(name, directory, default=None, data_dir=True):
         return pickle.load(f)
 
 
-def is_obj(name, directory):
-    if directory != "":
-        folder = user_data_dir(appname, appauthor) + "/" + profile + "/" + directory
+def is_obj(name, directory, common = False):
+    if common:
+        folder = user_data_dir(appname, appauthor) + "/" + directory  
     else:
-        folder = user_data_dir(appname, appauthor) + "/" + profile
+        folder = user_data_dir(appname, appauthor) + "/profiles/" + profile + "/" + directory
+    if folder.endswith("/"):
+        folder = folder[:-1]
     if not name.endswith('.pkl'):
         name = name + '.pkl'
     fname = folder + '/' + name
@@ -366,11 +373,13 @@ def is_obj(name, directory):
         return True
 
 
-def del_obj(name, directory):
-    if directory != "":
-        folder = user_data_dir(appname, appauthor) + "/" + profile + "/" + directory
+def del_obj(name, directory, common = False):
+    if common:
+        folder = user_data_dir(appname, appauthor) + "/" + directory  
     else:
-        folder = user_data_dir(appname, appauthor) + "/" + profile
+        folder = user_data_dir(appname, appauthor) + "/profiles/" + profile + "/" + directory
+    if folder.endswith("/"):
+        folder = folder[:-1]
     if not name.endswith('.pkl'):
         name = name + '.pkl'
     fname = folder + '/' + name
@@ -2131,12 +2140,17 @@ def create_figures_file(figures, fname):
     with open(fname, "w", encoding="utf-8") as f:
         f.write(html)
 
-
+# rrr
 def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, horiz=False, active_sel=True):
     global clG
     menu_win.erase()
     mprint("", menu_win)
-    mprint(" " * 5 + "Checkideh v 1.0", menu_win)
+
+    ver_file = Path('version.txt')
+    if ver_file.is_file():
+        with open("version.txt", 'r') as f:
+            version = f.readline()
+    mprint(" " * 5 + "Checkideh " + version, menu_win)
     row = 3
     col = 5
     rows, cols = menu_win.getmaxyx()
@@ -2146,6 +2160,8 @@ def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, 
     for k, v in menu.items():
         colon = ":"  # if not k in options else ">"
         key = k
+        if "button_hidden" in str(v):
+            continue
         if k in shortkeys.values():
             sk = list(shortkeys.keys())[list(shortkeys.values()).index(k)]
             key = sk + ") " + k
@@ -2157,7 +2173,7 @@ def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, 
         else:
             color = ITEM_COLOR
         fw = cur.A_BOLD
-        if str(v) == "button_light":
+        if "button_light" in str(v):
             fw = None
 
         if k.startswith("sep"):
@@ -2194,8 +2210,10 @@ def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, 
     rows, cols = std.getmaxyx()
     start_row = max(start_row, 0)
     start_row = min(start_row, 2 * rows)
-    if True: #hotkey == "":
+    if hotkey == "":
+        logging.info(f"Refreshing ...", menu)
         menu_win.refresh(start_row, 0, 0, 0, rows - 2, cols - 1)
+        std.refresh()
         for k, item in subwins.items():
             sub_menu_win = cur.newwin(item["h"],
                                       item["w"],
@@ -2219,7 +2237,7 @@ def confirm_all(win, msg):
     return confirm(win, msg, acc=['y', 'n', 'a'])
 
 
-def confirm(win, msg, acc=['y', 'n'], color=MSG_COLOR):
+def confirm(win, msg, acc=['y', 'n'], color=WARNING_COLOR):
     win.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
     mbeep()
     msg = "Are you sure you want to " + msg + "? (" + "/".join(acc) + ")"
@@ -2287,19 +2305,17 @@ def show_err(msg, color=ERR_COLOR, bottom=True):
 
 
 def load_preset(new_preset, options, folder=""):
-    menu = load_obj(new_preset, folder)
+    menu = load_obj(new_preset, folder, common =True)
     if menu == None and folder == "theme":
         menu = load_obj("chk_def_" + new_preset, folder, data_dir=False)
-        if menu == None:
-            new_preset = "dark"
-            menu = load_obj(new_preset, folder)
+        save_obj(menu, new_preset, folder, common=True)
     if menu == None and folder == "theme":
         dark = load_obj("chk_def_dark", folder, data_dir=False)
         light = load_obj("chk_def_light", folder, data_dir=False)
         neon = load_obj("chk_def_neon", folder, data_dir=False)
-        save_obj(dark, "dark", folder, data_dir=True)
-        save_obj(light, "light", folder, data_dir=True)
-        save_obj(neon, "neon", folder, data_dir=True)
+        save_obj(dark, "dark", folder, common=True)
+        save_obj(light, "light", folder, common=True)
+        save_obj(neon, "neon", folder, common=True)
         if dark is None:
             dark = {'preset': 'dark', "sep1": "colors", 'text-color': '247', 'back-color': '233', 'item-color': '71',
                     'cur-item-color': '251', 'sel-item-color': '33', 'title-color': '28', "sep2": "reading mode",
@@ -2315,8 +2331,8 @@ def load_preset(new_preset, options, folder=""):
             dark["reset"] = "button"
             dark["delete"] = "button"
             dark["save and quit"] = "button"
-            save_obj(dark, "dark", "theme")
-            new_preset = "dark"
+            save_obj(dark, "dark", "theme", common = True)
+        new_preset = "dark"
 
     if menu == None and folder == "template":
         text = {"preset": "txt", "top": "", "title": "# {title}", "section-title": "## {section-title}",
@@ -2329,11 +2345,11 @@ def load_preset(new_preset, options, folder=""):
             mm["reset"] = "button"
             mm["delete"] = "button"
             mm["save and quit"] = "button"
-        save_obj(text, "txt", folder)
-        save_obj(html, "html", folder)
+        save_obj(text, "txt", folder, common =True)
+        save_obj(html, "html", folder, common =True)
         new_preset = "txt"
 
-    menu = load_obj(new_preset, folder)
+    menu = load_obj(new_preset, folder, common =True)
     menu["preset"] = new_preset
     menu_dir = user_data_dir(appname, appauthor) + "/" + folder
     saved_presets = [Path(f).stem for f in Path(menu_dir).glob('*') if f.is_file()]
@@ -2342,7 +2358,7 @@ def load_preset(new_preset, options, folder=""):
     if folder == "theme":
         reset_colors(menu)
     conf[folder] = new_preset
-    save_obj(conf, "conf", "")
+    save_obj(conf, "conf", "", common =True)
     return menu, options
 
 
@@ -2371,6 +2387,7 @@ def select_box(win, in_opts, ni, in_row=False, stack_index=0, stack=[]):
             cc = len(st) + 7
         if not in_row:
             show_submenu(win, opts, ni, color=INFO_COLOR)
+            win.refresh()
         else:
             for i, k in enumerate(opts):
                 row = (i // row_cap) + 2
@@ -2454,7 +2471,6 @@ def show_submenu(sub_menu_win, opts, si, is_color=False, color=ITEM_COLOR, activ
                 mprint(" {:<8}".format(str(v)), sub_menu_win, color)
     if start + win_rows < len(opts):
         mprint("...", sub_menu_win, color)
-    mprint("Search: " + search, sub_menu_win, end ="")
     # if footer != "":
     #   mprint(footer, sub_menu_win, cW)
     sub_menu_win.refresh()
@@ -2463,7 +2479,7 @@ def show_submenu(sub_menu_win, opts, si, is_color=False, color=ITEM_COLOR, activ
 menu_win = None
 common_subwin = None
 
-
+# mmm
 def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={}, info="h) help | q) quit"):
     global menu_win, common_subwin, hotkey
 
@@ -2483,6 +2499,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
     else:
         for k, v in hotkeys.items():
             info += " | " + k + ") " + v
+        info += "  (case sensitive)"
         show_info(info)
 
     mprint(title.center(rows), menu_win)
@@ -2500,8 +2517,10 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
     mt, st, old_st  = "", "", ""
     old_val = ""
     prev_ch = 0
+    edit_mode = False
     while ch != ord('q'):
         sel, mi = get_sel(menu, mi)
+        passable_item = sel.startswith('sep') or menu[sel].startswith("button_hidden")
         sub_menu_win = common_subwin
         key_set = False
         cmd = ""
@@ -2511,7 +2530,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
         elif row + start_row + mi >= rows - 1:
             start_row = rows - 2
         refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, active_sel = True)
-        if sel not in options and not str(menu[sel]).startswith("button") and not sel.startswith("sep"):
+        if edit_mode and sel not in options and not str(menu[sel]).startswith("button") and not sel.startswith("sep"):
             cur_val = menu[sel]
             _m = max([len(x) for x in menu.keys()]) + 5
             win_input = cur.newwin(1, cols - 10, row + mi, col)
@@ -2532,10 +2551,11 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                 menu[sel] = cur_val
                 ch = ord('q')
 
+            edit_mode = False
             key_set = True
             if ch != cur.KEY_UP and ch != 27:
                 ch = cur.KEY_DOWN
-            mt = ""
+            return sel, menu, mi + 1
         if sel in subwins:
             if menu[sel] in options[sel]:
                 si = options[sel].index(menu[sel])
@@ -2545,7 +2565,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                                       subwins[sel]["y"],
                                       subwins[sel]["x"])
             sub_menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
-        if not sel.startswith('sep') and not key_set:
+        if not passable_item and not key_set:
             prev_ch = ch
             if  hotkey == "":
                 ch = get_key(std)
@@ -2553,9 +2573,9 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             else:
                 ch, hotkey = ord(hotkey[0]), hotkey[1:]
                 logging.info(f"hotkey = {hotkey}")
-        elif sel.startswith('sep') and mi == 0:
+        elif passable_item and mi == 0:
             ch = cur.KEY_DOWN
-        elif sel.startswith('sep') and mi == len(menu) - 1:
+        elif passable_item and mi == len(menu) - 1:
             ch = cur.KEY_UP
         if ch == cur.KEY_RESIZE:
             mbeep()
@@ -2580,19 +2600,23 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                     return sel, menu, mi
             elif sel.startswith("sep"):
                 mi += 1
-            if not is_button:
+            elif not sel in options:
+                edit_mode = True
+            else:
                 si = 0
                 if sel in options and menu[sel] in options[sel]:
                     si = options[sel].index(menu[sel])
-                if "preset" in menu and title == "theme":
+                if "preset" in menu:
                     last_preset = menu["preset"]
                 refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, active_sel = False)
                 si = open_submenu(sub_menu_win, options, sel, si, title)
                 menu[sel] = options[sel][si]
-                if "preset" in menu and title == "theme":
-                    reset_colors(menu)
+                if "preset" in menu and sel != "preset":
+                    if title == "theme":
+                        reset_colors(menu)
+                    save_obj(menu, menu["preset"], title, common =True)
                 if sel == "preset":
-                    save_obj(menu, last_preset, title)
+                    save_obj(menu, last_preset, title, common =True)
                     new_preset = menu[sel]
                     menu, options = load_preset(new_preset, options, title)
                     last_preset = new_preset
@@ -2603,10 +2627,8 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
 
         if cmd == "save and quit":
             ch = ord('q')
-        elif cmd == "delete":
-            item = menu[sel]
-            delete_item(item, sel, title)
-            show_info(item + " was deleted")
+        elif ch == cur.KEY_DC or cmd == "delete":
+            return "del@" + menu[sel] + "@" + sel, menu, mi
         elif (ch == ord('r') or cmd == "reset") and "preset" in menu:
             menu, options = load_preset("resett", options, title)
             last_preset = menu["preset"]
@@ -2685,13 +2707,17 @@ def open_submenu(sub_menu_win, options, sel, si, title):
         elif ch != 0:
             if ch == 127 or ch == cur.KEY_BACKSPACE:
                 st = st[:-1]
-            elif chr(ch).lower() in string.printable:
+                si, st = find(options[sel], st, "", si)
+            if chr(ch).lower() in string.printable:
                 si, st = find(options[sel], st, chr(ch), si)
-        show_cursor()
         si = min(si, len(options[sel]) - 1)
         si = max(si, 0)
         sub_menu_win.erase()
         show_submenu(sub_menu_win, options[sel], si, "color" in sel, search=st)
+        if len(options[sel]) > 8:
+            show_cursor()
+            mprint("Search: " + st, sub_menu_win, end ="")
+        sub_menu_win.refresh()
         ch = get_key(std)
 
     hide_cursor()
@@ -2725,7 +2751,9 @@ def start(stdscr):
     global colors, template_menu, template_options, theme_options, theme_menu, std, conf, query, filters, top_win, hotkey
 
     std = stdscr
-    logging.info(f"curses colors: {cur.COLORS}")
+
+    logging.info(f"========================= Starting program at ", datetime.datetime.now())
+    # logging.info(f"curses colors: {cur.COLORS}")
 
     rows, cols = std.getmaxyx()
     # mouse = cur.mousemask(cur.ALL_MOUSE_EVENTS)
@@ -2739,7 +2767,7 @@ def start(stdscr):
     now = datetime.datetime.now()
     filter_items = ["year", "conference", "dataset", "task"]
     last_visited = load_obj("last_visited", "articles", [])
-    menu = load_obj("main_menu", "")
+    menu = None #load_obj("main_menu", "")
     isFirst = False
     if menu is None or (newspaper_imported and not "webpage" in menu):
         isFirst = True
@@ -2747,6 +2775,7 @@ def start(stdscr):
         if last_visited:
             menu["recent articles"] = "button"
         menu["reviewed articles"] = "button"
+        menu["notes and comments"] = "button"
         menu["sepb1"] = ""
         menu["sep1"] = "Search AI-related papers"
         if is_obj("last_results", ""):
@@ -2760,7 +2789,6 @@ def start(stdscr):
             menu["sep2"] = "Load website articles"
             menu["website articles"] = "button"
             menu["webpage"] = "button"
-        menu["saved items"] = "button"
         menu["options"] = "button"
         menu["text files"] = "button"
 
@@ -2792,9 +2820,9 @@ def start(stdscr):
             if opt in options:
                 menu[opt] = options[opt][0] if options[opt] else ""
 
-    conf = load_obj("conf", "")
+    conf = load_obj("conf", "", common = True)
     if conf is None:
-        conf = {"theme": "default", "template": "txt"}
+        conf = {"theme": "dark", "template": "txt"}
 
     colors = [str(y) for y in range(-1, cur.COLORS)]
     if cur.COLORS > 100:
@@ -2830,7 +2858,7 @@ def start(stdscr):
     top_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     ch = ''
     shortkeys = {"v": "reviewed articles", "l": "last results", "k": "keywords", "n": "nods", "r": "recent articles",
-                 "t": "tagged articles", "o": "options", "p": "webpage", "a": "advanced search", "s": "saved items",
+                 "t": "tagged articles", "o": "options", "p": "webpage", "a": "advanced search", "n": "notes and comments",
                  "w": "website articles", 't': "text files"}
     mi = 0
     while ch != 'q':
@@ -2850,7 +2878,7 @@ def start(stdscr):
         elif ch == 's' or ch == "saved items":
             saved_items()
         elif ch == "Go!":
-            query = menu["keywords"]
+            query = menu["keywords"] if "keywords" in menu else ""
             if menu["task"] != "All":
                 filters = {"task": menu["task"]}
             fid = menu["task"] + "|" + menu["keywords"]
@@ -2925,47 +2953,86 @@ def rev_articles(sel_art=None):
     else:
         list_articles(rev_articles, "Reviewed Articles", group="saved_articles", sel_art=sel_art)
 
-
-def show_texts(save_folder):
-    subfolders = [f.name for f in os.scandir(save_folder) if f.is_dir()]
+def refresh_texts(save_folder, subfolders, text_files):
     menu = {}
+    menu[".."] = "button"
+    menu["new document"] = ""
+    menu["new folder"] = ""
+    menu["refresh"] = "button_hidden"
+    menu["sep1"] = "----------------------------"
     for sf in subfolders:
-        menu["[>] " + sf] = "button"
-    text_files = [str(Path(f)) for f in Path(save_folder).glob('*.txt') if f.is_file()]
-    if not text_files and not subfolders:
-        menu["new document"] = "button"
-        menu["sep1"] = "------------"
-        menu[".."] = "button"
+        menu["[>] " + sf] = "button@folder"
     count = 1
     for text in text_files:
         name = Path(text).name
         if len(name) > 60:
             name = name[:60] + "..."
         name = "[" + str(count) + "] " + name
-        menu[name] = "button_light"
+        menu[name] = "button_light@file"
         count += 1
+    return menu 
+
+# ttt
+def show_texts(save_folder):
+    subfolders = [f.name for f in os.scandir(save_folder) if f.is_dir()]
+    text_files = [str(Path(f)) for f in Path(save_folder).glob('*.txt') if f.is_file()]
+    menu = refresh_texts(save_folder, subfolders, text_files)
     options = {}
     mi = 0
     ch = ''
     while ch != 'q':
-        ch, menu, mi = show_menu(menu, options, mi=mi)
+        ch, menu, mi = show_menu(menu, options, mi=mi, hotkeys = {'r':'refresh'})
         if ch.startswith("[>"):
             sfolder = save_folder + "/" + ch[4:]
             show_texts(sfolder)
         elif ch == "..":
             ch = 'q'
+        elif ch == "r" or ch == "refresh":
+            subfolders = [f.name for f in os.scandir(save_folder) if f.is_dir()]
+            text_files = [str(Path(f)) for f in Path(save_folder).glob('*.txt') if f.is_file()]
+            menu = refresh_texts(save_folder, subfolders, text_files)
+        elif ch == "new folder":
+            filepath = save_folder + "/"+menu["new folder"] 
+            Path(filepath).mkdir(parents=True, exist_ok=True)
+            subfolders = [f.name for f in os.scandir(save_folder) if f.is_dir()]
+            menu = refresh_texts(save_folder, subfolders, text_files)
         elif ch == "new document":
-            rows, cols = std.getmaxyx()
-            width = 2 * cols // 3
-            #text_win = cur.newpad(rows * 50, cols - 1)
-            text_win = cur.newwin(rows-2, cols - 3, 1, 1)
-            text_win.border()
-            text_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
-            text, _ = minput(text_win, 1, 1, "article name:", default="", multi_line=True, pad =True)
-            with open(save_folder + "/newdoc.txt", 'w') as f:
-                print(text, file = f)
+            filepath = save_folder + "/"+menu["new document"] + ".txt"
+            with open(filepath, "w") as f:
+                print("Write your text file here, rename it and save, then refresh", file = f)
+            if platform.system() == 'Darwin':  # macOS
+                subprocess.call(('open', filepath))
+            elif platform.system() == 'Windows':  # Windows
+                os.startfile(filepath)
+            else:  # linux variants
+                subprocess.call(('xdg-open', filepath))
+            subfolders = [f.name for f in os.scandir(save_folder) if f.is_dir()]
+            text_files = [str(Path(f)) for f in Path(save_folder).glob('*.txt') if f.is_file()]
+            menu = refresh_texts(save_folder, subfolders, text_files)
+        elif "del@" in ch:
+            parts = ch.split("@")
+            fname = parts[3].split("]",1)[1].strip()
+            filepath = save_folder + "/" + fname
+            _confirm = ""
+            if parts[2] == "folder":
+                is_empty = not any(Path(filepath).iterdir())
+                if not is_empty:
+                    show_msg("The folder " + fname + " is not empty and can't be deleted!")
+                else:
+                    _confirm = confirm(win_info, "to delete "+fname)
+            else:
+                    _confirm = confirm(win_info, "to delete "+fname)
+            if _confirm == "y":
+                if parts[2] == "file":
+                    Path(filepath).unlink()
+                elif parts[2] == "folder":
+                    Path(filepath).rmdir()
+
+            subfolders = [f.name for f in os.scandir(save_folder) if f.is_dir()]
+            text_files = [str(Path(f)) for f in Path(save_folder).glob('*.txt') if f.is_file()]
+            menu = refresh_texts(save_folder, subfolders, text_files)
         elif ch != "q":
-            index = mi - len(subfolders)
+            index = mi - len(subfolders) - 4
             text = text_files[index]
             with open(text, "r") as f:
                 data = f.read()
@@ -3038,14 +3105,14 @@ def settings():
         choice, menu, mi = show_menu(menu, options, title="options", shortkeys={"f": "font size", "q": "save and quit"})
         if choice == "theme":
             _, theme_menu, _ = show_menu(theme_menu, theme_options, title="theme")
-            save_obj(theme_menu, conf["theme"], "theme")
+            save_obj(theme_menu, conf["theme"], "theme", common = True)
         if choice == "font size":
             resize_font_on_windows(int(menu["font size"]))  # std)
             show_msg("The font size will changes in the next run of the application")
 
     doc_path = menu["documents folder"]
     Path(doc_path).mkdir(parents=True, exist_ok=True)
-    save_obj(menu, "options", "")
+    save_obj(menu, "options", "", common = True)
 
 def list_notes(note):
     saved_articles = load_obj("saved_articles", "articles", {})
@@ -3371,16 +3438,16 @@ def search():
     filters = {}
     now = datetime.datetime.now()
     filter_items = ["year", "conference", "dataset", "task"]
-    menu = load_obj("query_menu", "")
+    menu = None #load_obj("query_menu", "")
     isFirst = False
     if menu is None:
         isFirst = True
         menu = {}
         if is_obj("last_results", ""):
             menu["last results"] = "button"
+        menu["task"] = ""
         menu["keywords"] = ""
         menu["year"] = ""
-        menu["task"] = ""
         menu["conference"] = ""
         menu["dataset"] = ""
         menu["sep1"] = ""
@@ -3460,7 +3527,7 @@ def show_last_results():
 
 def main():
     global doc_path
-    nr_options = load_obj("options", "")
+    nr_options = load_obj("options", "", common=True)
     if nr_options != None:
         doc_path = nr_options["documents folder"]
         Path(doc_path).mkdir(parents=True, exist_ok=True)
