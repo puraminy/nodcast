@@ -422,8 +422,7 @@ def insert_article_list(articles, art):
         articles.insert(0, art)
 
 def insert_article(articles, art):
-    if not art["id"] in articles:
-        articles[art["id"]] = art
+    articles[art["id"]] = art
 
 def update_article(articles, art):
     insert_article(articles, art)
@@ -528,7 +527,7 @@ def request(p=0):
         return [], "Corrupt or no response...."
     return rsp, ""
 
-
+# lll
 def list_articles(in_articles, fid, show_note=False, group="", filter_nod="", sel_art=None):
     global template_menu, theme_menu, hotkey
 
@@ -545,7 +544,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_nod="", se
             if "nods" in art and art["nods"][0] == filter_nod:
                 articles.append(art)
     rows, cols = std.getmaxyx()
-    main_win = cur.newpad(rows * 50, cols)
+    main_win = cur.newwin(rows-1, cols-2, 1, 5)
     width = cols - 10
     main_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     sel_arts = []
@@ -558,8 +557,8 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_nod="", se
     while ch != ord('q'):
         main_win.erase()
         mprint("", main_win)
-        mprint((fid + " " + query).ljust(width - 36) + "     progess  " + "status", main_win,
-               int(theme_menu["text-color"]))
+        mprint((fid + " " + query).ljust(width - 36) + "      progess  " + "status", main_win,
+               DIM_COLOR)
         # mprint("-"*width, main_win)
         N = len(articles)
         cc = start
@@ -612,32 +611,23 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_nod="", se
             mprint(art_title, main_win, color, end="", attr=att)
             mprint(prog_str, main_win, prog_color, end="", attr=att)
             mprint(art_nod, main_win, art_nod_color, end="\n", attr=att)
-            _list = "nods"
-            if show_note and fid == "comments":
-                _list = "comments"
-            if show_note and _list in a and "sents" in a:
-                for i, note in enumerate(a[_list]):
-                    if (fid == "comments" and note != "") or note == fid:
-                        sent = textwrap.indent(textwrap.fill(str(i) + ") " + a["sents"][i]), '  ')
-                        mprint(sent, main_win, TEXT_COLOR)
-                        if fid == "comments":
-                            mprint(note, main_win, COMMENT_COLOR)
-                        mprint("", main_win)
 
             cc += 1
             jj += 1
             # Endf while
-        mprint("", main_win)
+        mprint("PageDown) Load more ...".ljust(width - 32), main_win, end = "", color = DIM_COLOR)
+        _p = k // 15
+        all_pages = (N // 15) + (1 if N % 15 > 0 else 0)
+        mprint(" total:" + str(N) + " | page " + str(_p + 1) + " of " + str(all_pages), main_win, color = DIM_COLOR)
         left = ((cols - width) // 2)
         rows, cols = std.getmaxyx()
         if hotkey == "":
             # print_sect(cur_title, cur_prog, left)
             mprint(cur_title, main_win)
-            main_win.refresh(0, 0, 2, 5, rows - 2, cols - 6)
-            _p = k // 15
-            all_pages = (N // 15) + (1 if N % 15 > 0 else 0)
-            show_info("Enter) view article       PageDown) next page (load more...)     h) other commands ")
-            print_there(0, cols - 15, "|" + str(N) + "|" + str(_p + 1) + " of " + str(all_pages), win_info, INFO_COLOR)
+            #main_win.refresh(0, 0, 2, 5, rows - 2, cols - 6)
+            std.refresh()
+            main_win.refresh()
+            show_info("h) list commands ")
 
         if hotkey == "":
             ch = get_key(std)
@@ -648,7 +638,8 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_nod="", se
             k = max(k, 0)
             k = min(k, N - 1)
             main_win.erase()
-            main_win.refresh(0, 0, 2, 5, rows - 3, cols - 6)
+            # main_win.refresh(0, 0, 2, 5, rows - 3, cols - 6)
+            main_win.refresh()
             if show_note:
                 show_article(articles[k], fid)
             else:
@@ -699,30 +690,31 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_nod="", se
 
         if ch == ord('h'):
             show_info(('\n'
-                       ' s)          select/deselect an article\n'
-                       ' a)          select all articles\n'
-                       ' r/Enter)    open the selected article\n'
-                       " f/Left)     filter the articles by the title's nod \n"
-                       ' t)          tag the selected items\n'
-                       ' d/DEL)      delete the selected items from list\n'
-                       ' w)          write the selected items into files\n'
-                       ' p)          select the output file format\n'
-                       ' m)          change the color theme\n'
-                       ' HOME)       go to the first item\n'
-                       ' END)        go to the last item\n'
-                       ' PageUp)     previous page\n'
-                       ' Arrow keys) next, previous article\n'
-                       ' q)          return back to the search menu\n'),
+                       ' s)            select/deselect an article\n'
+                       ' a)            select all articles\n'
+                       ' r/Enter)      open the selected article\n'
+                       " f/Left)       filter the articles by the title's nod \n"
+                       ' t)            tag the selected items\n'
+                       ' d/DEL)        delete the selected items from list\n'
+                       ' w)            write the selected items into files\n'
+                       ' p)            select the output file format\n'
+                       ' m)            change the color theme\n'
+                       ' HOME)         go to the first item\n'
+                       ' END)          go to the last item\n'
+                       ' PageDown)     next page or load more\n'
+                       ' PageUp)       previous page\n'
+                       ' Arrow keys)   next, previous article\n'
+                       ' q/BackSpace)  return back to the main menu\n'),
                       bottom=False)
         if ch == ord('s'):
             if not articles[k] in sel_arts:
                 sel_arts.append(articles[k])
             else:
                 sel_arts.remove(articles[k])
-        if ch == 127 or ch == cur.KEY_LEFT:
+        if ch == 127:
             ch = ord('q')
-        if ch == ord('f') or ch == cur.KEY_IC:
-            tmp, _ = sel_nod(art_nods, 5, 10, ni, 0)
+        if ch == ord('f') or ch == cur.KEY_LEFT:
+            tmp, _ = sel_nod(art_nods, 5, 10, ni, 0, title = "Filter articles by:")
             _nod = tmp if tmp != "NULL" else ""
             if _nod != "":
                 list_articles(articles, fid, show_note, group, _nod)
@@ -863,7 +855,7 @@ art_nods = ["interesting!", "favorite!", "important!", "needs review", "needs re
 feedbacks = set(right_nods + left_nods + notes_list + nods_list + art_nods)
 
 
-def sel_nod(opts, ypos, left, ni, si, no_win=False, in_row=False):
+def sel_nod(opts, ypos, left, ni, si, no_win=False, in_row=False, title =""):
     if no_win:
         _nod = opts[ni]
         return _nod, 0
@@ -872,7 +864,7 @@ def sel_nod(opts, ypos, left, ni, si, no_win=False, in_row=False):
     nod_win = cur.newwin(8, w, ypos + 2, left)
     nod_win.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
     stack = []
-    ni, stack_index = select_box(nod_win, opts, ni, stack_index=0, in_row=in_row, stack=stack)
+    ni, stack_index = select_box(nod_win, opts, ni, stack_index=0, in_row=in_row, stack=stack, title="")
     if ni >= 0:
         _nod = opts[ni]
         if _nod == "custom":
@@ -949,7 +941,7 @@ def show_article(art, show_note=""):
     start_row = 0
     rows, cols = std.getmaxyx()
     width = 2 * cols // 3
-    text_win = cur.newpad(rows * 100, cols - 1)
+    text_win = cur.newpad(rows * 30, cols - 1)
     text_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
 
     figures = []
@@ -1424,6 +1416,7 @@ def show_article(art, show_note=""):
         ypos = pos[bmark] - start_row
         if hotkey == "":
             text_win.refresh(start_row, 0, 2, left, rows - 2, cols - 1)
+            cur.doupdate()
             show_info(main_info)
         if sc > 0 and expand != 0:
             if pos[offset] <= start_row:
@@ -2095,7 +2088,7 @@ def show_article(art, show_note=""):
             insert_article_list(last_visited, art)
             save_obj(last_visited, "last_visited", "articles")
     return ""
-
+# eee
 
 def create_figures_file(figures, fname):
     html = """
@@ -2141,7 +2134,7 @@ def create_figures_file(figures, fname):
         f.write(html)
 
 # rrr
-def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, horiz=False, active_sel=True):
+def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, horiz=False, active_sel=True, pad=False):
     global clG
     menu_win.erase()
     mprint("", menu_win)
@@ -2212,8 +2205,11 @@ def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, 
     start_row = min(start_row, 2 * rows)
     if hotkey == "":
         logging.info(f"Refreshing ...", menu)
-        menu_win.refresh(start_row, 0, 0, 0, rows - 2, cols - 1)
-        std.refresh()
+        if pad:
+            menu_win.refresh(start_row, 0, 0, 0, rows - 2, cols - 1)
+        else:
+            std.refresh()
+            menu_win.refresh()
         for k, item in subwins.items():
             sub_menu_win = cur.newwin(item["h"],
                                       item["w"],
@@ -2310,14 +2306,14 @@ def load_preset(new_preset, options, folder=""):
         menu = load_obj("chk_def_" + new_preset, folder, data_dir=False)
         save_obj(menu, new_preset, folder, common=True)
     if menu == None and folder == "theme":
-        dark = load_obj("chk_def_dark", folder, data_dir=False)
+        default = load_obj("chk_def_default", folder, data_dir=False)
         light = load_obj("chk_def_light", folder, data_dir=False)
         neon = load_obj("chk_def_neon", folder, data_dir=False)
-        save_obj(dark, "dark", folder, common=True)
+        save_obj(default, "default", folder, common=True)
         save_obj(light, "light", folder, common=True)
         save_obj(neon, "neon", folder, common=True)
-        if dark is None:
-            dark = {'preset': 'dark', "sep1": "colors", 'text-color': '247', 'back-color': '233', 'item-color': '71',
+        if default is None:
+            default = {'preset': 'default', "sep1": "colors", 'text-color': '247', 'back-color': '233', 'item-color': '71',
                     'cur-item-color': '251', 'sel-item-color': '33', 'title-color': '28', "sep2": "reading mode",
                     "dim-color": '241', "highlight-color": '236', "hl-text-color": "250", "inverse-highlight": "True",
                     "bold-highlight": "True", "bold-text": "False", "sep5": "Feedback Colors"}
@@ -2325,14 +2321,14 @@ def load_preset(new_preset, options, folder=""):
                 v = 250
                 if k in nod_color_light:
                     v = nod_color_light[k]
-                dark[k] = str(v)
+                default[k] = str(v)
 
-            dark["save as"] = "button"
-            dark["reset"] = "button"
-            dark["delete"] = "button"
-            dark["save and quit"] = "button"
-            save_obj(dark, "dark", "theme", common = True)
-        new_preset = "dark"
+            default["save as"] = "button"
+            default["reset"] = "button"
+            default["delete"] = "button"
+            default["save and quit"] = "button"
+            save_obj(default, "default", "theme", common = True)
+        new_preset = "default"
 
     if menu == None and folder == "template":
         text = {"preset": "txt", "top": "", "title": "# {title}", "section-title": "## {section-title}",
@@ -2362,12 +2358,13 @@ def load_preset(new_preset, options, folder=""):
     return menu, options
 
 
-def select_box(win, in_opts, ni, in_row=False, stack_index=0, stack=[]):
+def select_box(win, in_opts, ni, in_row=False, stack_index=0, stack=[], title=""):
     ch = 0
     win.border()
     if not in_opts:
         show_err("No item to list")
         return ni, stack_index
+    mprint(title, win)
     while ch != 27 and ch != ord('q'):
         opts = []
         for i, k in enumerate(in_opts):
@@ -2488,7 +2485,10 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
     height = rows - 1
     width = cols
 
-    menu_win = cur.newpad(rows * 5, cols)
+    if False: #len(menu)+ 5 > rows:
+        menu_win = cur.newpad(rows , cols)
+    else:
+        menu_win = cur.newwin(rows, cols, 0, 0)
     common_subwin = cur.newwin(rows - 6, width // 2 + 5, 5, width // 2 - 5)
 
     menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
@@ -2509,7 +2509,6 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
         last_preset = menu["preset"]
         shortkeys["r"] = "reset"
         shortkeys["s"] = "save as"
-        shortkeys["d"] = "delete"
         shortkeys["q"] = "save and quit"
 
     row = 3
@@ -2553,9 +2552,11 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
 
             edit_mode = False
             key_set = True
+            ret_mi = mi - 1
             if ch != cur.KEY_UP and ch != 27:
                 ch = cur.KEY_DOWN
-            return sel, menu, mi + 1
+                ret_mi = mi + 1
+            return sel, menu, ret_mi 
         if sel in subwins:
             if menu[sel] in options[sel]:
                 si = options[sel].index(menu[sel])
@@ -2645,6 +2646,8 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                 if fname.startswith("chk_def_"):
                     save_obj(menu, fname, title, data_dir=False)
                     fname = menu["preset"]
+                else:
+                    save_obj(menu, fname, title, common= True)
 
                 menu["preset"] = fname
 
@@ -2695,15 +2698,18 @@ def open_submenu(sub_menu_win, options, sel, si, title):
         elif ch == cur.KEY_LEFT or ch == 27:
             si = old_si
             break
-        elif ch == cur.KEY_DC:
-            item = options[sel][si]
-            delete_item(item, sel, title)
-            if item in options[sel]:
-                options[sel].remove(item)
-            if si > len(options[sel]):
-                si = len(options[sel]) 
+        elif ch == cur.KEY_DC and sel == "preset":
+            if len(options[sel]) == 1 or options[sel][si] == "default":
+                show_msg("You can't delete the default " + title, color = WARNING_COLOR)
             else:
-                new_item = "None"
+                item = options[sel][si]
+                delete_preset(item, sel, title)
+                if item in options[sel]:
+                    options[sel].remove(item)
+                if si > len(options[sel]):
+                    si = len(options[sel]) 
+                else:
+                    new_item = "None"
         elif ch != 0:
             if ch == 127 or ch == cur.KEY_BACKSPACE:
                 st = st[:-1]
@@ -2720,16 +2726,17 @@ def open_submenu(sub_menu_win, options, sel, si, title):
         sub_menu_win.refresh()
         ch = get_key(std)
 
+    si = min(si, len(options[sel]) - 1)
+    si = max(si, 0)
     hide_cursor()
     sub_menu_win.erase()
     return si
 
-def delete_item(item, sel, title):
+def delete_preset(item, sel, title):
     _confirm = confirm(win_info,
                        "delete '" + item)
     if _confirm == "y" or _confirm == "a":
-        show_info("Deleting '" + item + "'")
-        del_obj(item, title)
+        del_obj(item, title, common = True)
 
 def find(list, st, ch, default):
     _find = st + ch
@@ -2751,8 +2758,9 @@ def start(stdscr):
     global colors, template_menu, template_options, theme_options, theme_menu, std, conf, query, filters, top_win, hotkey
 
     std = stdscr
-
-    logging.info(f"========================= Starting program at ", datetime.datetime.now())
+    stdscr.refresh()
+    now = datetime.datetime.now()
+    logging.info(f"========================= Starting program at {now}")
     # logging.info(f"curses colors: {cur.COLORS}")
 
     rows, cols = std.getmaxyx()
@@ -2767,15 +2775,14 @@ def start(stdscr):
     now = datetime.datetime.now()
     filter_items = ["year", "conference", "dataset", "task"]
     last_visited = load_obj("last_visited", "articles", [])
-    menu = None #load_obj("main_menu", "")
+    menu =  load_obj("main_menu", "")
     isFirst = False
     if menu is None or (newspaper_imported and not "webpage" in menu):
         isFirst = True
         menu = {}
         if last_visited:
             menu["recent articles"] = "button"
-        menu["reviewed articles"] = "button"
-        menu["notes and comments"] = "button"
+        menu["notes, reviews and comments"] = "button"
         menu["sepb1"] = ""
         menu["sep1"] = "Search AI-related papers"
         if is_obj("last_results", ""):
@@ -2822,7 +2829,7 @@ def start(stdscr):
 
     conf = load_obj("conf", "", common = True)
     if conf is None:
-        conf = {"theme": "dark", "template": "txt"}
+        conf = {"theme": "default", "template": "txt"}
 
     colors = [str(y) for y in range(-1, cur.COLORS)]
     if cur.COLORS > 100:
@@ -2858,7 +2865,7 @@ def start(stdscr):
     top_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     ch = ''
     shortkeys = {"v": "reviewed articles", "l": "last results", "k": "keywords", "n": "nods", "r": "recent articles",
-                 "t": "tagged articles", "o": "options", "p": "webpage", "a": "advanced search", "n": "notes and comments",
+                 "t": "tagged articles", "o": "options", "p": "webpage", "a": "advanced search", "n": "notes, reviews and comments",
                  "w": "website articles", 't': "text files"}
     mi = 0
     while ch != 'q':
@@ -2875,7 +2882,7 @@ def start(stdscr):
             show_last_results()
         elif ch == 'v' or ch == "reviewed articles":
             rev_articles()
-        elif ch == 's' or ch == "saved items":
+        elif ch == 's' or ch == "notes, reviews and comments":
             saved_items()
         elif ch == "Go!":
             query = menu["keywords"] if "keywords" in menu else ""
@@ -2902,12 +2909,11 @@ def start(stdscr):
                        '      /  |/ / __ \/ __  / /   / __ `/ ___/ __/\n'
                        '     / /|  / /_/ / /_/ / /___/ /_/ (__  ) /_  \n'
                        '    /_/ |_/\____/\__,_/\____/\__,_/____/\__/  \n'
-                       '  Please visit the following link to get an overview of Nodcast:\n'
-                       '\thttps://github.com/puraminy/nodcast\n\n'
+                       '  Please visit the following link to get an overview of Checkideh:\n'
+                       '\thttps://checkideh.com\n\n'
                        '\tArrow keys)   Next, previous item\n'
                        '\tEnter)        Open/Run the selected item\n'
                        '\tPageUp/Down)  First/Last item\n'
-                       '\trrr           Resume reading from last article\n'
                        '\n  Further help was provided in each section.\n'),
                       bottom=False)
             # name = '../README.md'
@@ -2926,10 +2932,6 @@ def start(stdscr):
             save_folder = doc_path + '/txt'
             Path(save_folder).mkdir(parents=True, exist_ok=True)
             show_texts(save_folder)
-        elif ch.startswith("del@recent articles"):
-            parts = ch.split("@")
-            last_visited.pop(int(parts[2]))
-            save_obj(last_visited, "last_visited", "articles")
         elif ch == 'o' or ch == "saved articles":
             selected = menu["saved articles"]
             if selected == None:
@@ -3137,16 +3139,25 @@ def list_notes(note):
 
 def list_comments():
     saved_articles = load_obj("saved_articles", "articles", [])
-    N = len(saved_articles)
-    art_list = []
-    for art in saved_articles.values():
+    n_art = {"id":"comments", "title": "Comments" ,"pdfUrl":"na", "sections":[], "comments":{}}
+    for art_id, art in saved_articles.items():
         if "comments" in art:
-            art_list.append(art)
-    if len(art_list) > 0:
-        ret = list_articles(art_list, "comments", True)
-    else:
-        show_msg("There is no article with comments!")
-        return
+            title = art["title"]
+            if title == "Comments":
+                continue
+            new_sect = {"title":title}
+            ii = 2
+            frags = []
+            for si, comment in art["comments"].items():
+                if si <= 0:
+                    continue
+                frag = {"text":str(si) + ") " + art["sents"][si]}
+                n_art["comments"][ii] = comment
+                frags.append(frag)
+                ii += 1
+            new_sect["fragments"] = frags
+            n_art["sections"].append(new_sect)
+    show_article(n_art)
 
 def refresh_notes(in_note="notes"):
     saved_articles = load_obj("saved_articles", "articles", {})
@@ -3513,14 +3524,14 @@ def show_last_results():
     menu = load_obj("query_menu", "", {"keywords": ""})
     last_query = menu["keywords"]
     query = last_query
-    last_results_file = user_data_dir(appname, appauthor) + "/last_results.pkl"
+    last_results_file = user_data_dir(appname, appauthor)+ "/profiles/" + profile + "/last_results.pkl"
     obj_file = Path(last_results_file)
     if obj_file.is_file():
         cr_time = time.ctime(os.path.getmtime(last_results_file))
         cr_date = str(cr_time)
-    articles = load_obj("last_results", "", [])
-    if articles:
-        ret = list_articles(articles, "results at " + str(cr_date) + " for " + last_query)
+        articles = load_obj("last_results", "", [])
+        if articles:
+            ret = list_articles(articles, "results at " + str(cr_date) + " for " + last_query)
     else:
         show_msg("Last results is missing....")
 
