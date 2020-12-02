@@ -1,4 +1,4 @@
-# Nodcast v 0.1.2 
+# Nodcast v 0.1.2
 import requests
 import io
 import platform
@@ -406,7 +406,7 @@ def get_index(articles, art):
 
 def get_article(articles, art_id):
     for a in articles:
-        if a["id"] == art["id"]:
+        if a["id"] == art_id:
             return a
     return None
 
@@ -947,12 +947,56 @@ def print_prog(text_win, prog, width):
     mprint(addinfo, text_win, d_color)
 
 
+def init_frag(frag):
+    f_sents = split_into_sentences(frag['text'])
+    _sents = [{"text":s, "nod":"", "notes":[], "rtime":0, "tries":1, "comment":""} for s in f_sents]
+    frag["sents"] = _sents
+
+def refresh_offsets(art):
+    ii = 1
+    prev_sect = None
+    fn = 0
+    for sect in art["sections"]:
+        sect["offset"] = ii
+        if not "progs" in sect:
+            sect["progs"] = 0
+        if not prev_sect is None:
+            prev_sect["sents_num"] = ii - prev_sect["offset"]
+        prev_sect = sect
+        ii += 1
+        for frag in sect["fragments"]:
+            fn += 1
+            frag["offset"] = ii
+            if not "sents" in frag:
+                init_frag(frag)
+            ii += len(frag["sents"])
+    sect["sents_num"] = ii - prev_sect["offset"]
+    return len(art["sections"]),fn, ii
+
+def locate(art, si):
+    ii = 0
+    if si < 0:
+        si = 0
+    for sect in art["sections"]:
+        if si < sect["offset"] + sect["sents_num"]:
+            break
+
+    for frag in sect["fragments"]:
+        if si < frag["offset"] + len(frag["sents"]):
+            break
+
+    for i, sent in enumerate(frag["sents"]):
+        s_start = frag["offset"] + i
+        if  s_start < si:
+            continue
+        else:
+            return sect, frag, sent, s_start 
+    return sect, frag, sent, s_start 
 # sss
 def show_article(art, show_note=""):
     global theme_menu, theme_options, query, filters, hotkey
 
     sel_sects = {}
-    k, sc = 0, 0
     fast_read = False
     start_row = 0
     rows, cols = std.getmaxyx()
@@ -1019,96 +1063,18 @@ def show_article(art, show_note=""):
     if True:
         with open("art.txt", "w") as f:
             print(str(art), file=f)
-    sc = 0
-    fc = 1
     si = 0
     bmark = 0
-    frags_sents = {}
-    frags_sents[0] = 0 
-    fsn = 1
-    ffn = 1
-    nods = []
-    has_nods = False
-    if "nods" in art:
-        nods = art["nods"]
-        has_nods = True
-    comments = {}
-    if "comments" in art:
-        comments = art["comments"]
-    art["sents"] = {}
-    art["sents"][0] = art["title"]
-    last_sect = -1
-    sn = 0
-    total_pr = 0
-    progs = [0] * len(art["sections"])
-    update = False
-
-    for b in art["sections"]:
-        frags_text = ""
-        b['frags_offset'] = ffn
-        b["sents_offset"] = fsn
-        frags_sents[ffn] = fsn
-        art["sents"][fsn] = b["title"]
-        last_sect = fsn
-        visible[fsn] = True if show_note == '' else False
-        ffn += 1
-        fsn += 1
-        pr = 0
-        for c in b['fragments']:
-            text = c['text']
-            if not "sents" in c or update:
-                sents = split_into_sentences(text)
-                c["sents"] = [{"text":s} for s in sents]
-            else:
-                sents = c["sents"]
-            frags_sents[ffn] = fsn
-            c['sents_offset'] = fsn
-            c['sents_num'] = len(sents)
-            nexts = 0
-            for ii, sent in enumerate(sents):
-                art["sents"][fsn] = sent
-                c["sents"][ii]["visible"] = True
-                if show_note == "comments" and comments:
-                    if fsn in comments:
-                        b["visible"] = True
-                    else:
-                        sent["visible"] = False
-                elif "nod" in sent:
-                    if sent["nod"] in right_nods:
-                        nexts += 1
-                        pr += nexts
-                        nexts = 0
-                    elif sent["nod"] == "next":
-                        nexts += 1
-                    else:
-                        nexts = 0
-                    if show_note == sent["nod"]:
-                        b["visible"] = True
-                    elif show_note != '':
-                        sent["visible"] = False
-                fsn += 1
-            ffn += 1
-        sents_num = fsn - b["sents_offset"]
-        b["sents_num"] = sents_num
-        prog = int(round(pr / (sents_num - 1), 2) * 100) if sents_num > 1 else 0
-        total_pr += prog
-        progs[sn] = pr
-        b["prog"] = prog
-        sn += 1
-        b['frags_num'] = len(b["fragments"])
-    total_sents = fsn
-    total_frags = ffn
     total_sects = len(art["sections"])
     if total_sects > 1 and show_note == "":
         expand = 0
-        sect_opened = [False] * total_sects
+        for _sect in art["sections"]:
+            _sect["opened"] = False
     else:
         expand = 1
-        sect_opened = [True] * total_sects
+        for _sect in art["sections"]:
+            _sect["opened"] = True
     si = 2
-    fc = 2
-    if si >= total_sents - 1:
-        si = 0
 
     if bmark < si:
         bmark = si
@@ -1116,21 +1082,7 @@ def show_article(art, show_note=""):
     ch = 0
     main_info = "r) resume reading      h) list commands "
     show_info(main_info)
-    if len(nods) < total_sents:
-        nods += [""] * (total_sents - len(nods))
     ni, fi = 0, 0
-    passable = [False] * total_sents
-    notes = []
-    if not "notes" in art:
-        notes = {}
-        notes[0] = ["not reviewed"]
-    else:
-        notes = art["notes"]
-    if "times" in art:
-        rtime = art["times"]
-    else:
-        rtime = {}
-    pos = [0] * total_sents
     last_pos = 0
     art_changed = False
     art_changed = False
@@ -1143,11 +1095,25 @@ def show_article(art, show_note=""):
     old_si = -1
     reading_mode = False
 
+    total_sects, total_frags, total_sents = refresh_offsets(art)
+    pos = [0]*total_sents
+    nods = [""]*total_sents
+    visible = [True]*total_sents
+    passable = [False]*total_sents
+
     logging.info("Article:" + art["title"])
-    logging.info("Total Sents:" + str(total_sents))
-    # bbb
+# bbb
+    total_pr = int(art["total_prog"])*total_sects if "total_prog" in art else 0
+    start_time = 0
     while ch != ord('q'):
         # clear_screen(text_win)
+        end_time = time.time()
+        elapsed_time = end_time - start_time if start_time != 0 else 2
+        if elapsed_time < 0.05:  # prevent fast scroll by mouse
+            ch = get_key(std)
+            continue
+        cur_sect, cur_frag, cur_sent, si = locate(art, si)
+        bmark = min(bmark, si)
         if si != old_si:
             cur_nod = ""
             old_si = si
@@ -1162,8 +1128,6 @@ def show_article(art, show_note=""):
             text_win.erase()
         start_time = time.time()
         sn = 0
-        sc = max(sc, 0)
-        sc = min(sc, total_sects)
         title = "\n".join(textwrap.wrap(art["title"], width))  # wrap at 60 characters
         pdfurl = art["pdfUrl"]
         if "save_folder" in art and Path(art["save_folder"]).is_file():
@@ -1181,30 +1145,13 @@ def show_article(art, show_note=""):
             mprint(top, text_win, HL_COLOR, attr=cur.A_BOLD)
             cur_sent = top
             if expand == 0:
-                for ii in range(len(sect_opened)):
-                    sect_opened[ii] = False
+               for _sect in art["sections"]:
+                    _sect["opened"] = False
         else:
             mprint(top, text_win, TITLE_COLOR, attr=cur.A_BOLD)
-        if nods[0] == "":
-            nods[0] = "not reviewed"
-        if nods[0] == "not reviewed":
-            inst = "Press # to select a review tag for the article."
-            mprint(inst, text_win, DIM_COLOR)
-        d_color = find_color(nods, 0)
-        mprint(nods[0], text_win, d_color, end="")
         print_prog(text_win, total_prog, width)
         # mprint(pdfurl,  text_win, TITLE_COLOR, attr = cur.A_BOLD)
-        if not 0 in comments:
-            comments[0] = "My review:"
-        if comments[0] == "My review:":
-            inst = "Press @ to insert a review on the article."
-            mprint(inst, text_win, DIM_COLOR)
-        if comments[0] != "":
-            com = textwrap.wrap(comments[0], width=width - 5, replace_whitespace=False)
-            com = "\n".join(com)
-            mprint(com, text_win, COMMENT_COLOR)
         pos[0], _ = text_win.getyx()
-        passable[0] = False
         mprint("", text_win)
         fsn = 1
         ffn = 1
@@ -1221,31 +1168,26 @@ def show_article(art, show_note=""):
                 is_section = True
                 title_color = HL_COLOR
                 # si = si + 1
-                # fc = art["sections"][sc]["frags_offset"] + 1
-            if (sn == sc and si > 0 and
-                    (expand == 0 and sect_opened[sc])):  # and si == b["sents_offset"]))):
+            if (b == cur_sect and expand == 0 and cur_sect["opened"]): 
                 text_win.erase()
-                # text_win.refresh(start_row,0, 0,0, rows-1, cols-1)
             sents_num = b["sents_num"] - 1
-            prog = int(round(progs[sn] / sents_num, 2) * 100)
+            prog = int(round(b["progs"] / sents_num, 2) * 100) if "prog" in b else 0
             b["prog"] = prog
             prog_color = scale_color(prog)
             total_pr += prog
             prog = str(prog) + "%"  # + " (" + str(progs[sn]) +  "/" + str(sents_num) + ")"
+            passable[fsn] = True
 
-            if sn == sc and si > 0:
+            if b == cur_sect and si > 0:
                 if b["title"] == "Figures":
                     add_info = " (" + str(len(figures)) + ") "
                 else:
                     add_info = " [" + str(prog) + "] "  # + f"({sect_fc+1}/{fnum})"
-                if True:  # fsn != si:
-                    # if art_id in sel_sects and b["title"].lower() in sel_sects[art_id]:
-                    if sect_opened[sc]:
-                        title_color = SEL_ITEM_COLOR  # HL_COLOR
-                    else:
-                        title_color = CUR_ITEM_COLOR
-                        prog_color = title_color
-
+                if cur_sect["opened"]:
+                    title_color = SEL_ITEM_COLOR  # HL_COLOR
+                else:
+                    title_color = CUR_ITEM_COLOR
+                    prog_color = title_color
             else:
                 if b["title"] == "Figures":
                     add_info = " (" + str(len(figures)) + ") "
@@ -1257,64 +1199,52 @@ def show_article(art, show_note=""):
                 mprint(add_info, text_win, prog_color, attr=cur.A_BOLD)
 
             pos[fsn], _ = text_win.getyx()
-            passable[fsn] = True
             ffn += 1
             fsn += 1
-            if (expand == 0 and sn != sc):
+            if (expand == 0 and b != cur_sect):
                 fsn += b["sents_num"] - 1
                 ffn += len(b["fragments"])
-            elif (expand == 0 and not sect_opened[sc]):
+            elif (expand == 0 and not cur_sect["opened"]):
                 fsn += b["sents_num"] - 1
                 ffn += len(b["fragments"])
             else:
-                # mprint("", text_win)
                 for frag in fragments:
                     if ffn != fc and expand == 3:
                         fsn += frag['sents_num']
                         ffn += 1
                     else:
                         new_frag = True
-                        if not "sents" in frag:
-                            _sents = split_into_sentences(frag['text'])
-                            frag["sents"] = _sents
-                        else:
-                            _sents = frag["sents"]
-
-                        # if "level" in frag:
-                        # color = frag["level"] % 250
+                        if True: #not "sents" in frag:
+                            init_frag(frag)
+                        _sents = frag["sents"]
                         hlcolor = HL_COLOR
                         color = DIM_COLOR
                         if True:
                             nexts = 0
                             for sent in _sents:
-                                feedback = nods[fsn] 
-                                if sn == sc:
-                                    if nods[fsn] in right_nods:
+                                feedback = sent["nod"] if "nod" in sent else ""
+                                logging.info(f"fsn:{fsn}")
+                                nods[fsn]= sent["nod"]
+
+                                if b == cur_sect:
+                                    if sent["nod"] in right_nods:
                                         nexts += 1
                                         pr += nexts
-                                        progs[sc] = pr
+                                        cur_sect["progs"] = pr
                                         nexts = 0
-                                    elif nods[fsn] == "next":
+                                    elif sent["nod"] == "next":
                                         nexts += 1
                                     else:
                                         nexts = 0
                                 if show_note == "comments":
-                                    if fsn in comments and comments[fsn] != "":
+                                    if sent["comment"] != "":
                                         visible[fsn] = True
-                                        tfsn = fsn - 1
-                                        while tfsn > 0 and nods[tfsn] == "next":
-                                            visible[tfsn] = True
-                                            tfsn -= 1
                                     else:
                                         visible[fsn] = False
-                                elif (show_note != "" and fsn in notes and not show_note in notes[fsn]) or fsn in notes and "remove" in notes[fsn]:
+                                elif (show_note != "" and not show_note in sent["notes"]) or "remove" in sent["notes"]:
                                     visible[fsn] = False
-                                elif show_note != "" and fsn in notes and not "remove" in notes[fsn]:
+                                elif show_note != "" and not "remove" in sent["notes"]:
                                     visible[fsn] = True
-                                    tfsn = fsn - 1
-                                    while tfsn > 0 and nods[tfsn] == "next":
-                                        visible[tfsn] = True
-                                        tfsn -= 1
 
                                 if not visible[fsn]:
                                     pos[fsn], _ = text_win.getyx()
@@ -1322,30 +1252,23 @@ def show_article(art, show_note=""):
                                     continue
 
                                 # cur.init_pair(NOD_COLOR,back_color,cG)
-                                reading_time = rtime[fsn][1] if fsn in rtime else 0
+                                reading_time = sent["rtime"]
                                 f_color = HL_COLOR
                                 hline = "-" * (width)
                                 if show_reading_time:
                                     f_color = scale_color((100 - reading_time * 4), 0.1)
                                     mprint(str(reading_time), text_win, f_color)
-                                lines = textwrap.wrap(sent, width - 4)
+
+                                text = sent["text"]
+                                lines = textwrap.wrap(text, width - 4)
                                 lines = filter(None, lines)
                                 end = ""
-                                sent = ""
                                 # sent += " "*(width -2) + "\n"
+                                sent_text = ""
                                 for line in lines:
-                                    sent += "  " + line.ljust(width - 4) + "\n"
+                                    sent_text += "  " + line.ljust(width - 4) + "\n"
                                     # sent += " "*(width - 2) + "\n"
-                                if nods[fsn] == "" or nods[fsn] == "next":
-                                    pass
-                                # if nods[fsn] == "interesting!":
-                                #    interestings += 1
-                                # if interestings > 5 and (nods[0] == "" or nods[0] == "not reviewed"):
-                                #    nods[0] = "interesting!"
-                                # sent += " "*(width -2) + "\n"
-
-                                # fff
-                                if fsn >= bmark and fsn <= si and not passable[fsn]:
+                                if fsn >= bmark and fsn <= si:
                                     hl_pos = text_win.getyx()
                                     cur_sent = sent
                                     hlcolor = HL_COLOR
@@ -1357,17 +1280,17 @@ def show_article(art, show_note=""):
                                     cur.init_pair(TEMP_COLOR, l_color % cur.COLORS, b_color)
                                     _color = HL_COLOR
                                     if theme_menu["bold-highlight"] == "True":
-                                        mprint(sent, text_win, _color, attr=cur.A_BOLD, end=end)
+                                        mprint(sent_text, text_win, _color, attr=cur.A_BOLD, end=end)
                                     else:
-                                        mprint(sent, text_win, _color, end=end)
+                                        mprint(sent_text, text_win, _color, end=end)
                                 else:
                                     _color = DIM_COLOR
-                                    if nods[fsn] != "":
-                                        _color = find_color(nods, fsn)
+                                    if sent["nod"] != "":
+                                        _color = find_nod_color(sent["nod"])
                                     if theme_menu["bold-text"] == "True":
-                                        mprint(sent, text_win, _color, attr=cur.A_BOLD, end=end)
+                                        mprint(sent_text, text_win, _color, attr=cur.A_BOLD, end=end)
                                     else:
-                                        mprint(sent, text_win, _color, end=end)
+                                        mprint(sent_text, text_win, _color, end=end)
                                 mark = ""
                                 if "url" in frag and new_frag:
                                     mark = "f"
@@ -1375,21 +1298,20 @@ def show_article(art, show_note=""):
                                 ypos = pos[fsn - 1]
                                 _y, _x = text_win.getyx()
                                 nn = [mark]
-                                if fsn in notes:
-                                    nn += notes[fsn]
-                                if nods[fsn] in notes_list:
-                                    nn.append(nods[fsn])
+                                for note in sent["notes"]:
+                                    nn.append(note)
                                 print_notes(text_win, nn, ypos, width + 1)
                                 text_win.move(_y, _x)
 
                                 if not passable[fsn]:
-                                    if fsn in comments and comments[fsn] != "":
+                                    if sent["comment"] != "":
+                                        comment = sent["comment"]
                                         if False:  # fsn >= bmark and fsn <= si:
-                                            tmp = comments[fsn].ljust(width - 2)
+                                            tmp = comment.ljust(width - 2)
                                             cur.init_pair(TEMP_COLOR2, back_color, COMMENT_COLOR % cur.COLORS)
                                             mprint(tmp, text_win, TEMP_COLOR2, end="\n")
                                         else:
-                                            com = textwrap.wrap(comments[fsn],
+                                            com = textwrap.wrap(comment,
                                                                 width=width - 5, replace_whitespace=False)
                                             com = "\n".join(com)
                                             mprint(com, text_win, SEL_ITEM_COLOR, end="\n")
@@ -1413,9 +1335,6 @@ def show_article(art, show_note=""):
 
         # print(":", end="", flush=True)
         cury, curx = text_win.getyx()
-        sc = min(sc, total_sects)
-        f_offset = art['sections'][sc]['frags_offset']
-        offset = art["sections"][sc]["sents_offset"]
         # show_info("frags:"+ str(total_frags) + " start row:" + str(start_row) + " frag offset:"+ str(f_offset)  + " fc:" + str(fc) + " si:" + str(si) + " bmark:" + str(bmark))
         # mark get_key
         if not (ch == ord('.') or ch == ord(',')):
@@ -1432,11 +1351,11 @@ def show_article(art, show_note=""):
         ypos = pos[bmark] - start_row
         if hotkey == "":
             text_win.refresh(start_row, 0, 2, left, rows - 2, cols - 1)
-            cur.doupdate()
+            #cur.doupdate()
             show_info(main_info)
-        if sc > 0 and expand != 0:
-            if pos[offset] <= start_row:
-                print_sect(art["sections"][sc]["title"], art["sections"][sc]["prog"], left)
+        if cur_sect != art["sections"][0] and expand != 0:
+            if pos[cur_sect["offset"]] <= start_row:
+                print_sect(cur_sect["title"], cur_sect["prog"], left)
             else:
                 print_sect("", "", left)
         else:
@@ -1500,8 +1419,8 @@ def show_article(art, show_note=""):
                 delete_file(art)
                 art["save_folder"] = ""
         if ch == cur.KEY_DC:
-            if si in notes and len(notes[si]) > 0:
-                notes[si].pop()
+            if len(cur_sent["notes"]) > 0:
+                cur_sent["notes"].pop()
             # std.timeout(500)
             # tmp_ch = get_key(std)
             # remove_nod = False
@@ -1509,7 +1428,7 @@ def show_article(art, show_note=""):
             #    remove_nod = True
             # std.timeout(-1)
         if ch == cur.KEY_SDC:
-            del notes[si] 
+            cur_sent["notes"] = []
             if nods[si] != "":
                 nods[si] = ""
                 if si > 0:
@@ -1535,9 +1454,8 @@ def show_article(art, show_note=""):
             si = max(si, 1)
             bmark = si
             expand = 1
-            for ii in range(len(sect_opened)):
-                sect_opened[ii] = True
-            update_si = True
+            for _sect in art["sections"]:
+                _sect["opened"] = True
 
         if ch == ord('v'):
             _confirm = confirm(win_info, "restore the removed parts")
@@ -1595,9 +1513,6 @@ def show_article(art, show_note=""):
             _confirm = confirm(win_info, "reset the article")
             if _confirm == "y" or _confirm == "a":
                 nods = [""] * total_sents
-                comments = {}
-                notes = {}
-                rtime = {}
                 visible = [True] * total_sents
                 passable = [False] * total_sents
                 si = 2
@@ -1605,14 +1520,14 @@ def show_article(art, show_note=""):
                 update_si = True
 
         if ch == ord('s'):
-            cur_sect = art["sections"][sc]["title"].lower()
+            cur_sect_title = cur_sect["title"].lower()
             if art_id in sel_sects:
                 if cur_sect in sel_sects[art_id]:
-                    sel_sects[art_id].remove(cur_sect)
+                    sel_sects[art_id].remove(cur_sect_title)
                 else:
-                    sel_sects[art_id].append(cur_sect)
+                    sel_sects[art_id].append(cur_sect_title)
             else:
-                sel_sects[art_id] = [cur_sect]
+                sel_sects[art_id] = [cur_sect_title]
         if ch == cur.KEY_SLEFT:
             ch = cur.KEY_IC
         if ch == cur.KEY_NPAGE:
@@ -1631,17 +1546,15 @@ def show_article(art, show_note=""):
                 tmp_si = si
                 win_title = "Note:"
                 n_list = notes_list
-            cur_note = notes[tmp_si][-1] if tmp_si in notes and len(notes[tmp_si]) > 0 else ""
+            cur_note = cur_sent["notes"][-1] if len(cur_sent["notes"]) > 0 else ""
             index = 0
             if cur_note != "":
                 index = notes_list.index(cur_note) if cur_note in notes_list else 0
             tmp_note, note_index = sel_note(n_list, ypos, left, index, tmp_si, in_row=True, title = win_title)
             if tmp_note != 'NULL':
                 cur_note = tmp_note
-                if not tmp_si in notes:
-                    notes[tmp_si] = [cur_note]
-                elif not cur_note in notes[tmp_si]:
-                    notes[tmp_si].append(cur_note)
+                if not cur_note in cur_sent["notes"]:
+                    cur_sent["notes"].append(cur_note)
 
                 art_changed = True
 
@@ -1652,23 +1565,20 @@ def show_article(art, show_note=""):
                 index = 0
             if index < len(notes_list):
                 cur_note = notes_list[index]
-                if not si in notes:
-                    notes[si] = [cur_note]
-                elif not cur_note in notes[si]:
-                    notes[si].append(cur_note)
+                if not cur_note in cur_sent["notes"]:
+                    cur_sent["notes"].append(cur_note)
 
         if is_enter(ch) and expand != 0:
-            sect_fc = fc - art["sections"][sc]["frags_offset"] - 1
             if si > 0:
-                if "url" in art["sections"][sc]["fragments"][sect_fc]:
-                    _url = art["sections"][sc]["fragments"][sect_fc]["url"]
+                if "url" in cur_frag:
+                    _url = cur_frag["url"]
                     webbrowser.open(_url)
             else:
                 ch = ord('o')
 
         ## kkk (bookmark)
         key_neg = cur.KEY_LEFT
-        if ((si == 0 and not ch == cur.KEY_DOWN) or sect_opened[sc]) and (
+        if ((si == 0 and not ch == cur.KEY_DOWN) or cur_sect["opened"]) and (
                 ch == key_neg or
                 ch == cur.KEY_RIGHT or
                 ch == cur.KEY_DOWN or
@@ -1769,26 +1679,22 @@ def show_article(art, show_note=""):
 
             if ch == key_neg or ch == cur.KEY_RIGHT or ch == cur.KEY_DOWN:
 
-                cur_sent_length = len(cur_sent.split())
+                cur_sent_length = len(cur_sent["text"].split())
                 if cur_sent_length == 0:
                     cur_sent_length = 0.01
-                end_time = time.time()
-                elapsed_time = end_time - start_time
                 reading_time = round(elapsed_time / cur_sent_length, 2)
-                if elapsed_time < 0.3:  # prevent fast stroke by mouse
-                    ch = 1
-                elif reading_mode or elapsed_time < 1 and cur_nod == "" and nods[si] in ["", "okay?"]:
+                if reading_mode or elapsed_time < 1 and cur_nod == "" and nods[si] in ["", "okay?"]:
                     cur_nod = "skipped"
                     # mbeep()
                     nod_set = True
                     pass
                 tries = 0
-                if si in rtime:
-                    avg = rtime[si][1]
-                    tries = rtime[si][0] + 1
-                    reading_time = avg + 1 / tries * (reading_time - avg)
+                avg = cur_sent["rtime"]
+                tries = cur_sent["tries"]
+                reading_time = avg + 1 / tries * (reading_time - avg)
 
-                rtime[si] = (tries, reading_time)
+                cur_sent["tries"] += 1
+                cur_sent["rtime"] = reading_time
                 if nod_set:
                     for ii in range(bmark, si + 1):
                         if ii < si:
@@ -1798,10 +1704,11 @@ def show_article(art, show_note=""):
                     # nnn
                     if visible[si]:  # and (nods[si] == "" or nod_set):
                         nods[si] = cur_nod
+                        cur_sent["nod"] = cur_nod
                         if ch == cur.KEY_RIGHT or ch == key_neg:
                             ch = cur.KEY_DOWN
             can_inc = True
-            next_frag_start = frags_sents[fc + 1] if fc + 1 < total_frags else total_sents
+            next_frag_start = cur_frag["offset"] + len(cur_frag["sents"]) 
             if ch == cur.KEY_DOWN and not nod_set and ((si - bmark) >= 2 or si + 1 >= next_frag_start):
                 can_inc = False
             if si < total_sents:
@@ -1836,66 +1743,35 @@ def show_article(art, show_note=""):
 
         art_changed = art_changed or nod_set
         if ch == cur.KEY_UP:
-            end_time = time.time()
-            elapsed_time = end_time - start_time
-            if elapsed_time > 0.1:  # prevent fast stroke by mouse
-                if si > 0:
+            if si > 0:
+                si -= 1
+                while si > 0 and (not visible[si] or passable[si] or nods[si] == "next"):
                     si -= 1
-                    while si > 0 and (not visible[si] or passable[si] or nods[si] == "next"):
-                        si -= 1
-                    if bmark >= si:
-                        bmark = si
-                        while bmark >= 0 and nods[bmark - 1] == "next":
-                            bmark -= 1
-                else:
-                    mbeep()
-                    si = 0
-
-        update_si = False
-        if si > 0 and (expand == 0 and ch == cur.KEY_UP and not sect_opened[sc]) or ch == ord('j'):
-            if sc > 0:
-                sc -= 1
-                fc = art["sections"][sc]["frags_offset"] + 1
-                update_si = True
-            else:
-                sc = 0
-        if (expand == 0 and ch == cur.KEY_DOWN and not sect_opened[sc]) or ch == ord('k'):
-            if sc < total_sects - 1:
-                if si > 0:
-                    sc += 1
-                fc = art["sections"][sc]["frags_offset"] + 1
-                update_si = True
+                if bmark >= si:
+                    bmark = si
+                    while bmark >= 0 and nods[bmark - 1] == "next":
+                        bmark -= 1
             else:
                 mbeep()
-                sc = total_sects - 1
-                fc = art["sections"][sc]["frags_offset"] + 1
-                update_si = True
+                si = 0
+        if si > 0 and (expand == 0 and ch == cur.KEY_UP and not cur_sect["opened"]) or ch == ord('j'):
+            si = cur_sect["offset"] - 1
+            bmark = si
+        if (expand == 0 and ch == cur.KEY_DOWN and not cur_sect["opened"]) or ch == ord('k'):
+            si = cur_sect["offset"] + cur_sect["sents_num"] 
+            bmark = si
         if ch == ord(';'):
-            if fc < total_frags - 1:
-                fc += 1
-                _tmp = frags_sents[fc]
-                if passable[_tmp]:
-                    fc += 1
-                update_si = True
-            else:
-                mbeep()
-                fc = total_frags - 1
+            si = cur_frag["offset"] + len(cur_frag["sents"]) 
+            bmark = si
         if ch == ord('l'):
-            if fc > 0:
-                fc -= 1
-                _tmp = frags_sents[fc]
-                if passable[_tmp]:
-                    fc -= 1
-                update_si = True
-            else:
-                mbeep()
-                fc = 0
+            si = cur_frag["offset"] - 1
+            bmark = si
         if ((expand == 0 and is_enter(ch))
-                or si > 0 and (expand == 0 and ch == cur.KEY_RIGHT and not sect_opened[sc])):
+                or si > 0 and (expand == 0 and ch == cur.KEY_RIGHT and not cur_sect["opened"])):
             if si > 0:
                 expand = 1
-                for ii in range(len(sect_opened)):
-                    sect_opened[ii] = True
+                for _sect in art["sections"]:
+                    _sect["opened"] = True
             else:
                 ch = ord('o')
 
@@ -1903,13 +1779,12 @@ def show_article(art, show_note=""):
             if expand == 1:
                 expand = 0
                 pos = [0] * total_sents
-                for ii in range(len(sect_opened)):
-                    sect_opened[ii] = False
-                # sect_opened[sc] = True
+                for _sect in art["sections"]:
+                    _sect["opened"] = False
             else:
                 expand = 1
-                for ii in range(len(sect_opened)):
-                    sect_opened[ii] = True
+                for _sect in art["sections"]:
+                    _sect["opened"] = True
 
         if ch == ord('.'):
             if start_row < cury:
@@ -1939,34 +1814,12 @@ def show_article(art, show_note=""):
         if si < bmark:
             bmark = si
 
-        if update_si:
-            fc = max(fc, 0)
-            fc = min(fc, total_frags - 1)
-            bmark = frags_sents[fc]
-            # si = frags_sents[fc+1][0]-1 if fc+1 < total_frags else total_sents - 1
-            si = frags_sents[fc]
-        c = 0
-        while c < total_sects and si >= art["sections"][c]["sents_offset"]:
-            c += 1
-        _sc = max(c - 1, 0)
-        if _sc != sc:
-            sc = _sc
-            if expand == 0:
-                for ii in range(len(sect_opened)):
-                    sect_opened[ii] = False
-        f = 0
-        while f < total_frags and si >= frags_sents[f]:
-            f += 1
-        fc = max(f - 1, 0)
-
-        art['sections'][sc]['fc'] = fc
-
-        if ch == 127 and sect_opened[sc]:
+        if ch == 127 and cur_sect["opened"]:
             ch = 0
             expand = 0
             pos = [0] * total_sents
-            for ii in range(len(sect_opened)):
-                sect_opened[ii] = False
+            for _sect in art["sections"]:
+                _sect["opened"] = False
         elif ch == 127:
             ch = ord('q')
 
@@ -2086,13 +1939,6 @@ def show_article(art, show_note=""):
             text_win.erase()
             text_win.refresh(0, 0, 0, 0, rows - 2, cols - 1)
         if ch == ord('q'):  # before exiting artilce
-            art["nods"] = nods
-            art["notes"] = notes
-            art["times"] = rtime
-            art["passable"] = passable
-            art["comments"] = comments
-            if show_note == "":
-                art["visible"] = visible
             if art_changed:
                 if not "visits" in art:
                     art["visits"] = 1
@@ -2101,15 +1947,20 @@ def show_article(art, show_note=""):
                 art["last_visit"] = datetime.datetime.today().strftime('%Y-%m-%d')
                 insert_article(saved_articles, art)
                 save_obj(saved_articles, "saved_articles", "articles")
-                for ii, cur_note_list in notes.items():
-                    for note in cur_note_list:
-                        if note != "" and ii > 0:
-                            if not note in articles_notes:
-                                articles_notes[note] = {art_id:[(ii, art["sents"][ii])]}
-                            elif not art_id in articles_notes[note]:
-                                articles_notes[note][art_id] = [(ii, art["sents"][ii])]
-                            else:
-                                articles_notes[note][art_id].append((ii, art["sents"][ii]))
+                ii = 0
+                for sect in art["sections"]:
+                    for frag in sect["fragments"]:
+                        for sent in frag["sents"]:
+                            cur_note_list = sent["notes"]
+                            ii += 1
+                            for note in cur_note_list:
+                                if note != "" and ii > 0:
+                                    if not note in articles_notes:
+                                        articles_notes[note] = {art_id:[(ii, sent)]}
+                                    elif not art_id in articles_notes[note]:
+                                        articles_notes[note][art_id] = [(ii, sent)]
+                                    else:
+                                        articles_notes[note][art_id].append((ii, sent))
                 save_obj(articles_notes, "articles_notes", "articles")
             last_visited = load_obj("last_visited", "articles", [])
             insert_article_list(last_visited, art)
@@ -3074,6 +2925,7 @@ def show_texts(save_folder):
             text = text_files[index]
             with open(text, "r") as f:
                 data = f.read()
+            name = text.split("/")[-1]
             title, i = get_title(data, name)
             if i > 0:
                 data = data[i:]
