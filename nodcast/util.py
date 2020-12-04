@@ -3,9 +3,49 @@ import os
 import curses as cur
 import locale
 import sys
+import string
 import textwrap
 #locale.setlocale(locale.LC_ALL, '')
 code = "utf-8" #locale.getpreferredencoding()
+
+TEXT_COLOR = 100
+ITEM_COLOR = 101
+CUR_ITEM_COLOR = 102
+SEL_ITEM_COLOR = 103
+TITLE_COLOR = 104
+INFO_COLOR = 105
+ERR_COLOR = 106
+HL_COLOR = 107
+DIM_COLOR = 108
+MSG_COLOR = 109
+TEMP_COLOR = 110
+TEMP_COLOR2 = 111
+WARNING_COLOR = 112
+COMMENT_COLOR = 39
+
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
+color_map = {
+    "text-color": TEXT_COLOR,
+    "back-color": TEXT_COLOR,
+    "item-color": ITEM_COLOR,
+    "cur-item-color": CUR_ITEM_COLOR,
+    "sel-item-color": SEL_ITEM_COLOR,
+    "title-color": TITLE_COLOR,
+    "highlight-color": HL_COLOR,
+    "hl-text-color": HL_COLOR,
+    "dim-color": DIM_COLOR,
+}
 
 if os.name == 'nt':
     import ctypes
@@ -159,53 +199,53 @@ def show_cursor(useCur = True):
         sys.stdout.write("\033[?25h")
         sys.stdout.flush()
 
-def mprint(text, stdscr =None, color=0, attr = None, end="\n", refresh = False):
-    if stdscr is None:
+def mprint(text, win =None, color=0, attr = None, end="\n", refresh = False):
+    if win is None:
         print(text, end=end)
     else:
         c = cur.color_pair(color)
         if attr is not None:
             c = cur.color_pair(color) | attr
-        height, width = stdscr.getmaxyx()
-        #stdscr.addnstr(text + end, height*width-1, c)
+        height, width = win.getmaxyx()
+        #win.addnstr(text + end, height*width-1, c)
         #text = textwrap.shorten(text, width=height*width-5)
-        stdscr.addstr((text + end).encode(code), c)
+        win.addstr((text + end).encode(code), c)
         if not refresh:
-            pass #stdscr.refresh(0,0, 0,0, height -5, width)
+            pass #win.refresh(0,0, 0,0, height -5, width)
         else:
-            #stdscr.refresh()
+            #win.refresh()
             pass
 
-def print_there(x, y, text, stdscr = None, color=0, attr = None, pad = False):
-    if stdscr is not None:
+def print_there(x, y, text, win = None, color=0, attr = None, pad = False):
+    if win is not None:
         c = cur.color_pair(color)
         if attr is not None:
             c = cur.color_pair(color) | attr
-        height, width = stdscr.getmaxyx()
-        #stdscr.addnstr(x, y, text, height*width-1, c)
+        height, width = win.getmaxyx()
+        #win.addnstr(x, y, text, height*width-1, c)
         _len = (height*width)-x
-        stdscr.addstr(x, y, text[:_len].encode(code), c)
+        win.addstr(x, y, text[:_len].encode(code), c)
         if pad:
-            pass #stdscr.refresh(0,0, x,y, height -5, width)
+            pass #win.refresh(0,0, x,y, height -5, width)
         else:
-            pass # stdscr.refresh()
+            pass # win.refresh()
     else:
         sys.stdout.write("\x1b7\x1b[%d;%df%s\x1b8" % (x, y, text))
         sys.stdout.flush()
 
-def clear_screen(stdscr = None):
-    if stdscr is not None:
-        stdscr.erase()
-        stdscr.refresh()
+def clear_screen(win = None):
+    if win is not None:
+        win.erase()
+        win.refresh()
     else:
         os.system('clear')
-def rinput(stdscr, r, c, prompt_string, default=""):
+def rinput(win, r, c, prompt_string, default=""):
     show_cursor()
     cur.echo() 
-    stdscr.addstr(r, c, prompt_string.encode(code))
-    stdscr.refresh()
-    input = stdscr.getstr(r, len(prompt_string), 30)
-    clear_screen(stdscr)
+    win.addstr(r, c, prompt_string.encode(code))
+    win.refresh()
+    input = win.getstr(r, len(prompt_string), 30)
+    clear_screen(win)
     hide_cursor()
     try:
         inp = input.decode(code)  
@@ -231,36 +271,46 @@ def get_confirm(win, msg, acc = ['y','n']):
     win.refresh()
     return chr(ch).lower()
 
-def minput(stdscr, row, col, prompt_string, exit_on = [], default="", multi_line = False, pad = False):
-    rows, cols = stdscr.getmaxyx()
+def minput(mwin, row, col, prompt_string, exit_on = [], default="", multi_line = False, footer="", color=MSG_COLOR):
+    if multi_line:
+        rows, cols = mwin.getmaxyx()
+        print_there(row, col, prompt_string, mwin)
+        if footer == "":
+            footer =  "<Insert>: Save and Close | <Tab>: Close | <Shift> + <Del>: Clear"
+        print_there(rows-1, col, footer, mwin)
+        mwin.refresh()
+        win = mwin.derwin(rows - 2, cols, 1, 0)
+        win.bkgd(' ', cur.color_pair(HL_COLOR))  # | cur.A_REVERSE)
+    else:
+        win = mwin
+        attr = cur.A_BOLD
+        c = cur.color_pair(color) | attr
+        win.addstr(row, col, prompt_string.encode(code), c)
+        win.clrtobot()
+    rows, cols = win.getmaxyx()
     caps = rows*(cols -2) - col - len(prompt_string) - 2
     if not multi_line:
         exit_on = ['\n']
-        next_line = ">"
+        next_line = "+"
     else:
         next_line = '\n'
         if not exit_on:
             exit_on = ['\t']
     show_cursor()
     cur.noecho() 
-    stdscr.keypad(True)
-    stdscr.addstr(row, col, prompt_string.encode(code))
-    stdscr.clrtobot()
+    win.keypad(True)
     out = default.split('\n')
     out = list(filter(None, out))
-    line = 0
-    if out:
-        inp = str(out[0])
-    else:
-        inp = default
-        out.append(inp)
+    #out = out[:rows]
+    #inp = "\n".join(out) 
+    inp = default
     pos = len(inp)
     ch = 0
     rtl = False
-    if not multi_line:
-        start = col + len(prompt_string)
-    else:
-        start = col
+    start_line = 0
+    max_lines = 20
+    row, col = win.getyx()
+    start = col
     while ch not in exit_on:
         if rtl:
             cur.curs_set(0)
@@ -278,34 +328,38 @@ def minput(stdscr, row, col, prompt_string, exit_on = [], default="", multi_line
             #out = filter(None, out)
             if not out:
                 out = [""]
-            r = row + 1
+            r = row
             if len(out) > 1:
                 pass
             c = 0
             yloc = r
-            xloc = pos - c + 1
+            xloc = pos - c
             for i, l in enumerate(out):
                 enters = inp.count("\n", c, c + len(l) + 1)
                 if pos >= c and pos <= c + len(l):
                     yloc = r
-                    xloc = pos - c + 1
-                if r < rows and start + len(l) < cols:
-                   if rtl and False:
-                       start = cols - len(l)-2
-                   stdscr.addstr(r, start, l.encode(code))
-                stdscr.clrtoeol()
+                    xloc = pos - c 
                 r += 1
                 c += len(l) + enters 
-            stdscr.clrtobot()
+            start_line = max(0, yloc - rows + 1) 
+            for ii,l in enumerate(out[start_line:]):
+                if ii < rows:
+                   if rtl and False:
+                       start = cols - len(l)-2
+                   win.addstr(ii, start, l.encode(code))
+                win.clrtoeol()
+            win.clrtobot()
         else:
-            stdscr.addstr(row, start, inp.encode(code))
-            stdscr.clrtoeol()
+            win.addstr(row, start, inp.encode(code))
+            win.clrtoeol()
             xloc = start + pos
             yloc = row + (xloc // cols)
             xloc = xloc % cols
-        if yloc < rows and xloc < cols:
-            stdscr.move(yloc, xloc)
-        ch = stdscr.get_wch()
+        if yloc < rows:
+            win.move(yloc, xloc)
+        else:
+            win.move(rows -1 , xloc)
+        ch = win.get_wch()
         if type(ch) == str and ord(ch) == 127: # ch == 8 or ch == 127 or ch == cur.KEY_BACKSPACE:
             if pos > 0:
                 inp = inp[:pos-1] + inp[pos:]
@@ -317,14 +371,11 @@ def minput(stdscr, row, col, prompt_string, exit_on = [], default="", multi_line
                 inp = inp[:pos] + inp[pos+1:]
             else:
                 mbeep()
-        elif ch == cur.KEY_IC:
-            #rtl = not rtl
-            pass
         elif ch == cur.KEY_SDC:
-            if not multi_line:
-                inp = ""
-                pos = 0
-            elif len(inp) > 0:
+            inp = ""
+            pos = 0
+        elif ch == cur.KEY_SLEFT:
+            if len(inp) > 0:
                 temp = inp.split("\n")
                 c = 0
                 inp = ""
@@ -334,9 +385,14 @@ def minput(stdscr, row, col, prompt_string, exit_on = [], default="", multi_line
                     else:
                         inp += line + "\n"
                     c += len(line)
+                inp = inp.strip("\n")
         elif multi_line and type(ch) == str and ch == next_line:
-            inp = inp[:pos] + "\n" + inp[pos:]
-            pos += 1
+            enters = inp.count("\n")
+            if enters < max_lines - 1:
+                inp = inp[:pos] + "\n" + inp[pos:]
+                pos += 1
+            else:
+                mbeep()
         elif ch == cur.KEY_HOME:
             pos = 0
         elif ch == cur.KEY_END:
@@ -351,19 +407,7 @@ def minput(stdscr, row, col, prompt_string, exit_on = [], default="", multi_line
         elif ch == cur.KEY_UP: 
             if not multi_line:
                 break
-            if yloc <= 2:
-                mbeep()
-            else:
-                pos = 0
-                for i in range(0, yloc - 3):
-                    pos += len(out[i])
-                enters = inp.count("\n", 0, pos + yloc - 3)
-                pos += enters
-                pos += min(xloc, len(out[yloc -3])) - 1
-        elif ch == cur.KEY_DOWN:
-            if not multi_line:
-                break
-            if yloc >= rows or yloc - 1 >= len(out):
+            if yloc < 1:
                 mbeep()
             else:
                 pos = 0
@@ -371,11 +415,25 @@ def minput(stdscr, row, col, prompt_string, exit_on = [], default="", multi_line
                     pos += len(out[i])
                 enters = inp.count("\n", 0, pos + yloc - 1)
                 pos += enters
-                pos += min(xloc, len(out[yloc -1])) - 1
+                pos += min(xloc, len(out[yloc - 1]))
+        elif ch == cur.KEY_DOWN:
+            if not multi_line:
+                break
+            if yloc >= max_lines - 1 or yloc >= len(out) - 1:
+                mbeep()
+            else:
+                pos = 0
+                for i in range(0, yloc + 1):
+                    pos += len(out[i])
+                enters = inp.count("\n", 0, pos + yloc + 1)
+                pos += enters
+                pos += min(xloc, len(out[yloc + 1]))
         elif ch == 27:
             hide_cursor()
             cur.noecho()
             return "<ESC>",ch
+        elif ch == cur.KEY_IC:
+            break
         else:
             letter = ch
             if len(inp) >= caps:
@@ -383,7 +441,7 @@ def minput(stdscr, row, col, prompt_string, exit_on = [], default="", multi_line
             elif ch in exit_on:
                 break
             else:
-                inp = inp[:pos] + letter + inp[pos:]
+                inp = inp[:pos] + str(letter) + inp[pos:]
                 pos += 1
     cur.noecho()
     hide_cursor()
@@ -395,8 +453,8 @@ def mbeep(repeat=1):
     else:
         cur.beep()
 
-def get_key(stdscr = None):
-    ch1 = stdscr.getch()
+def get_key(win = None):
+    ch1 = win.getch()
     return ch1
 
 # -*- coding: utf-8 -*-
