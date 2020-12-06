@@ -273,13 +273,14 @@ def get_confirm(win, msg, acc = ['y','n']):
 
 def minput(mwin, row, col, prompt_string, exit_on = [], default="", multi_line = False, footer="", color=MSG_COLOR):
     if multi_line:
-        rows, cols = mwin.getmaxyx()
+        mrows, mcols = mwin.getmaxyx()
         print_there(row, col, prompt_string, mwin)
         if footer == "":
-            footer =  "<Insert>: Save and Close | <Tab>: Close | <Shift> + <Del>: Clear"
-        print_there(rows-1, col, footer, mwin)
+            footer =  "<Insert>: Save and Close | <Tab>: Close | <Shift> + <Del>: Clear | <Shift> + <Left>: Delete line"
+            footer = textwrap.shorten(footer, mcols)
+        print_there(mrows-1, col, footer, mwin)
         mwin.refresh()
-        win = mwin.derwin(rows - 2, cols, 1, 0)
+        win = mwin.derwin(mrows - 2, mcols, 1, 0)
         win.bkgd(' ', cur.color_pair(HL_COLOR))  # | cur.A_REVERSE)
     else:
         win = mwin
@@ -288,7 +289,6 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", multi_line =
         win.addstr(row, col, prompt_string.encode(code), c)
         win.clrtobot()
     rows, cols = win.getmaxyx()
-    caps = rows*(cols -2) - col - len(prompt_string) - 2
     if not multi_line:
         exit_on = ['\n']
         next_line = "+"
@@ -308,7 +308,7 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", multi_line =
     ch = 0
     rtl = False
     start_line = 0
-    max_lines = 20
+    max_lines = 40
     row, col = win.getyx()
     start = col
     while ch not in exit_on:
@@ -381,7 +381,7 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", multi_line =
                 inp = ""
                 for line in temp:
                     if pos >= c and pos < c + len(line):
-                        pos -= len(line)
+                        pos -= min(xloc, len(line) - 1)
                     else:
                         inp += line + "\n"
                     c += len(line)
@@ -393,6 +393,11 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", multi_line =
                 pos += 1
             else:
                 mbeep()
+                print_there(mrows-1, col, f"You reached the maximum number of {max_lines} lines", mwin, color=WARNING_COLOR)
+                mwin.clrtoeol()
+                mwin.get_wch()
+                print_there(mrows-1, col, footer, mwin)
+                mwin.refresh()
         elif ch == cur.KEY_HOME:
             pos = 0
         elif ch == cur.KEY_END:
@@ -436,9 +441,7 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", multi_line =
             break
         else:
             letter = ch
-            if len(inp) >= caps:
-                mbeep()
-            elif ch in exit_on:
+            if ch in exit_on:
                 break
             else:
                 inp = inp[:pos] + str(letter) + inp[pos:]
@@ -484,7 +487,7 @@ def qplit_into_sentences(text):
     except ImportError as e:
         return rplit_into_sentences(text)
 
-def split_into_sentences(text, debug = False, limit = 2):
+def split_into_sentences(text, debug = False, limit = 15):
     text = " " + text + "  "
     text = text.replace("\n","<stop>")
     text = re.sub(prefixes,"\\1<prd>",text)
@@ -515,7 +518,6 @@ def split_into_sentences(text, debug = False, limit = 2):
     text = text.replace("!","!<stop>")
     text = text.replace("<prd>",".")
     sentences = text.split("<stop>")
-    if len(sentences) > 1:
-        sentences = sentences[:-1]
+    sentences = list(filter(None, sentences))
     sentences = [s.strip() for s in sentences if len(s) > limit]
     return sentences
