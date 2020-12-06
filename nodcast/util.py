@@ -271,17 +271,21 @@ def get_confirm(win, msg, acc = ['y','n']):
     win.refresh()
     return chr(ch).lower()
 
-def minput(mwin, row, col, prompt_string, exit_on = [], default="", multi_line = False, footer="", color=MSG_COLOR):
-    if multi_line:
+def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = 0, footer="", color=HL_COLOR):
+    multi_line = mode == 2
+    if mode > 0:
         mrows, mcols = mwin.getmaxyx()
         print_there(row, col, prompt_string, mwin)
         if footer == "":
             footer =  "<Insert>: Save and Close | <Tab>: Close | <Shift> + <Del>: Clear | <Shift> + <Left>: Delete line"
             footer = textwrap.shorten(footer, mcols)
-        print_there(mrows-1, col, footer, mwin)
+        if mode == 2:
+            print_there(mrows-1, col, footer, mwin)
+            win = mwin.derwin(mrows - 2, mcols, 1, 0)
+        else:
+            win = mwin.derwin(mrows - 1, mcols, 1, 0)
+        win.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
         mwin.refresh()
-        win = mwin.derwin(mrows - 2, mcols, 1, 0)
-        win.bkgd(' ', cur.color_pair(HL_COLOR))  # | cur.A_REVERSE)
     else:
         win = mwin
         attr = cur.A_BOLD
@@ -455,10 +459,6 @@ def mbeep(repeat=1):
         winsound.Beep(500, 100)
     else:
         cur.beep()
-
-def get_key(win = None):
-    ch1 = win.getch()
-    return ch1
 
 # -*- coding: utf-8 -*-
 import re
