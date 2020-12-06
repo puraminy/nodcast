@@ -29,7 +29,7 @@ import subprocess
 appname = "Checkideh"
 appauthor = "App"
 user = 'na'
-profile = "All"
+profile = "---"
 
 hotkey = ""
 #Windows 
@@ -278,7 +278,7 @@ def download(url, art, folder):
                     Size += len(BufferNow)
                     if Length:
                         Percent = int((Size / Length) * 100)
-                        show_info(f"download: {Percent}% {url}")
+                        show_info(f"download: {Percent}% {url} | Ctrl + C to cancel")
 
                 _file.write_bytes(BufferAll.getvalue())
                 show_info("File was written to " + str(_file))
@@ -287,6 +287,8 @@ def download(url, art, folder):
 
             except Exception as e:
                 show_err("ERROR:" + str(e))
+            except KeyboardInterrupt:
+                show_info("loading canceled")
 
 
 def save_obj(obj, name, directory, data_dir=True, common=False):
@@ -429,14 +431,14 @@ def get_sects(text):
     return ret
 
 
-def get_frags(text):
+def get_frags(text, single_unit =True):
     text = text.strip()
     parts = text.split("\n")
     parts = list(filter(None, parts))
     frags = []
     for t in parts:
         frag = {"text":t}
-        frag["sents"] = init_frag_sents(t)
+        frag["sents"] = init_frag_sents(t, single_unit)
         frags.append(frag)
     return frags
 
@@ -526,7 +528,8 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
     while ch != ord('q'):
         list_win.erase()
         mprint("", list_win)
-        mprint((fid + " " + query).ljust(width - 36) + "      progess  " + "status", list_win,
+        head = textwrap.shorten(fid, width=width - 30)
+        mprint((head).ljust(width - 30) + "progess  " + "status", list_win,
                DIM_COLOR)
         # mprint("-"*width, list_win)
         N = len(articles)
@@ -587,7 +590,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
         if search_results:
             inf = "PageDown) Load more ...".ljust(width - 32)
         else:
-            inf = fid.ljust(width - 32)
+            inf = head.ljust(width - 30) 
             if filter_note:
                inf = "Filtered by " + filter_note
         mprint(inf, list_win, end = "", color = DIM_COLOR)
@@ -717,7 +720,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
         if (ch == ord('d') or ch == cur.KEY_DC) and group != "tags":
             art = articles[k]
             if group != "":
-                _confirm = confirm(win_info, "remove the article " + art["title"][:20])
+                _confirm = confirm("remove the article " + art["title"][:20])
                 if _confirm == "y":
                     articles.remove(art)
                     if k > len(articles) - 1:
@@ -916,19 +919,20 @@ def print_prog(text_win, prog, width):
 def new_sent(s):
     return {"text":s, "nod":"", "notes":[],"passable":"False", "rtime":0, "tries":1, "comment":""}
 
-def init_frag_sents(text, single_unit = False):
-    f_sents = split_into_sentences(text)
+def init_frag_sents(text, single_unit = False, word_limit = 20):
+    f_sents = split_into_sentences(text, limit = word_limit)
     sents = [new_sent(s) for s in f_sents]
     if single_unit:
         for s in sents:
             s["nod"] = "next"
-        sents[-1]["nod"] = "okay?" 
+        sents[-1]["nod"] = "" 
     return sents
 
 def refresh_offsets(art):
     ii = 1
     prev_sect = None
     fn = 0
+    nods = [""]
     for sect in art["sections"]:
         sect["offset"] = ii
         if not "progs" in sect:
@@ -936,15 +940,18 @@ def refresh_offsets(art):
         if not prev_sect is None:
             prev_sect["sents_num"] = ii - prev_sect["offset"]
         prev_sect = sect
+        nods.append("")
         ii += 1
         for frag in sect["fragments"]:
             fn += 1
             frag["offset"] = ii
             if not "sents" in frag:
                 frag["sents"] = init_frag_sents(frag["text"])
-            ii += len(frag["sents"])
+            for sent in frag["sents"]:
+                nods.append(sent["nod"])
+                ii += 1
     sect["sents_num"] = ii - prev_sect["offset"]
-    return len(art["sections"]),fn, ii
+    return len(art["sections"]),fn, ii, nods
 
 def locate(art, si, sel_first_sent=False):
     ii = 0
@@ -968,7 +975,7 @@ def locate(art, si, sel_first_sent=False):
             break
     return sect, frag, sent, min(si, s_start)
 # sss
-def show_article(art, show_note="", collect_art = False, si = 0):
+def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     global theme_menu, theme_options, query, filters, hotkey
 
     if not art["sections"]:
@@ -980,23 +987,20 @@ def show_article(art, show_note="", collect_art = False, si = 0):
     rows, cols = std.getmaxyx()
     width = 2 * cols // 3
     def_review = """ 
-    Here you can add your notes or review of the article. 
-    Press @ everywhere in the article to edit this review. 
-    You can also select one or more review tags for the article by pressing <Insert> when the reivew is selected
-    """
+    Here you can add notes or a review to the article. Press @ anywhere in the article to edit this review. 
+    You can also select one or more review tags for the article by pressing <Insert> when the reivew is selected, or alternatively press # anywhere in the article. 
+    You can add a comment to any selected sentence or paragraph by pressing :, and add multiple note tags for it by pressing <Insert>. For more information please visit http://checkideh.com """
     if not collect_art and art["sections"][0]["title"] != "Review":
         new_sect = {}
         new_sect["title"] = "Review"
-        frags = []
-        frag = {"text": def_review, "can_pass": "False"}
-        frag["sents"] = init_frag_sents(frag["text"], single_unit = True)
-        frags.append(frag)
-        new_sect["fragments"] = frags
+        frag = {"text":def_review}
+        frag["sents"] = init_frag_sents(def_review, True)
+        new_sect["fragments"] = [frag]
         art["sections"].insert(0, new_sect)
 
     figures = []
     fig_file = ""
-    if "figures" in art:
+    if "figures" in art and not art["figures"] is None:
         figures = art["figures"]
         figures_created = False
         fig_file = app_path + "/nodcast_temp.html"
@@ -1042,6 +1046,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
     articles_notes = load_obj("articles_notes", "articles", {})
     frags_text = ""
     art_id = -1
+    si = 0
     cury = 0
     page_height = rows - 4
     scroll = 1
@@ -1050,12 +1055,12 @@ def show_article(art, show_note="", collect_art = False, si = 0):
     is_section = False
     art_id = art['id']
 
-    if True:
+    if False:
         with open("art.txt", "w") as f:
             print(str(art), file=f)
     bmark = 0
     total_sects = len(art["sections"])
-    if total_sects > 1 and show_note == "" and not collect_art and si == 0:
+    if total_sects > 1 and show_note == "" and not collect_art and si == 0 and ref_sent == "":
         expand = 0
         for _sect in art["sections"]:
             _sect["opened"] = False
@@ -1079,29 +1084,38 @@ def show_article(art, show_note="", collect_art = False, si = 0):
     old_si = -1
     reading_mode = False
 
-    total_sects, total_frags, total_sents = refresh_offsets(art)
+    total_sects, total_frags, total_sents, nods = refresh_offsets(art)
     pos = [0]*total_sents
-    nods = [""]*total_sents
     visible = [True]*total_sents
     passable = [False]*total_sents
     first_frag = art["sections"][0]['fragments'][0]
     if si == 0:
         ii = 0
-        while ii < total_sents and first_frag['sents'][ii]['nod'] == "next":
+        while ii < len(first_frag['sents']) and first_frag['sents'][ii]['nod'] == "next":
             ii += 1
 
         bmark = first_frag["offset"]
         si = bmark + ii
     else:
         bmrak = si
+    if ref_sent != "":
+        refs = ref_sent.split("_")
+        _sect = int(refs[0])
+        _frag = int(refs[1])
+        _begin = int(refs[2])
+        _end = int(refs[3])
+        bmark = art["sections"][_sect]["fragments"][_frag]["offset"] + _begin
+        si = art["sections"][_sect]["fragments"][_frag]["offset"] + _end 
 
     logging.info("Article:" + art["title"])
 # bbb
     sel_first_sent = False
     total_pr = int(art["total_prog"])*total_sects if "total_prog" in art else 0
     start_time = 0
+    too_big_warn = False
     while ch != ord('q'):
         # clear_screen(text_win)
+        too_big_art = False
         end_time = time.time()
         elapsed_time = end_time - start_time if start_time != 0 else 2
         if elapsed_time < 0.05:  # prevent fast scroll by mouse
@@ -1165,7 +1179,9 @@ def show_article(art, show_note="", collect_art = False, si = 0):
             if (b == cur_sect and expand == 0 and cur_sect["opened"]): 
                 text_win.erase()
             sents_num = b["sents_num"] - 1
-            prog = int(round(b["progs"] / sents_num, 2) * 100) if "prog" in b else 0
+            prog = 0
+            if sents_num > 0:
+                prog = int(round(b["progs"] / sents_num, 2) * 100) if "prog" in b else 0
             b["prog"] = prog
             prog_color = scale_color(prog)
             total_pr += prog
@@ -1195,7 +1211,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
             pos[fsn], _ = text_win.getyx()
             ffn += 1
             fsn += 1
-            if (expand == 0 and b != cur_sect):
+            if too_big_art or (expand == 0 and b != cur_sect):
                 fsn += b["sents_num"] - 1
                 ffn += len(b["fragments"])
             elif (expand == 0 and not cur_sect["opened"]):
@@ -1214,11 +1230,13 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                         hlcolor = HL_COLOR
                         color = DIM_COLOR
                         # fff
-                        if True:
+                        if not too_big_art:
                             nexts = 0
                             for sent in _sents:
+                                if too_big_art:
+                                    break
+                                sent["nod"] = nods[fsn]
                                 feedback = sent["nod"] if "nod" in sent else ""
-                                nods[fsn]= sent["nod"]
                                 passable[fsn] = sent["passable"] == "True" if "passable" in sent else False
                                 if b == cur_sect:
                                     if sent["nod"] in right_nods:
@@ -1255,7 +1273,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
 
                                 text = sent["text"]
                                 lines = textwrap.wrap(text, width - 4)
-                                lines = filter(None, lines)
+                                lines = list(filter(None, lines))
                                 end = ""
                                 # sent += " "*(width -2) + "\n"
                                 sent_text = ""
@@ -1278,8 +1296,8 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                                         mprint(sent_text, text_win, _color, end=end)
                                 else:
                                     _color = DIM_COLOR
-                                    if sent["nod"] != "":
-                                        _color = find_nod_color(sent["nod"])
+                                    if nods[fsn] != "":
+                                        _color = find_color(nods, fsn)
                                     if theme_menu["bold-text"] == "True":
                                         mprint(sent_text, text_win, _color, attr=cur.A_BOLD, end=end)
                                     else:
@@ -1312,11 +1330,18 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                                 else:
                                     pass  # mprint("", text_win, f_color)
                                 pos[fsn], _ = text_win.getyx()
+                                if pos[fsn] > rows*40:
+                                    too_big_art = True
+                                    if not too_big_warn:
+                                        too_big_warn = True
+                                        show_warn("The article is too big to be displayed completely!") 
                                 fsn += 1
                                 new_frag = False
-                        if False:  # fsn >= bmark and fsn <= si:
-                            w = 4  # width - 5
-                            mprint(" " * (w), text_win, TEMP_COLOR)
+
+                        #fffe
+                        if "end_mark" in frag:  # fsn >= bmark and fsn <= si:
+                            w =  width - 5
+                            mprint("-" * (w), text_win, DIM_COLOR)
                         else:
                             w1 = 4  # width - 5
                             w2 = 6
@@ -1408,7 +1433,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                 tmp, _ = sel_note(notes_list, ypos, left, ni, 0, in_row=True)
                 show_note = tmp if tmp != "NULL" else ""
         if ch == ord('d'):
-            _confirm = confirm(win_info, "delete the pdf file from your computer")
+            _confirm = confirm("delete the pdf file from your computer")
             if _confirm == "y" or _confirm == "a":
                 delete_file(art)
                 art["save_folder"] = ""
@@ -1452,7 +1477,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                 _sect["opened"] = True
 
         if ch == ord('v'):
-            _confirm = confirm(win_info, "restore the removed parts")
+            _confirm = confirm("restore the removed parts")
             if _confirm == "y" or _confirm == "a":
                 visible = [True] * total_sents
             for i, nod in enumerate(nods):
@@ -1508,7 +1533,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                 write_article(art, fid)
                 show_msg("The article was written in " + fid)
         if ch == ord('u'):
-            _confirm = confirm(win_info, "reset the article")
+            _confirm = confirm("reset the article")
             if _confirm == "y" or _confirm == "a":
                 nods = [""] * total_sents
                 visible = [True] * total_sents
@@ -1546,6 +1571,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                 n_list = notes_list
             cur_note = cur_sent["notes"][-1] if len(cur_sent["notes"]) > 0 else ""
             index = 0
+            # NNN
             if cur_note != "":
                 index = notes_list.index(cur_note) if cur_note in notes_list else 0
             tmp_note, note_index = sel_note(n_list, ypos, left, index, tmp_si, in_row=True, title = win_title)
@@ -1553,9 +1579,10 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                 cur_note = tmp_note
                 if not cur_note in cur_sent["notes"]:
                     cur_sent["notes"].append(cur_note)
-
+                for ii in range(bmark, si):
+                    nods[ii] = "next"
+                nods[si] = "noted"
                 art_changed = True
-
         elif chr(ch).isdigit():
             try:
                 index = int(chr(ch))
@@ -1571,11 +1598,11 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                 if "url" in cur_frag:
                     _url = cur_frag["url"]
                     webbrowser.open(_url)
-                elif "ref_art" in cur_sent:
-                    ref_id = cur_sent["ref_art"]
-                    ref_sent = int(cur_sent["ref_sent"])
+                elif "ref_art" in cur_frag:
+                    ref_id = cur_frag["ref_art"]
+                    ref_sent = cur_frag["ref_sent"]
                     if ref_id in saved_articles:
-                        show_article(saved_articles[ref_id], si = ref_sent)
+                        show_article(saved_articles[ref_id], ref_sent = ref_sent)
 
             else:
                 ch = ord('o')
@@ -1592,7 +1619,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                 ch == ord('?')):
             # if cur_nod == "":
             #    cur_nod = "okay" #nods[si] 
-            if ch == ord(']') or is_enter(ch) or (ch == cur.KEY_DOWN and needs_nod and not nod_set):
+            if ch == ord(']') or is_enter(ch) or (ch == cur.KEY_DOWN and needs_nod):
                 for ii in range(bmark, si + 1):
                     if ii < si:
                         nods[ii] = "next"
@@ -1686,7 +1713,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                 if cur_sent_length == 0:
                     cur_sent_length = 0.01
                 reading_time = round(elapsed_time / cur_sent_length, 2)
-                if reading_mode or elapsed_time < 1 and cur_nod == "" and nods[si] in ["", "okay?"]:
+                if False: #reading_mode or elapsed_time < 1 and cur_nod == "" and nods[si] in ["", "okay?"]:
                     cur_nod = "skipped"
                     # mbeep()
                     nod_set = True
@@ -1712,8 +1739,10 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                             ch = cur.KEY_DOWN
             can_inc = True
             next_frag_start = cur_frag["offset"] + len(cur_frag["sents"]) 
-            if ch == cur.KEY_DOWN and not nod_set and ((si - bmark) >= 2 or si + 1 >= next_frag_start):
-                can_inc = False
+            if ch == cur.KEY_DOWN and not nod_set and ((si - bmark) >= rows - 5 or si + 1 >= next_frag_start):
+                can_inc = True # False 
+                # Disabled can_inc
+                nod_set = True
             if si < total_sents:
                 if si <= 1 or (not nods[si] in ["", "okay?", "skipped", "next"]):
                     can_inc = True
@@ -1735,10 +1764,9 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                         bmark -= 1
                 needs_nod = False
             else:
-                needs_nod = True
-                nod_set = False
-                #jump_key = cur.KEY_DOWN
-                mbeep()
+                needs_nod = True 
+                nod_set = True 
+                jump_key = cur.KEY_DOWN
                 show_info(
                     "Please use the <Left> or <Right> arrow keys to nod the sentence, or press <Down> twice to skip.")
                 if si > total_sents - 1:
@@ -1763,7 +1791,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
             bmark = si
         if (expand == 0 and ch == cur.KEY_DOWN and not cur_sect["opened"]) or ch == cur.KEY_NPAGE:
             sel_first_sent = True
-            si = cur_sect["offset"] + cur_sect["sents_num"] 
+            si = cur_sect["offset"] + cur_sect["sents_num"] + 1 
             bmark = si
         if ch == ord(';'):
             si = cur_frag["offset"] + len(cur_frag["sents"]) 
@@ -1851,19 +1879,25 @@ def show_article(art, show_note="", collect_art = False, si = 0):
             win.refresh()
             review = art["sections"][0]["fragments"][-1]
             default = ""
-            for sent in review["sents"]:
-                default += sent["text"]
+            if review["text"] != def_review:
+                for sent in review["sents"]:
+                    default += sent["text"]
             _review, _ = minput(win, 0, 0, "Article notes and review:", default=default, multi_line=True)
             show_info(main_info)
             _review = _review if _review != "<ESC>" and _review != "q" else default
             art_changed = True
-            review["sents"] = init_frag_sents(_review)
+            if _review != "" and _review != def_review:
+                review["text"] = _review
+                review["sents"] = init_frag_sents(_review, word_limit = 1)
+                if not "reviewed" in review["sents"][-1]["notes"]:
+                    review["sents"][-1]["notes"].append("reviewed")
             old_total_sents = total_sents
-            total_sects, total_frags, total_sents = refresh_offsets(art)
+            total_sects, total_frags, total_sents, nods = refresh_offsets(art)
             dif = total_sents - old_total_sents
+            si += dif
+            bmark += dif
             if dif > 0:
                 pos += [0]*dif
-                nods += [""]*dif
                 visible += [True]*dif
                 passable += [False]*dif
 
@@ -1897,7 +1931,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
             cur_tags = load_obj("tags", "", [""])
             tags_options["select tag"] = cur_tags
             extra = {}
-            extra["tags (one per line)"] = {"type":"mline_input", "rows":12, "combo":"select tag"}
+            extra["tags (one per line)"] = {"type":"mline_input", "rows":12, "addto":"select tag"}
             while choice != 'q':
                 tags = ""
                 if "tags" in art:
@@ -1935,7 +1969,7 @@ def show_article(art, show_note="", collect_art = False, si = 0):
             fig_win.border()
             opts = []
             fig_num = 1
-            if not figures:
+            if not figures or figures is None:
                 show_msg("No figure to show")
             else:
                 for fig in figures:
@@ -1959,32 +1993,49 @@ def show_article(art, show_note="", collect_art = False, si = 0):
             save_obj(theme_menu, conf["theme"], "theme")
             text_win.erase()
             text_win.refresh(0, 0, 0, 0, rows - 2, cols - 1)
+# eee
         if ch == ord('q'):  # before exiting artilce
-            if art_changed:
+            if art_changed and not collect_art:
                 if not "visits" in art:
                     art["visits"] = 1
                 else:
                     art["visits"] += 1
                 art["last_visit"] = datetime.datetime.today().strftime('%Y-%m-%d')
                 ii = 1
+                begin = 1
+                sect_counter = 0
                 for sect in art["sections"]:
                     ii += 1
+                    frag_counter = 0
                     for frag in sect["fragments"]:
+                        _frag = {"sents":[]}
+                        sent_counter = 0
+                        begin = sent_counter
                         for sent in frag["sents"]:
                             ii += 1
-                            cur_note_list = sent["notes"]
-                            for note in cur_note_list:
+                            _frag["sents"].append(sent)
+                            for note in sent["notes"]:
                                 if note != "" and ii > 0:
-                                    sent["ref_art"] = art_id
-                                    sent["ref_title"] = art["title"]
-                                    sent["ref_url"] = art["pdfUrl"]
-                                    sent["ref_sent"] = ii
+                                    _frag["ref_art"] = art_id
+                                    _frag["ref_title"] = art["title"]
+                                    _frag["ref_url"] = art["pdfUrl"]
+                                    _frag["ref_sent"] = str(sect_counter) + "_" + str(frag_counter) + "_" + str(begin) + "_" + str(sent_counter) 
+                                    frag_id = art_id + "_" + _frag["ref_sent"]
                                     if not note in articles_notes:
-                                        articles_notes[note] = {art_id:[sent]}
+                                        articles_notes[note] = {art_id:{frag_id:_frag}}
                                     elif not art_id in articles_notes[note]:
-                                        articles_notes[note][art_id] = [sent]
-                                    else:
-                                        articles_notes[note][art_id].append(sent)
+                                        articles_notes[note][art_id] = {frag_id:_frag}
+                                    elif not frag_id in articles_notes[note][art_id]:
+                                        articles_notes[note][art_id][frag_id] = _frag
+                            if sent["nod"] != "" and sent["nod"] != "next":
+                                begin = sent_counter
+                                _frag = {"sents":[]}
+                            sent_counter += 1
+                            # end for sent 
+                        frag_counter += 1
+                        # end for fragments
+                    sect_counter += 1
+                    # end for sect
                 save_obj(articles_notes, "articles_notes", "articles")
             if not collect_art:
                 insert_article(saved_articles, art)
@@ -1993,9 +2044,10 @@ def show_article(art, show_note="", collect_art = False, si = 0):
                 insert_article_list(last_visited, art)
                 save_obj(last_visited, "last_visited", "articles")
     return ""
-# eee
 
 def create_figures_file(figures, fname):
+    if figures is None:
+        return
     html = """
         <html>
         <head>
@@ -2136,20 +2188,24 @@ win_info = None
 
 
 def confirm_all(win, msg):
-    return confirm(win, msg, acc=['y', 'n', 'a'])
+    return confirm(msg, acc=['y', 'n', 'a'])
 
 
-def confirm(win, msg, acc=['y', 'n'], color=WARNING_COLOR):
-    win.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
+def confirm(msg, acc=['y', 'n'], color=WARNING_COLOR):
+    win_info.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
     mbeep()
+    temp = old_msg
     msg = "Are you sure you want to " + msg + "? (" + "/".join(acc) + ")"
-    return get_confirm(win, msg)
+    _confirm = get_confirm(win_info, msg)
+    show_info(old_msg)
+    return _confirm
 
-
+old_msg = ''
 def show_info(msg, color=INFO_COLOR, bottom=True):
-    global win_info
+    global win_info, old_msg
     rows, cols = std.getmaxyx()
     if bottom:
+        old_msg = msg
         win_info = cur.newwin(1, cols, rows - 1, 0)
     else:
         win_info = cur.newpad(rows * 2, 2 * cols // 3)
@@ -2193,18 +2249,30 @@ def show_info(msg, color=INFO_COLOR, bottom=True):
 
 
 def show_msg(msg, color=MSG_COLOR):
+    temp = old_msg
     mbeep()
-    show_info(msg + " press any key", color)
+    show_info(msg + "; press any key", color)
     std.getch()
+    show_info(temp)
 
 
-def show_err(msg, color=ERR_COLOR, bottom=True):
+def show_warn(msg, color=WARNING_COLOR, bottom=True):
     if bottom:
-        msg += " press any key..."
+        msg += "; press any key..."
+        temp = old_msg
     show_info(msg, color, bottom)
     if bottom:
         std.getch()
+        show_info(temp)
 
+def show_err(msg, color=ERR_COLOR, bottom=True):
+    if bottom:
+        msg += "; press any key..."
+        temp = old_msg
+    show_info(msg, color, bottom)
+    if bottom:
+        std.getch()
+        show_info(temp)
 
 def load_preset(new_preset, options, folder=""):
     menu = load_obj(new_preset, folder, common =True)
@@ -2439,7 +2507,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                 win_input = cur.newwin(extra[sel]["rows"], cols - 10, row + mi, col)
                 mline = True
                 prompt = sel
-                cur_values = menu[sel].replace(",","\n").strip()
+                cur_values = "\n".join([x.strip() for x in menu[sel].split(',')])
             else:
                 win_input = cur.newwin(1, cols - 10, row + mi, col)
                 prompt = "{:<{}}".format(sel, _m) + ": "
@@ -2449,14 +2517,14 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             if val != "<ESC>":
                 val = textwrap.fill(val, width=cols - 12 - _m)
                 menu[sel] = val
-                if extra and sel in extra and "combo" in extra[sel] and val.strip() != "":
-                    combo = extra[sel]["combo"]
+                if extra and sel in extra and "addto" in extra[sel] and val.strip() != "":
+                    addto_list = extra[sel]["addto"]
                     new_tags = val.split("\n")
-                    new_tags = filter(None, new_tags)
+                    new_tags = list(filter(None, new_tags))
                     for tag in new_tags:
                         tag = tag.strip()
-                        if tag != '' and not tag in options[combo]:
-                            options[combo].append(tag)
+                        if tag != '' and not tag in options[addto_list]:
+                            options[addto_list].append(tag)
             else:
                 menu[sel] = cur_val
                 ch = ord('q')
@@ -2513,8 +2581,21 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                 if "preset" in menu:
                     last_preset = menu["preset"]
                 refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, active_sel = False)
-                si, canceled = open_submenu(sub_menu_win, options, sel, si, title)
+                si, canceled, st = open_submenu(sub_menu_win, options, sel, si, title, extra)
                 if not canceled:
+                    is_combo = extra and sel in extra and "type" in extra[sel] and extra[sel]["type"] == "combo-box"
+
+                    if is_combo:
+                        if not str(options[sel][si]).lower().startswith(st.lower()):
+                            options[sel].insert(0, st)
+                            si = 0
+                        else:
+                            sep_index = options[sel].index("---")
+                            cur_item = options[sel][si]
+                            if si < sep_index:
+                                options[sel].pop(si)
+                            options[sel].insert(0, cur_item)
+                            si = 0
                     menu[sel] = options[sel][si]
                     if "preset" in menu and sel != "preset":
                         if title == "theme":
@@ -2527,8 +2608,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                         last_preset = new_preset
                         refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row)
                         show_info(new_preset + " was loaded")
-                    if sel in shortkeys.values():
-                        return sel, menu, mi
+                    return sel, menu, mi
         elif ch == cur.KEY_DOWN:
             mi += 1
         elif ch == cur.KEY_UP:
@@ -2592,11 +2672,19 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             #    ch = 0
     return chr(ch), menu, mi
 
-def open_submenu(sub_menu_win, options, sel, si, title):
+def open_submenu(sub_menu_win, options, sel, si, title, extra):
     ch = 0
     st = ""
+    back_st = ""
     old_si = si
     cancel = False
+    temp_msg = old_msg
+    is_combo = extra and sel in extra and "type" in extra[sel] and extra[sel]["type"] == "combo-box"
+    info = "Enter/Right: select | qq/ESC/Left: cancel "    
+    if sel == "preset" or is_combo:
+        info += " | Del: delete an item"
+
+    show_info(info)
     while not is_enter(ch) and not ch == cur.KEY_RIGHT:
         if ch == cur.KEY_UP:
             if si == 0:
@@ -2615,35 +2703,56 @@ def open_submenu(sub_menu_win, options, sel, si, title):
             si = 0
         elif ch == cur.KEY_END:
             si = len(options) - 1
-        elif ch == cur.KEY_LEFT or ch == 27:
+        elif ch == cur.KEY_LEFT or ch == 27 or (back_st.lower() == "q" and chr(ch) == "q"):
             si = old_si
             cancel = True
             break
-        elif ch == cur.KEY_DC and sel == "preset":
-            if len(options[sel]) == 1 or options[sel][si] == "default":
-                show_msg("You can't delete the default " + title, color = WARNING_COLOR)
-            else:
+        elif ch == cur.KEY_DC:
+            can_delete = True
+            if sel == "preset" and len(options[sel]) == 1 or options[sel][si] == "default":
+                show_warn("You can't delete the default " + title)
+                can_delete = False
+            elif is_combo:
+                sep_index = options[sel].index("---")
+                if si > sep_index:
+                    show_warn("You can't remove predefined profiles which appear below separate line (---)")
+                    can_delete = False
+            if can_delete:
                 item = options[sel][si]
-                delete_preset(item, sel, title)
+                _confirm = confirm("delete '" + item)
+                if _confirm == "y" or _confirm == "a":
+                    del_obj(item, title, common = True)
                 if item in options[sel]:
                     options[sel].remove(item)
-                if si > len(options[sel]):
-                    si = len(options[sel]) 
-                else:
-                    new_item = "None"
+                    if si > len(options[sel]):
+                        si = len(options[sel]) 
+                    if is_combo and "list_file" in extra[sel]:
+                        save_obj(options[sel], extra[sel]["list_file"], "", common = True)
         elif ch != 0:
             if ch == 127 or ch == cur.KEY_BACKSPACE:
                 st = st[:-1]
+                back_st = back_st[:-1]
                 si, st = find(options[sel], st, "", si)
             if chr(ch).lower() in string.printable:
-                si, st = find(options[sel], st, chr(ch), si)
+                back_st += chr(ch)
+                si, new_st = find(options[sel], st, chr(ch), si)
+                if not is_combo:
+                    if st == new_st:
+                        mbeep()
+                    else:
+                        st = new_st
+                else:
+                    st += chr(ch)
         si = min(si, len(options[sel]) - 1)
         si = max(si, 0)
         sub_menu_win.erase()
         show_submenu(sub_menu_win, options[sel], si, "color" in sel, search=st)
-        if len(options[sel]) > 8:
+        if is_combo: 
             show_cursor()
-            mprint("Search: " + st, sub_menu_win, end ="")
+            mprint("Search or Add:" + st, sub_menu_win, end ="")
+        elif len(options[sel]) > 8:
+            show_cursor()
+            mprint("Search:" + st, sub_menu_win, end ="")
         sub_menu_win.refresh()
         ch = get_key(std)
 
@@ -2651,13 +2760,8 @@ def open_submenu(sub_menu_win, options, sel, si, title):
     si = max(si, 0)
     hide_cursor()
     sub_menu_win.erase()
-    return si, cancel
-
-def delete_preset(item, sel, title):
-    _confirm = confirm(win_info,
-                       "delete '" + item)
-    if _confirm == "y" or _confirm == "a":
-        del_obj(item, title, common = True)
+    show_info(temp_msg)
+    return si, cancel, st
 
 def find(list, st, ch, default):
     _find = st + ch
@@ -2668,7 +2772,6 @@ def find(list, st, ch, default):
     for i, item in enumerate(list):
         if _find in item.lower(): 
             return i, _find
-    mbeep()
     return default, st
 
 
@@ -2676,7 +2779,7 @@ colors = []
 
 
 def start(stdscr):
-    global colors, template_menu, template_options, theme_options, theme_menu, std, conf, query, filters, top_win, hotkey, menu_win, list_win, common_subwin, text_win
+    global colors, template_menu, template_options, theme_options, theme_menu, std, conf, query, filters, top_win, hotkey, menu_win, list_win, common_subwin, text_win, profile
 
     std = stdscr
     stdscr.refresh()
@@ -2690,7 +2793,7 @@ def start(stdscr):
     # mouse = cur.mousemask(cur.ALL_MOUSE_EVENTS)
     list_win = cur.newwin(rows-1, cols-14, 1, 7)
     list_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
-    text_win = cur.newpad(rows * 30, cols - 1)
+    text_win = cur.newpad(rows * 50, cols - 1)
     text_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     menu_win = cur.newpad(rows*3 , cols)
     menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
@@ -2705,20 +2808,27 @@ def start(stdscr):
     filters = {}
     filter_items = ["year", "conference", "dataset", "task"]
     last_visited = load_obj("last_visited", "articles", [])
-    menu =  load_obj("main_menu", "")
+    prev_menu =  load_obj("main_menu", "")
     isFirst = False
-    if menu is None or (newspaper_imported and not "webpage" in menu):
+    profile_str = "profile (research area)"
+    if True: #menu is None or (newspaper_imported and not "webpage" in menu):
         isFirst = True
         menu = {}
+        menu[profile_str] = ""
         if last_visited:
             menu["recent articles"] = "button"
+        else:
+            menu["recent articles"] = "button_hidden"
         menu["notes, reviews and comments"] = "button"
+        menu["tags"] = "button"
         menu["sepb1"] = ""
         menu["sep1"] = "Search AI-related papers"
         if is_obj("last_results", ""):
             menu["last results"] = "button"
-        menu["task"] = "All"
-        menu["keywords"] = ""
+        else:
+            menu["last results"] = "button_hidden"
+        menu["task"] = prev_menu["task"]
+        menu["keywords"] = prev_menu["keywords"]
         menu["Go!"] = "button"
         menu["advanced search"] = "button"
         if newspaper_imported:
@@ -2726,8 +2836,8 @@ def start(stdscr):
             menu["sep2"] = "Load website articles"
             menu["website articles"] = "button"
             menu["webpage"] = "button"
-        menu["options"] = "button"
         menu["text files"] = "button"
+        menu["options"] = "button"
 
     options = {
         "saved articles": ["None"],
@@ -2735,8 +2845,21 @@ def start(stdscr):
         "task": ["All", "Reading Comprehension", "Machine Reading Comprehension", "Sentiment Analysis",
                  "Question Answering", "Transfer Learning", "Natural Language Inference", "Computer Vision",
                  "Machine Translation", "Text Classification", "Decision Making"],
+        profile_str: ["---", "Computer Vision", "Image Recognition", "Speech Recognition", "Dialog Systems", "Information Retrieval", "Reinforcement Learning", "Reading Comprehension",
+                 "Question Answering", "Knowledge Graph", "Text Generation", "Transfer Learning", "Natural Language Inference", 
+                 "Machine Translation", "Sentiment Analysis", "Text Classification", "Decision Making"],
     }
 
+    extra = {}
+
+    menu[profile_str] = profile
+    conf = load_obj("conf", "", common = True)
+    extra[profile_str] = {'type':'combo-box', 'list_file':'profiles'}
+    profiles = load_obj("profiles","", common = True)
+    if not profiles is None:
+       options[profile_str] = profiles
+    else:
+       save_obj(options[profile_str], "profiles", "", common = True)
     task_file = Path('tasks.txt')
     if task_file.is_file():
         with open('tasks.txt', 'r') as f:
@@ -2754,10 +2877,9 @@ def start(stdscr):
 
     if isFirst:
         for opt in menu:
-            if opt in options:
+            if opt in options and menu[opt] == "":
                 menu[opt] = options[opt][0] if options[opt] else ""
 
-    conf = load_obj("conf", "", common = True)
     if conf is None:
         conf = {"theme": "default", "template": "txt"}
 
@@ -2794,20 +2916,34 @@ def start(stdscr):
     top_win = cur.newwin(2, cols, 1, 0)
     top_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     ch = ''
-    shortkeys = {"v": "reviewed articles", "l": "last results", "k": "keywords", "n": "nods", "r": "recent articles",
-                 "t": "tagged articles", "o": "options", "p": "webpage", "a": "advanced search", "n": "notes, reviews and comments",
-                 "w": "website articles", 't': "text files"}
+    shortkeys = {"v": "reviewed articles", "l": "last results", "k": "keywords", "n": "nods", "r": "recent articles", "g":"Go!", "t": "tags", "o": "options", "p": "webpage", "a": "advanced search", "n": "notes, reviews and comments", "w": "website articles", 'x': "text files"}
     mi = 0
     while ch != 'q':
         info = "h) help         q) quit"
         show_info(info)
-        ch, menu, mi = show_menu(menu, options, shortkeys=shortkeys, mi=mi, subwins=subwins, title="main",
+        ch, menu, mi = show_menu(menu, options, extra= extra, shortkeys=shortkeys, mi=mi, subwins=subwins, title="main",
                                  hotkeys={"R": "resume last article"})
         save_obj(menu, "main_menu", "")
         if ch == "R":
             hotkey = "rrr"
         if ch == "advanced search":
             search()
+        elif ch == profile_str:
+            profile = menu[profile_str]
+            conf["profile"] = profile
+            save_obj(conf, "conf", "", common = True)
+            save_obj(options[profile_str], "profiles", "", common = True)
+            last_visited = load_obj("last_visited", "articles", [])
+            if len(last_visited) > 0:
+                menu["recent articles"] = "button"
+            elif len(last_visited) == 0:
+                menu["recent articles"] = "button_hidden"
+            if is_obj("last_results", ""):
+                menu["last results"] = "button"
+            else:
+                menu["last results"] = "button_hidden"
+        elif ch == "tags":
+            list_tags()
         elif ch == "last results":
             show_last_results()
         elif ch == 'v' or ch == "reviewed articles":
@@ -2819,6 +2955,11 @@ def start(stdscr):
             if menu["task"] != "All":
                 filters = {"task": menu["task"]}
             fid = menu["task"] + "|" + menu["keywords"]
+            conf = load_obj("conf","", common = True)
+            conf["keywords"] = menu["keywords"]
+            conf["fid"] = fid
+            conf["filters"] = filters
+            save_obj(conf, "conf", "", common = True)
             articles, ret = request(0)
             if len(articles) > 0 and ret == "":
                 if isinstance(articles, tuple):
@@ -2857,6 +2998,7 @@ def start(stdscr):
         elif ch == 'w' or ch == "website articles":
             website()
         elif ch == "r" or ch == "recent articles":
+            last_visited = load_obj("last_visited", "articles", [])
             if len(last_visited) > 0:
                 list_articles(last_visited, "Recent Articles", group="last_visited")
             else:
@@ -2955,9 +3097,9 @@ def show_texts(save_folder):
                 if not is_empty:
                     show_msg("The folder " + fname + " is not empty and can't be deleted!")
                 else:
-                    _confirm = confirm(win_info, "to delete "+fname)
+                    _confirm = confirm("to delete "+fname)
             else:
-                    _confirm = confirm(win_info, "to delete "+fname)
+                    _confirm = confirm("to delete "+fname)
             if _confirm == "y":
                 if parts[2] == "file":
                     Path(filepath).unlink()
@@ -2982,8 +3124,7 @@ def show_texts(save_folder):
 
 def saved_items():
     menu = {}
-    # menu["reviewed articles"]="button"
-    menu["tags"] = ""
+    menu["reviewes"]="button"
     menu["comments"] = "button"
     shortkeys = {"s": "saved articles", "c": "comments", "n": "notes", "t": "tags", 'x': "text files"}
     options = {}
@@ -3023,6 +3164,8 @@ def saved_items():
                 options["tags"] = tag_opts
         elif ch.startswith("del@tags"):
             save_obj(menu["tags"], "tags", "")
+        elif ch == "reviewes":
+            list_notes("reviewed")
         elif ch != 'q':
             sel_note = ch[:20]
             sel_note = sel_note.strip()
@@ -3074,22 +3217,23 @@ def list_notes(note):
         return
     arts = art_notes[note]
     n_art = {"id":note, "title": "Sentences for " + note ,"pdfUrl":"na", "sections":[]}
-    new_sect = {"title":"All"}
+    new_sect = {"title":"all"}
     frags = []
     old_art_id = 0
-    for art_id, sents_list in arts.items():
+    for art_id, frags_dict in arts.items():
         if art_id in saved_articles:
             avail = " [Enter to open]"
         else:
             avail = " [Not available]"
-        for sent in sents_list:
-            title = sent["ref_title"]
+        for frag in frags_dict.values():
+            title = frag["ref_title"]
             title = title if art_id != old_art_id else "Same article"
             old_art_id = art_id
-            ref = new_sent("[Ref]" + title + avail)
+            ref = new_sent("[Ref] " + title + avail)
             ref["passable"] = "True"
-            frag = {"sents":[sent, ref]}
+            frag["sents"].append(ref)
             frags.append(frag)
+    frags[-1]["end_mark"] = "True"
     new_sect["fragments"] = frags
     n_art["sections"].append(new_sect)
 
@@ -3200,6 +3344,32 @@ def refresh_tags():
     save_obj(tag_list, "tags", "")
     return opts, art_list
 
+def list_tags():
+    subwins = {
+            "tags":{"x":7,"y":5,"h":15,"w":68},
+            }
+    choice = ''
+    opts = {}
+    opts["tags"], art_list = refresh_tags()
+    if not art_list:
+        show_msg("There is no tagged article!")
+        return
+    clear_screen(std)
+    mi = 0
+    while choice != 'q':
+        tags = ""
+        menu = {"tags":""}
+        choice, menu,mi = show_menu(menu, opts,
+                shortkeys={"t":"tags"}, subwins = subwins)
+        if choice == "tags":
+            sel_tag = menu["tags"][:-5]
+            sel_tag = sel_tag.strip()
+            articles = art_list[sel_tag]
+            if len(articles) > 0:
+                ret = list_articles(articles, sel_tag, group = "tags")
+            opts["tags"], art_list = refresh_tags()
+        elif choice.startswith("del@tags"):
+            save_obj(menu["tags"], "tags", "")
 
 def website():
     menu = load_obj("website_menu", "")
@@ -3431,13 +3601,16 @@ def search():
                 if ch == 's' or ch == 'search':
                     show_info("Getting articles...")
                     query = menu["keywords"]
-                    fid = menu["keywords"] + '_' + menu["year"] + '_1_' + menu["conference"] + '_' + menu[
-                        "task"] + '_' + menu["dataset"]
+                    fid = menu["keywords"] + '|' + menu["task"] + '|' + menu[
+                        "conference"] + '|' + menu["dataset"]
                     fid = fid.replace('All', '')
-                    fid = fid.replace('__', '_')
-                    fid = fid.replace('__', '_')
-                    fid = fid.replace('__', '_')
+                    while "||" in fid:
+                        fid = fid.replace('||', '|')
                     articles, ret = request(0)
+                    conf["keywords"] = menu["keywords"]
+                    conf["fid"] = fid
+                    conf["filters"] = filters
+                    save_obj(conf, "conf", "", common = True)
                     if len(articles) > 0 and ret == "":
                         if isinstance(articles, tuple):
                             articles = articles[0]
@@ -3445,6 +3618,8 @@ def search():
                         ret = list_articles(articles, fid)
                     if ret:
                         show_err(ret[:200] + "...", bottom=False)
+                    else:
+                        show_msg(ret[:200] + "...")
 
                 elif ch == 'l' or ch == "last results":
                     show_last_results()
@@ -3456,23 +3631,28 @@ def search():
 
 
 def show_last_results():
-    menu = load_obj("query_menu", "", {"keywords": ""})
-    last_query = menu["keywords"]
-    query = last_query
+    global query, filters
     last_results_file = user_data_dir(appname, appauthor)+ "/profiles/" + profile + "/last_results.pkl"
     obj_file = Path(last_results_file)
     if obj_file.is_file():
+        conf = load_obj("conf", "", common = True)
+        query = last_query = conf["keywords"]
+        filters = conf["filters"]
+        fid = conf["fid"]
         cr_time = time.ctime(os.path.getmtime(last_results_file))
         cr_date = str(cr_time)
         articles = load_obj("last_results", "", [])
         if articles:
-            ret = list_articles(articles, "results at " + str(cr_date) + " for " + last_query)
+            ret = list_articles(articles, "Results at " + str(cr_date) + " for " + fid)
     else:
         show_msg("Last results is missing....")
 
 
 def main():
-    global doc_path
+    global doc_path, conf, profile
+    conf = load_obj("conf", "", common=True)
+    if not conf is None and "profile" in conf:
+        profile = conf["profile"]
     nr_options = load_obj("options", "", common=True)
     if nr_options != None:
         doc_path = nr_options["documents folder"]
