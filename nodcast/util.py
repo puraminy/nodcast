@@ -8,22 +8,6 @@ import textwrap
 #locale.setlocale(locale.LC_ALL, '')
 code = "utf-8" #locale.getpreferredencoding()
 
-TEXT_COLOR = 100
-ITEM_COLOR = 101
-CUR_ITEM_COLOR = 102
-SEL_ITEM_COLOR = 103
-TITLE_COLOR = 104
-INFO_COLOR = 105
-ERR_COLOR = 106
-HL_COLOR = 107
-DIM_COLOR = 108
-MSG_COLOR = 109
-TEMP_COLOR = 110
-TEMP_COLOR2 = 111
-WARNING_COLOR = 112
-COMMENT_COLOR = 39
-
-
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -34,18 +18,6 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-
-color_map = {
-    "text-color": TEXT_COLOR,
-    "back-color": TEXT_COLOR,
-    "item-color": ITEM_COLOR,
-    "cur-item-color": CUR_ITEM_COLOR,
-    "sel-item-color": SEL_ITEM_COLOR,
-    "title-color": TITLE_COLOR,
-    "highlight-color": HL_COLOR,
-    "hl-text-color": HL_COLOR,
-    "dim-color": DIM_COLOR,
-}
 
 if os.name == 'nt':
     import ctypes
@@ -199,7 +171,8 @@ def show_cursor(useCur = True):
         sys.stdout.write("\033[?25h")
         sys.stdout.flush()
 
-def mprint(text, win =None, color=0, attr = None, end="\n", refresh = False):
+import nodcast as nc
+def m_print(text, win, color, attr = None, end="\n", refresh = False):
     if win is None:
         print(text, end=end)
     else:
@@ -271,19 +244,20 @@ def get_confirm(win, msg, acc = ['y','n']):
     win.refresh()
     return chr(ch).lower()
 
-def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = 0, footer="", color=HL_COLOR):
+def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = 0, footer="", color=nc.HL_COLOR):
     multi_line = mode == 2
     if mode > 0:
         mrows, mcols = mwin.getmaxyx()
+        mwin.border()
         print_there(row, col, prompt_string, mwin)
         if footer == "":
-            footer =  "<Insert>: Save and Close | <Tab>: Close | <Shift> + <Del>: Clear | <Shift> + <Left>: Delete line"
+            footer =  "Insert: Insert | Tab: Close | Shift + Del: Clear | Shift + Left: Delete line"
             footer = textwrap.shorten(footer, mcols)
         if mode == 2:
             print_there(mrows-1, col, footer, mwin)
-            win = mwin.derwin(mrows - 2, mcols, 1, 0)
+            win = mwin.derwin(mrows - 2, mcols-2, 1, 1)
         else:
-            win = mwin.derwin(mrows - 1, mcols, 1, 0)
+            win = mwin.derwin(mrows - 2, mcols-2, 1, 1)
         win.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
         mwin.refresh()
     else:
@@ -397,7 +371,7 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = 0, fo
                 pos += 1
             else:
                 mbeep()
-                print_there(mrows-1, col, f"You reached the maximum number of {max_lines} lines", mwin, color=WARNING_COLOR)
+                print_there(mrows-1, col, f"You reached the maximum number of {max_lines} lines", mwin, color=nc.WARNING_COLOR)
                 mwin.clrtoeol()
                 mwin.get_wch()
                 print_there(mrows-1, col, footer, mwin)
