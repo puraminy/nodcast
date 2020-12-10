@@ -234,9 +234,9 @@ def get_confirm(win, msg, acc = ['y','n']):
     win.erase()
     print_there(0,1, msg, win) 
     ch = 0
-    while chr(ch) not in acc:
+    while chr(ch).lower() not in acc:
         ch = win.getch()
-        if not chr(ch) in acc:
+        if not chr(ch).lower() in acc:
             mbeep()
         else:
             break
@@ -461,7 +461,7 @@ def qplit_into_sentences(text):
     except ImportError as e:
         return rplit_into_sentences(text)
 
-def split_into_sentences(text, debug = False, limit = 15):
+def split_into_sentences(text, debug = False, limit = 15, split_on = ['.','?','!']):
     text = " " + text + "  "
     text = text.replace("\n","<stop>")
     text = re.sub(prefixes,"\\1<prd>",text)
@@ -487,11 +487,10 @@ def split_into_sentences(text, debug = False, limit = 15):
     if "\"" in text: text = text.replace(".\"","\".")
     if "!" in text: text = text.replace("!\"","\"!")
     if "?" in text: text = text.replace("?\"","\"?")
-    text = text.replace(".",".<stop>")
-    text = text.replace("?","?<stop>")
-    text = text.replace("!","!<stop>")
+    for ch in split_on:
+        text = text.replace(ch, ch + "<stop>")
     text = text.replace("<prd>",".")
     sentences = text.split("<stop>")
     sentences = list(filter(None, sentences))
-    sentences = [s.strip() for s in sentences if len(s) > limit]
+    sentences = [s.strip() for s in sentences if s.strip()  and len(s) >= limit]
     return sentences
