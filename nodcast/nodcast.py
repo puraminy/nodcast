@@ -995,7 +995,7 @@ def print_comment(text_win, comment, width):
         mprint(com, text_win, SEL_ITEM_COLOR, end="\n")
         
 def new_sent(s):
-    _new_sent = {"text":s,"type":"", "end":'\n', "nod":"", "nods":[],"passable":"False", "rtime":0, "tries":1, "comment":"", "notes":{}}
+    _new_sent = {"text":s,"type":"", "end":'\n', "block":"sent", "nod":"", "nods":[],"passable":"False", "rtime":0, "tries":1, "comment":"", "notes":{}}
     if len(s.split(' ')) <= 1:
         _new_sent["end"] = " "
     return _new_sent
@@ -1014,6 +1014,7 @@ def init_frag_sents(text, single_unit = False, word_limit = 20, nod = "", split_
             for w in words:
                 u = new_sent(w)
                 u["nod"] = "line"
+                u["block"] = "word"
                 sents.append(u)
             sents[-1]["nod"] = "eol"
         sents[-1]["end"] = "\n"
@@ -1031,6 +1032,7 @@ def refresh_offsets(art, split_level = 1):
     prev_sect = None
     fn = 0
     nods = [""]
+    sents = [{}]
     for sect in art["sections"]:
         sect["offset"] = ii
         if not "progs" in sect:
@@ -1047,9 +1049,10 @@ def refresh_offsets(art, split_level = 1):
                 frag["sents"] = init_frag_sents(frag["text"], split_level = split_level)
             for sent in frag["sents"]:
                 nods.append(sent["nod"])
+                sents.append(sent)
                 ii += 1
     sect["sents_num"] = ii - prev_sect["offset"]
-    return len(art["sections"]),fn, ii, nods
+    return len(art["sections"]),fn, ii, nods, sents
 
 def locate(art, si, sel_first_sent=False):
     ii = 0
@@ -1185,7 +1188,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     reading_mode = False
 #vvv
     split_level = 1
-    total_sects, total_frags, total_sents, nods = refresh_offsets(art, split_level=split_level)
+    total_sects, total_frags, total_sents, nods, sents = refresh_offsets(art, split_level=split_level)
     pos = [0]*total_sents
     visible = [True]*total_sents
     passable = [False]*total_sents
@@ -1222,6 +1225,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     start_reading = True
     first = True
     forward = True
+    visual_mode = False
     begin_offset = art["sections"][0]["offset"]
     while ch != ord('q'):
         # clear_screen(text_win)
@@ -1502,15 +1506,15 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         first = False
         win_info.erase()
         if start_reading:
-            print_there(0, 1, "   ", win_info, color=WARNING_COLOR)
-            print_there(0, 5, "s) stop reading", win_info, color=INFO_COLOR)
+            #print_there(0, 1, "   ", win_info, color=WARNING_COLOR)
+            #print_there(0, 5, "s) stop reading", win_info, color=INFO_COLOR)
             if show_instruct:
                 print_there(0, cols - 25, "l) hide insturctions", win_info, color=INFO_COLOR)
             else:
                 print_there(0, cols - 25, "l) list instructions", win_info, color=INFO_COLOR)
         else:
-            print_there(0, 1, "   ", win_info, color=22, attr= A_REVERSE)
-            print_there(0, 5, "s) start reading", win_info, color=INFO_COLOR)
+            #print_there(0, 1, "   ", win_info, color=22, attr= cur.A_REVERSE)
+            #print_there(0, 5, "s) start reading", win_info, color=INFO_COLOR)
             if show_instruct:
                 print_there(0, cols - 25, "l) hide instructions", win_info, color=INFO_COLOR)
             else:
@@ -1592,10 +1596,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 
         if ch == ord("N"):
             hotkey = "qNr" if expand == 0 else "qqNr"
-        if ch == ord("H"):
+        if ch == ord("H") or ch == ord("Q"):
             hotkey = "qq" if expand == 0 else "qqq"
-        if ch == ord("Q"):
-            hotkey = "qqq" if expand == 0 else "qqqq"
         if ch == ord('n'):
             if show_note != '':
                 show_note = ''
@@ -1628,7 +1630,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 cur_frag['sents'].pop(_pos)
                 cur_frag['sents'][_pos:_pos] = new_sents
                 old_total_sents = total_sents
-                total_sects, total_frags, total_sents, nods = refresh_offsets(art)
+                total_sects, total_frags, total_sents, nods, sents = refresh_offsets(art)
                 dif = total_sents - old_total_sents
                 si = bmark
                 if dif > 0:
@@ -1677,13 +1679,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             start_reading = True
 
         if ch == ord('v'):
-            _confirm = confirm("restore the removed parts")
-            if _confirm == "y" or _confirm == "a":
-                visible = [True] * total_sents
-            for i, nod in enumerate(nods):
-                if nod == "remove":
-                    nods[i] = ""
-            art_changed = True
+            if visual_mode:
+                ch = RIGHT
+            visual_mode = not visual_mode 
         if ch == ord('z'):
             # show_reading_time = not show_reading_time
             reading_mode = True  # not reading_mode
@@ -1841,6 +1839,11 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 ch = ord('o')
 
         ## kkk (bookmark)
+        if visual_mode:
+            if ch == RIGHT: ch = SRIGHT
+            if ch == LEFT: ch = SLEFT
+            if ch == UP: ch = SUP
+            if ch == DOWN: ch = SDOWN
         if ch == SRIGHT:
             if forward and bmark <= si:
                 si += 1
@@ -1899,8 +1902,11 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             elif nods[si + 1] == "line" or nods[si + 1] == "eol":
                 si = expand_sel(si, visible, passable, nods, pass_over="line")
                 if nods[si] == "eol":
-                    si += 1
-                    bmark = si
+                    bmark = si+1
+                    if nods[bmark] == "next":
+                        si = expand_sel(bmark, visible, passable, nods)
+                    else:
+                        si+=1
                 else:
                     si, bmark = moveon(si, visible, passable, nods)
             else:
@@ -1922,7 +1928,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 bmark = move_bmark(bmark - 1, nods)
                 si = expand_sel(bmark, visible, passable, nods)
         if ch == RIGHT: # move next
-            if (nods[si] != "line" and nods[si] != "eol") or bmark != si:
+            if bmark != si or sents[bmark]["block"] != "word" and sents[si]["block"] != "word":
                 cur_nod = "okay"
                 if nods[si] == "didn't get":
                     cur_nod = "OK, I get it now"
@@ -1931,11 +1937,18 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             si, bmark = moveon(si, visible, passable, nods)
             forward = True
         if ch == LEFT: # move previous
-            while not visible[bmark -1] or passable[bmark -1]:
-                bmark -= 1
-            bmark = move_bmark(bmark - 1, nods)
-            si = bmark 
-            forward = True
+            if sents[bmark]["block"] != "word" and sents[si]["block"] != "word":
+                cur_nod = "pass"
+                if nods[si] == "":
+                    set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time)
+                si, bmark = moveon(si, visible, passable, nods)
+                forward = True
+            else:
+                while not visible[bmark -1] or passable[bmark -1]:
+                    bmark -= 1
+                bmark = move_bmark(bmark - 1, nods)
+                si = expand_sel(bmark, visible, passable, nods) 
+                forward = True
         if ch == ord('-'):
             if nods[si] == "okay":
                 cur_nod = "I don't get it now"
@@ -2064,7 +2077,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 if not "reviewed" in review["sents"][-1]["notes"]:
                     review["sents"][-1]["nods"].append("reviewed")
             old_total_sents = total_sents
-            total_sects, total_frags, total_sents, nods = refresh_offsets(art)
+            total_sects, total_frags, total_sents, nods, sents = refresh_offsets(art)
             dif = total_sents - old_total_sents
             si += dif
             bmark += dif
@@ -2826,7 +2839,7 @@ def show_submenu(sub_menu_win, opts, si, in_colors={}, color=None, active_sel=Tr
     sub_menu_win.refresh()
 # mmm
 def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={}, info="h) help | q) quit"):
-    global menu_win, common_subwin 
+    global menu_win, common_subwin, hotkey
 
     ch = 0  # user choice
     rows, cols = std.getmaxyx()
@@ -2934,6 +2947,8 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             sub_menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
         if (not passable_item and not key_set) or hotkey != "":
             prev_ch = ch
+            if title.startswith("Checkideh") and hotkey == "q":
+                hotkey = ""
             ch = get_key(std)
         elif passable_item and mi == 0:
             ch = DOWN
@@ -3000,7 +3015,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
         elif ch == cur.KEY_PPAGE:
             mi -= 10
         elif ch == LEFT or ch == 27 or ch == 127 or ch == cur.KEY_BACKSPACE:
-            if title.startswith("Checkideh"):
+            if not title.startswith("Checkideh"):
                 ch = ord('q')
         if cmd == "save and quit":
             ch = ord('q')
@@ -3048,9 +3063,9 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                     return sel, menu, mi
         elif ch == ord('q') and title.startswith("Checkideh"):
             pass
-            # mbeep()
-            # _confirm = confirm(win_info, "you want to exit the program")
-            # if _confirm != "y":
+            #show_info("Hit q again to exit the program.")
+            #_confirm = confirm("you want to exit the program")
+            #if _confirm != "y":
             #    ch = 0
     return chr(ch), menu, mi
 
@@ -3457,7 +3472,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles"):
             ch = 'q'
         elif (ch == "back home" or ch == "H" or ch == 'h'):
             if depth >= 1:
-                hotkey = 'q'*(depth -1)
+                hotkey = 'q'*(depth - 1)
             else:
                 mbeep()
         elif ch == "new folder":
