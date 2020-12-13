@@ -965,15 +965,18 @@ top_win = None
 
 
 def print_sect(title, prog, left):
-    l_color = SEL_ITEM_COLOR
+    l_color = TITLE_COLOR
     top_win.clear()
     if title != "":
         prog = int(prog)
-        print_there(0, left, title[:90], top_win, l_color, attr=cur.A_BOLD)
+        title = textwrap.shorten(title, 2*text_width)
+        title = textwrap.fill(title,text_width)
+        title = textwrap.indent(title," "*left)
+        mprint(title, top_win, l_color, attr=cur.A_BOLD, end="")
         prog_color = TEXT_COLOR  # scale_color(prog)
-        add_info = " [" + str(prog) + "%] "  # + f"({sect_fc+1}/{fnum})"
-        y, x = top_win.getyx()
-        print_there(y, x + 1, add_info, top_win, prog_color, attr=cur.A_BOLD)
+        #add_info = " [" + str(prog) + "%] "  # + f"({sect_fc+1}/{fnum})"
+        #y, x = top_win.getyx()
+        #print_there(y, x + 1, add_info, top_win, prog_color, attr=cur.A_BOLD)
     top_win.refresh()
 
 
@@ -981,7 +984,7 @@ def print_prog(text_win, prog, width):
     w = int(width * prog / 100)
     d_color = scale_color(prog)
     cur.init_pair(TEMP_COLOR2, back_color, d_color % cur.COLORS)
-    addinfo = (" Progress:" + str(prog) + "%")
+    addinfo = ("Progress:" + str(prog) + "%")
     mprint(addinfo, text_win, d_color)
 
 def print_comment(text_win, comment, width):
@@ -1010,9 +1013,9 @@ def init_frag_sents(text, single_unit = False, word_limit = 20, nod = "", split_
             words = line.split()
             for w in words:
                 u = new_sent(w)
-                u["nod"] = "next"
+                u["nod"] = "line"
                 sents.append(u)
-            sents[-1]["nod"] = nod
+            sents[-1]["nod"] = "eol"
         sents[-1]["end"] = "\n"
     else:
         f_sents = split_into_sentences(text, limit = word_limit, split_on=split_levels[split_level])
@@ -1210,7 +1213,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     #def_inst2 = """Press <Down> to expand the selection, or press <Right> to adimit the selected part and move to the next part. Press <Left> to add a note to the selected part and press : to add a comment. 
     #""" + inst_footer
     #abstract["fragments"][0]["sents"][0]["notes"]["instruct"] = def_inst2
-# bbb
+# #bbb
     nr_opts = load_obj("settings", "", common = True)
     sel_first_sent = False
     total_pr = int(art["total_prog"])*total_sects if "total_prog" in art else 0
@@ -1618,7 +1621,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if ch == cur.KEY_DC:
             if split_level == len(split_levels) - 1:
                 show_warn("too split")
-            else:
+            elif nods[si] != "line" and nods[si] != "eol":
                 split_level = 3
                 _pos = si - cur_frag['offset']
                 new_sents = init_frag_sents(cur_frag["sents"][_pos]["text"], single_unit = True, split_level = split_level)
@@ -1632,6 +1635,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     pos += [0]*dif
                     visible += [True]*dif
                     passable += [False]*dif
+            else:
+                mbeep()
 
             # std.timeout(500)
             # tmp_ch = get_key(std)
@@ -1857,33 +1862,72 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             bmark = max(bmark, begin_offset)
         if ch == SUP:
             if forward and bmark <= si:
-                si = contract_sel(si, visible, passable, nods)
-                if si <= bmark:
+                po = "line" if nods[si] == "line" or nods[si] == "eol" else "next"
+                si = contract_sel(si, visible, passable, nods,pass_over=po)
+                si -= 1
+                if si == bmark:
+                    forward = False
+                elif si < bmark:
                     si = bmark
+                    bmark = contract_sel(bmark - 1, visible, passable, nods, pass_over=po)
                     forward = False
             elif not forward:
-                bmark = contract_sel(bmark, visible, passable, nods)
+                po = "line" if nods[bmark -1] == "line" or nods[bmark-1] == "eol" else "next"
+                bmark = contract_sel(bmark, visible, passable, nods, pass_over=po)
+                bmark -= 1
         if ch == SDOWN: 
             if forward and bmark <= si:
-                si = expand_sel(si, visible, passable, nods, block_id="line")
+                po = "line" if nods[si] == "line" or nods[si] == "eol" else "next"
+                _tmp = si
+                si = expand_sel(si, visible, passable, nods, pass_over=po)
+                if nods[si+1] == po or si == _tmp:
+                    si = move_next(si, visible, passable)
             elif not forward:
-                bmark = expand_sel(bmark, visible, passable, nods, block_id="line")
-                if bmark >= si:
+                po = "line" if nods[bmark] == "line" or nods[bmark] == "eol" else "next"
+                bmark = expand_to_next(bmark, visible, passable, nods, pass_over=po)
+                if bmark == si:
+                    forward = True
+                if bmark > si:
                     bmark = si
+                    si = expand_to_next(si, visible, passable, nods, pass_over=po)
                     forward = True
 
         if ch == DOWN: 
             next_frag_start = cur_frag["offset"] + len(cur_frag["sents"]) 
-            if si + 1 < next_frag_start and (nods[si + 1] == "next" or nods[si + 1] == ""):
+            if si + 1 < next_frag_start and (nods[si] == ""):
                 si += 1
+            elif nods[si + 1] == "line" or nods[si + 1] == "eol":
+                si = expand_sel(si, visible, passable, nods, pass_over="line")
+                if nods[si] == "eol":
+                    si += 1
+                    bmark = si
+                else:
+                    si, bmark = moveon(si, visible, passable, nods)
             else:
-                mbeep()
+                si, bmark = moveon(si, visible, passable, nods)
         if ch == UP: 
-            if si > bmark:
+            if si > bmark and nods[si] == "":
                 si -= 1
+            elif nods[bmark - 1] == "line" or nods[bmark - 1] == "eol":
+                bmark = contract_sel(bmark, visible, passable, nods, pass_over="line")
+                if nods[bmark - 1] == "eol" and (nods[si] == "line" or nods[si] == "eol"):
+                    bmark -= 1
+                    bmark = move_bmark(bmark - 1, nods, pass_over="line")
+                elif nods[bmark - 1] == "eol":
+                    bmark = move_bmark(bmark - 1, nods, pass_over="line")
+                si = bmark
             else:
-                mbeep()
+                while not visible[bmark -1] or passable[bmark -1]:
+                    bmark -= 1
+                bmark = move_bmark(bmark - 1, nods)
+                si = expand_sel(bmark, visible, passable, nods)
         if ch == RIGHT: # move next
+            if (nods[si] != "line" and nods[si] != "eol") or bmark != si:
+                cur_nod = "okay"
+                if nods[si] == "didn't get":
+                    cur_nod = "OK, I get it now"
+                if cur_nod != "":
+                    set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time)
             si, bmark = moveon(si, visible, passable, nods)
             forward = True
         if ch == LEFT: # move previous
@@ -2211,32 +2255,6 @@ def sel_nod(cur_nod, ch, ni):
         cur_nod = left_nods[abs(ni)]
     return cur_nod
 
-def contract_sel(si, visible, passable, nods):
-    if si == 0:
-        return 0
-    si -= 1
-    while si > 0 and (not visible[si] or passable[si] or nods[si] == "next"):
-        si -= 1
-    return si
-
-def move_bmark(si, nods):
-    if si <= 0:
-        return 0
-    bmark = si
-    while bmark > 1 and nods[bmark - 1] == "next":
-        bmark -= 1
-    return bmark
-
-def expand_sel(si, visible, passable, nods, block_id="next"):
-    total_sents = len(nods)
-    while si < total_sents - 1 and (not visible[si] or passable[si] or nods[si] == block_id):
-        si += 1
-    if si < total_sents - 1:
-        si += 1
-        while (si < total_sents - 1 and not visible[si] or passable[si]):
-            si += 1 
-    return si
-
 def set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time):
     cur_sent_length = len(cur_sent["text"].split())
     if cur_sent_length == 0:
@@ -2265,10 +2283,45 @@ def set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time):
             #cur_sent["nods"].remove(cur_nod)
             cur_sent["nods"].insert(0, cur_nod)
 
+def contract_sel(i, visible, passable, nods, pass_over="next"):
+    if i == 0:
+        return 0
+    i -= 1
+    while i > 0 and (not visible[i] or passable[i] or nods[i] == pass_over):
+        i -= 1
+    return i + 1
+
+def move_bmark(si, nods, pass_over="next"):
+    if si <= 0:
+        return 0
+    bmark = si
+    while bmark > 1 and nods[bmark - 1] == pass_over:
+        bmark -= 1
+    return bmark
+
+def expand_sel(si, visible, passable, nods, pass_over="next"):
+    total_sents = len(nods)
+    while si < total_sents - 1 and (not visible[si] or passable[si] or nods[si] == pass_over):
+        si += 1
+    return si
+
+def move_next(si, visible, passable):
+    total_sents = len(visible)
+    if si < total_sents - 1:
+        si += 1
+        while (si < total_sents - 1 and not visible[si] or passable[si]):
+            si += 1 
+    return si
+
 def moveon(si, visible, passable, nods):
-    si = expand_sel(si, visible, passable, nods)
+    si = expand_sel(si + 1, visible, passable, nods)
     bmark = move_bmark(si, nods)
     return si, bmark
+
+def expand_to_next(si, visible, passable, nods, pass_over="next"):
+    si = expand_sel(si, visible, passable, nods, pass_over = pass_over)
+    si = move_next(si, visible, passable)
+    return si
 
 def create_figures_file(figures, fname):
     if figures is None:
@@ -2570,8 +2623,11 @@ def load_preset(new_preset, options, folder=""):
     options["preset"]["range"] = saved_presets
 
     if folder == "theme":
+        for k in menu:
+            if k.endswith("-color"):
+                options[k] = {'range':colors}
         for k in feedbacks:
-            options[k]["range"] = colors
+            options[k] = {"range":colors}
         reset_colors(menu)
     conf[folder] = new_preset
     save_obj(conf, "conf", "", common =True)
@@ -3214,9 +3270,6 @@ def start(stdscr):
          "bold-text":{'range':["True", "False"]},
     }
 
-    for k in theme_menu:
-        if k.endswith("-color"):
-            theme_options[k] = {'range':colors}
     for k in feedbacks:
         theme_options[k] = {'range':colors}
     theme_menu, theme_options = load_preset(conf["theme"], theme_options, "theme")
