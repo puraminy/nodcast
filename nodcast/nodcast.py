@@ -934,13 +934,13 @@ sent_types = ["main idea", "example", "support"]
 art_status = ["interesting!", "novel idea!", "my favorite!", "important!", "needs review", "needs research", "not bad","not of my interest","didn't get it!", "survey paper", "archive", "not reviewed", "to read later"]
 feedbacks = set(right_nods + left_nods + notes_list + nods_list + art_status)
 
-def find_color(nods, fsn):
-    nod = nods[fsn]
-    if nod == "next":
+def find_color(sents, fsn):
+    nod = sents[fsn]["nod"]
+    if sents[fsn]["next"]:
         ii = fsn
-        while nods[ii] == "next" and ii < len(nods):
+        while sents[ii]["next"] and ii < len(sents):
             ii += 1
-        nod = nods[ii]
+        nod = sents[ii]["nod"]
     return find_nod_color(nod)
 
 
@@ -995,7 +995,7 @@ def print_comment(text_win, comment, width):
         mprint(com, text_win, SEL_ITEM_COLOR, end="\n")
         
 def new_sent(s):
-    _new_sent = {"text":s,"type":"", "end":'\n', "block":"sent", "nod":"", "nods":[],"passable":"False", "rtime":0, "tries":1, "comment":"", "notes":{}}
+    _new_sent = {"text":s,"type":"", "end":'\n','eol':False, 'next':False, "block":"sent", "block_id":-1, "nod":"", "visible":True, "passable":False, "nods":[], "rtime":0, "tries":1, "comment":"", "notes":{}}
     if len(s.split(' ')) <= 1:
         _new_sent["end"] = " "
     return _new_sent
@@ -1003,7 +1003,7 @@ def new_sent(s):
 split_levels = [['\n'],['.','?','!'], ['.','?','!',';'], ['.','?','!',';', ' ', ',', '-']]
 text_width = 72
 #iii
-def init_frag_sents(text, single_unit = False, word_limit = 20, nod = "", split_level = 1):
+def init_frag_sents(text, single_unit = False, word_limit = 20, nod = "", split_level = 1, block_id=-1):
     if word_limit == 20 and split_level == 2: word_limit = 10
     sents = []
     if split_level == 3:
@@ -1013,26 +1013,26 @@ def init_frag_sents(text, single_unit = False, word_limit = 20, nod = "", split_
             words = line.split()
             for w in words:
                 u = new_sent(w)
-                u["nod"] = "line"
+                u["next"] = False
                 u["block"] = "word"
+                u["block_id"] = block_id 
                 sents.append(u)
-            sents[-1]["nod"] = "eol"
+            sents[-1]["eol"] = True
         sents[-1]["end"] = "\n"
     else:
         f_sents = split_into_sentences(text, limit = word_limit, split_on=split_levels[split_level])
         sents = [new_sent(s) for s in f_sents]
         if single_unit and sents:
             for s in sents:
-                s["nod"] = "next"
-            sents[-1]["nod"] = nod 
+                s["next"] = True
+            sents[-1]["next"] = False 
     return sents
 
 def refresh_offsets(art, split_level = 1):
     ii = 1
     prev_sect = None
     fn = 0
-    nods = [""]
-    sents = [{}]
+    sents = [new_sent(art["title"])]
     for sect in art["sections"]:
         sect["offset"] = ii
         if not "progs" in sect:
@@ -1040,7 +1040,9 @@ def refresh_offsets(art, split_level = 1):
         if not prev_sect is None:
             prev_sect["sents_num"] = ii - prev_sect["offset"]
         prev_sect = sect
-        nods.append("")
+        _sect = new_sent(sect["title"])
+        _sect["passable"] = True
+        sents.append(_sect)
         ii += 1
         for frag in sect["fragments"]:
             fn += 1
@@ -1048,11 +1050,11 @@ def refresh_offsets(art, split_level = 1):
             if not "sents" in frag:
                 frag["sents"] = init_frag_sents(frag["text"], split_level = split_level)
             for sent in frag["sents"]:
-                nods.append(sent["nod"])
+                sent["passable"] = False
                 sents.append(sent)
                 ii += 1
     sect["sents_num"] = ii - prev_sect["offset"]
-    return len(art["sections"]),fn, ii, nods, sents
+    return len(art["sections"]),fn, ii, sents
 
 def locate(art, si, sel_first_sent=False):
     ii = 0
@@ -1188,14 +1190,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     reading_mode = False
 #vvv
     split_level = 1
-    total_sects, total_frags, total_sents, nods, sents = refresh_offsets(art, split_level=split_level)
+    total_sects, total_frags, total_sents, sents = refresh_offsets(art, split_level=split_level)
     pos = [0]*total_sents
-    visible = [True]*total_sents
-    passable = [False]*total_sents
     first_frag = art["sections"][0]['fragments'][0]
     if si == 0:
         ii = 0
-        while ii < len(first_frag['sents']) and first_frag['sents'][ii]['nod'] == "next":
+        while ii < len(first_frag['sents']) and first_frag['sents'][ii]['next']:
             ii += 1
 
         bmark = first_frag["offset"]
@@ -1227,6 +1227,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     forward = True
     visual_mode = False
     begin_offset = art["sections"][0]["offset"]
+    cur_sect = cur_frag = cur_sent = {}
+    word_level = False
     while ch != ord('q'):
         # clear_screen(text_win)
         too_big_art = False
@@ -1237,7 +1239,20 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             ch = get_key(std)
             continue
         start_time = time.time()
+        prev_sect = cur_sect
+        prev_frag = cur_frag
+        prev_sent = cur_sent
         cur_sect, cur_frag, cur_sent, si = locate(art, si, sel_first_sent)
+        if prev_sent and prev_sent["block"] == "word" and cur_sent["block_id"] != prev_sent["block_id"]:
+            word_level = False
+            ii = prev_sent["block_id"]
+            jj = ii
+            while sents[ii]["block_id"] == jj and ii < total_sents:
+                sents[ii]["next"] = True
+                ii += 1
+            sents[ii-1]["nod"] = "okay"
+            sents[ii-1]["next"] = False
+
         if bmark > si:
             bmark = si
 
@@ -1313,7 +1328,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             prog_color = scale_color(prog)
             total_pr += prog
             prog = str(prog) + "%"  # + " (" + str(progs[sn]) +  "/" + str(sents_num) + ")"
-            passable[fsn] = True
+            #sents[fsn]["passable"] = True
 
             if b == cur_sect and si > 0:
                 if b["title"] == "Figures":
@@ -1366,30 +1381,28 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                             for sent in _sents:
                                 if too_big_art:
                                     break
-                                sent["nod"] = nods[fsn]
                                 feedback = sent["nod"] if "nod" in sent else ""
-                                passable[fsn] = sent["passable"] == "True" if "passable" in sent else False
                                 if b == cur_sect:
                                     if sent["nod"] in right_nods:
                                         nexts += 1
                                         pr += nexts
                                         cur_sect["progs"] = pr
                                         nexts = 0
-                                    elif sent["nod"] == "next":
+                                    elif sent["next"]:
                                         nexts += 1
                                     else:
                                         nexts = 0
                                 if show_note == "comments":
                                     if sent["comment"] != "":
-                                        visible[fsn] = True
+                                        sent["visible"] = True
                                     else:
-                                        visible[fsn] = False
+                                        sent["visible"] = False
                                 elif (show_note != "" and not show_note in sent["notes"]) or "remove" in sent["notes"]:
-                                    visible[fsn] = False
+                                    sent["visible"] = False
                                 elif show_note != "" and not "remove" in sent["notes"]:
-                                    visible[fsn] = True
+                                    sent["visible"] = True
 
-                                if not visible[fsn]:
+                                if not sent["visible"]:
                                     pos[fsn], _ = text_win.getyx()
                                     fsn += 1
                                     continue
@@ -1421,10 +1434,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                     end = sent["end"] if "end" in sent else "\n"
                                     if posx + len(sent_text) > width:
                                        mprint("", text_win)
-                                if fsn >= bmark and fsn <= si and not passable[fsn]:
+                                if fsn >= bmark and fsn <= si and not sents[fsn]["passable"]:
                                     hl_pos = text_win.getyx()
                                     hlcolor = HL_COLOR
-                                    l_color = find_color(nods, fsn)
+                                    l_color = find_color(sents, fsn)
                                     b_color = int(theme_menu["highlight-color"]) % cur.COLORS
                                     cur.init_pair(TEMP_COLOR, l_color % cur.COLORS, b_color)
                                     _color = HL_COLOR
@@ -1436,8 +1449,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                         mprint(sent_text, text_win, _color, end=end)
                                 else:
                                     _color = DIM_COLOR
-                                    if nods[fsn] != "" and start_reading:
-                                        _color = find_color(nods, fsn)
+                                    if sent["nod"] != "" and start_reading:
+                                        _color = find_color(sents, fsn)
                                     if "type" in sent and sent["type"] != "":
                                         mprint(sent["type"] + ":", text_win, cW, end="\n")
                                     if theme_menu["bold-text"] == "True":
@@ -1459,7 +1472,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                     print_there(ypos, width + 1, ' ' + sent["nod"], text_win, color)
                                 text_win.move(_y, _x)
                                 #ccc
-                                if not passable[fsn]:
+                                if not sents[fsn]["passable"]:
                                     if sent["comment"] != "":
                                         comment = sent["comment"]
                                         print_comment(text_win, comment, width)
@@ -1601,7 +1614,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if ch == ord('n'):
             if show_note != '':
                 show_note = ''
-                visible = [True] * total_sents
+                for _sent in sents:
+                    sent["visible"] = True
             else:
                 ypos = pos[bmark] - start_row
                 nod_win = cur.newwin(9, w, ypos + 2, left)
@@ -1621,22 +1635,23 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 _note = cur_sent["notes"].pop(top_key)
         #ppp
         if ch == cur.KEY_DC:
-            if split_level == len(split_levels) - 1:
-                show_warn("too split")
-            elif nods[si] != "line" and nods[si] != "eol":
-                split_level = 3
+            split_level = 3
+            for ii in range(bmark, si +1):
+                sents[ii]["next"] = False
+            si = bmark        
+            word_level = sents[si]["block"] == "word"
+            if not sents[si]["block"] == "word":
+                word_level = True
                 _pos = si - cur_frag['offset']
-                new_sents = init_frag_sents(cur_frag["sents"][_pos]["text"], single_unit = True, split_level = split_level)
+                new_sents = init_frag_sents(cur_frag["sents"][_pos]["text"], single_unit = True, split_level = split_level, block_id = si)
                 cur_frag['sents'].pop(_pos)
                 cur_frag['sents'][_pos:_pos] = new_sents
                 old_total_sents = total_sents
-                total_sects, total_frags, total_sents, nods, sents = refresh_offsets(art)
+                total_sects, total_frags, total_sents, sents = refresh_offsets(art)
                 dif = total_sents - old_total_sents
-                si = bmark
+                first = True
                 if dif > 0:
                     pos += [0]*dif
-                    visible += [True]*dif
-                    passable += [False]*dif
             else:
                 mbeep()
 
@@ -1648,15 +1663,15 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             # std.timeout(-1)
         if ch == cur.KEY_SDC:
             cur_sent["notes"] = []
-            if nods[si] != "":
-                nods[si] = ""
+            if sents[si]["nod"] != "":
+                sents[si]["nod"] = ""
                 if si > 0:
                     si -= 1
-                    while si > 0 and (not visible[si] or passable[si]):
+                    while si > 0 and (not sents[si]["visible"] or sents[si]["passable"]):
                         si -= 1
                     if bmark >= si:
                         bmark = si
-                        while bmark >= 0 and nods[bmark - 1] == "next":
+                        while bmark >= 0 and sents[bmark - 1]["next"]:
                             bmark -= 1
                 else:
                     mbeep()
@@ -1668,7 +1683,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             si = total_sents - 1
             text_win.erase()
             text_win.refresh(0, 0, 0, 0, rows - 2, cols - 1)
-            while (nods[si] == "" or nods[si] == "skipped" or nods[si] == "next" or not visible[si]) and si > 2:
+            while (sents[si]["nod"] == "" or sents[si]["nod"] == "skipped" or sents[si]["next"] or not sents[si]["visible"]) and si > 2:
                 si -= 1
             si = max(si, 1)
             bmark = si
@@ -1741,8 +1756,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     for frag in sect["fragments"]:
                         for sent in frag["sents"]:
                             sent["nods"] = []
-                visible = [True] * total_sents
-                passable = [False] * total_sents
+                            sent["visible"] = True
+                            sent["passable"] = False
                 si = 2
                 art_changed = True
                 update_si = True
@@ -1784,8 +1799,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             tmp_note, note_index = select_box(n_list, nod_win, 0, ni = 4, in_row=False, border=False, in_colors = theme_menu, color = TEXT_COLOR)
             if tmp_note != 'NULL':
                 cur_nod = tmp_note
-                set_nod(cur_nod, tmp_sent, nods, visible, bmark, si, elapsed_time)
-                si,bmark = moveon(si, visible, passable, nods)
+                set_nod(cur_nod, tmp_sent, sents, bmark, si, elapsed_time)
+                si,bmark = moveon(sents, si)
 
         if ch == ord('i') or ch == cur.KEY_IC or ch == ord(' '):
             ypos = pos[bmark] - start_row
@@ -1806,8 +1821,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     cur_frag["sents"][b_ind]["type"] = cur_note
                 if tmp_sent == cur_sent: 
                     for ii in range(bmark, si):
-                        nods[ii] = "next"
-                    nods[si] = "noted" if cur_note not in nods_list else cur_note
+                        sents[ii]["next"] = True
+                    sents[si]["nod"] = "noted" if cur_note not in nods_list else cur_note
                 if cur_note in notes_list:
                     _ind = notes_list.index(cur_note)
                     ch = ord(notes_keys[_ind])
@@ -1819,7 +1834,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 index = 0
             if index < len(nods_list):
                 cur_nod = nods_list[index]
-                set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time)
+                set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
                 if cur_note in notes_list:
                     _ind = notes_list(cur_note).index()
                     ch = ord(notes_keys[_ind])
@@ -1846,122 +1861,122 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if ch == DOWN: ch = SDOWN
         if ch == SRIGHT:
             if forward and bmark <= si:
-                si += 1
+                si = inc_si(sents, si)
             elif not forward and bmark == si:
                 forward = True
-                si += 1
+                si = inc_si(sents, si)
             elif not forward:
-                bmark += 1
+                bmark = inc_si(sents, bmark)
             si = min(si, total_sents - 1)
         if ch == SLEFT: 
             if forward and bmark < si:
-                si -= 1 
+                si = dec_si(sents, si)
             elif forward and bmark == si:
                 forward = False
-                bmark -= 1
+                bmark = dec_si(sents, bmark)
             elif not forward:
-                bmark -= 1
+                bmark = dec_si(sents, bmark)
             si = max(si, begin_offset)
             bmark = max(bmark, begin_offset)
         if ch == SUP:
+            check_eol = word_level
             if forward and bmark <= si:
-                po = "line" if nods[si] == "line" or nods[si] == "eol" else "next"
-                si = contract_sel(si, visible, passable, nods,pass_over=po)
-                si -= 1
+                if check_eol:
+                    si = pass_backward(sents, si, check_eol)
+                si = dec_si(sents, si)
                 if si == bmark:
                     forward = False
                 elif si < bmark:
                     si = bmark
-                    bmark = contract_sel(bmark - 1, visible, passable, nods, pass_over=po)
+                    bmark = dec_si(sents, bmark)
+                    if check_eol:
+                        bmark = pass_backward(sents, bmark, check_eol)
                     forward = False
             elif not forward:
-                po = "line" if nods[bmark -1] == "line" or nods[bmark-1] == "eol" else "next"
-                bmark = contract_sel(bmark, visible, passable, nods, pass_over=po)
-                bmark -= 1
+                if check_eol:
+                    bmark = pass_backward(sents, bmark, check_eol)
+                bmark = dec_si(sents, bmark)
         if ch == SDOWN: 
+            check_eol = word_level
             if forward and bmark <= si:
-                po = "line" if nods[si] == "line" or nods[si] == "eol" else "next"
-                _tmp = si
-                si = expand_sel(si, visible, passable, nods, pass_over=po)
-                if nods[si+1] == po or si == _tmp:
-                    si = move_next(si, visible, passable)
+                if check_eol:
+                    si = pass_forward(sents, si , check_eol)
+                si = inc_si(sents, si)
             elif not forward:
-                po = "line" if nods[bmark] == "line" or nods[bmark] == "eol" else "next"
-                bmark = expand_to_next(bmark, visible, passable, nods, pass_over=po)
+                if check_eol:
+                    bmark = pass_forwrd(sents, bmark, check_eol)
+                bmark = inc_si(sents, bmark)
                 if bmark == si:
                     forward = True
                 if bmark > si:
                     bmark = si
-                    si = expand_to_next(si, visible, passable, nods, pass_over=po)
+                    if check_eol:
+                        si = pass_forward(sents, si, check_eol)
+                    si = inc_si(sents, si)
                     forward = True
 
         if ch == DOWN: 
-            next_frag_start = cur_frag["offset"] + len(cur_frag["sents"]) 
-            if si + 1 < next_frag_start and (nods[si] == ""):
-                si += 1
-            elif nods[si + 1] == "line" or nods[si + 1] == "eol":
-                si = expand_sel(si, visible, passable, nods, pass_over="line")
-                if nods[si] == "eol":
-                    bmark = si+1
-                    if nods[bmark] == "next":
-                        si = expand_sel(bmark, visible, passable, nods)
-                    else:
-                        si+=1
-                else:
-                    si, bmark = moveon(si, visible, passable, nods)
+            nf = cur_frag["offset"] + len(cur_frag["sents"])
+            ii = inc_si(sents, si)
+            if word_level:
+                si = pass_forward(sents, si, eol=True)
+                si = inc_si(sents, si) 
+                bmark = si
+            elif ii < nf and (sents[si]["nod"] == ""):
+                si = ii 
             else:
-                si, bmark = moveon(si, visible, passable, nods)
+                si, bmark = moveon(sents, si)
         if ch == UP: 
-            if si > bmark and nods[si] == "":
-                si -= 1
-            elif nods[bmark - 1] == "line" or nods[bmark - 1] == "eol":
-                bmark = contract_sel(bmark, visible, passable, nods, pass_over="line")
-                if nods[bmark - 1] == "eol" and (nods[si] == "line" or nods[si] == "eol"):
-                    bmark -= 1
-                    bmark = move_bmark(bmark - 1, nods, pass_over="line")
-                elif nods[bmark - 1] == "eol":
-                    bmark = move_bmark(bmark - 1, nods, pass_over="line")
+            bf = cur_frag["offset"]
+            ii = dec_si(sents, bmark)
+            if word_level:
+                bmark = ii
+                if sents[bmark]["eol"]:
+                    bmark = pass_backward(sents, bmark, eol = True)
+                else:
+                    bmark = pass_backward(sents, bmark, eol = True)
+                    bmark = dec_si(sents, bmark)
+                    bmark = pass_backward(sents, bmark, eol = True)
                 si = bmark
+            elif si > bmark and sents[si]["nod"] == "":
+                si = dec_si(sents, si)
             else:
-                while not visible[bmark -1] or passable[bmark -1]:
-                    bmark -= 1
-                bmark = move_bmark(bmark - 1, nods)
-                si = expand_sel(bmark, visible, passable, nods)
+                bmark = pass_backward(sents, ii)
+                si = pass_forward(sents, bmark)
         if ch == RIGHT: # move next
             if bmark != si or sents[bmark]["block"] != "word" and sents[si]["block"] != "word":
                 cur_nod = "okay"
-                if nods[si] == "didn't get":
+                if sents[si]["nod"] == "didn't get":
                     cur_nod = "OK, I get it now"
                 if cur_nod != "":
-                    set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time)
-            si, bmark = moveon(si, visible, passable, nods)
+                    set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
+            si, bmark = moveon(sents, si)
             forward = True
         if ch == LEFT: # move previous
-            if sents[bmark]["block"] != "word" and sents[si]["block"] != "word":
+            if False: #sents[bmark]["block"] != "word" and sents[si]["block"] != "word":
                 cur_nod = "pass"
-                if nods[si] == "":
-                    set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time)
-                si, bmark = moveon(si, visible, passable, nods)
+                if sents[si]["nod"] == "":
+                    set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
+                si, bmark = moveon(sents, si)
                 forward = True
             else:
-                while not visible[bmark -1] or passable[bmark -1]:
-                    bmark -= 1
-                bmark = move_bmark(bmark - 1, nods)
-                si = expand_sel(bmark, visible, passable, nods) 
+                bmark = dec_si(sents, bmark)
+                bmark = pass_backward(sents, bmark)
+                si = pass_forward(sents, bmark) 
                 forward = True
         if ch == ord('-'):
-            if nods[si] == "okay":
+            if sents[si]["nod"] == "okay":
                 cur_nod = "I don't get it now"
             else:
                 cur_nod = "didn't get"
-            set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time)
-            si, bmark = moveon(si, visible, passable, nods)
+            set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
+            si, bmark = moveon(sents, si)
         if ch == ord('+'):
-            if nods[si] == "didn't get":
+            if sents[si]["nod"] == "didn't get":
                 show_wart("You didn't get it before, first admit it with okay (Right) then you can add it to the interesting points")
             else:
                 cur_nod = "interesting!"
-            set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time)
+            set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
 
         art_changed = art_changed or nod_set
         if si > 0 and (expand == 0 and ch == UP and not cur_sect["opened"]) or ch == cur.KEY_PPAGE:
@@ -2077,14 +2092,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 if not "reviewed" in review["sents"][-1]["notes"]:
                     review["sents"][-1]["nods"].append("reviewed")
             old_total_sents = total_sents
-            total_sects, total_frags, total_sents, nods, sents = refresh_offsets(art)
+            total_sects, total_frags, total_sents, sents = refresh_offsets(art)
             dif = total_sents - old_total_sents
             si += dif
             bmark += dif
             if dif > 0:
                 pos += [0]*dif
-                visible += [True]*dif
-                passable += [False]*dif
 
         #:::
         if chr(ch) in notes_keys:
@@ -2120,8 +2133,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     cur_sent["notes"][cur_note] = _comment
                     if chr(ch) in ["*"]:
                         cur_nod = "I see!" 
-                        set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time)
-                        si,bmark = moveon(si, visible, passable, nods)
+                        set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
+                        si,bmark = moveon(sents ,si)
 
         if ch == ord('t'):
             subwins = {
@@ -2230,7 +2243,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                         articles_notes[note][art_id] = {frag_id:_frag}
                                     elif not frag_id in articles_notes[note][art_id]:
                                         articles_notes[note][art_id][frag_id] = _frag
-                            if sent["nod"] != "" and sent["nod"] != "next":
+                            if sent["nod"] != "" and not sent["next"]:
                                 begin = sent_counter
                                 _frag = {"sents":[]}
                             sent_counter += 1
@@ -2268,12 +2281,12 @@ def sel_nod(cur_nod, ch, ni):
         cur_nod = left_nods[abs(ni)]
     return cur_nod
 
-def set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time):
+def set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time):
     cur_sent_length = len(cur_sent["text"].split())
     if cur_sent_length == 0:
         cur_sent_length = 0.01
     reading_time = round(elapsed_time / cur_sent_length, 2)
-    if elapsed_time < 1 and nods[si] == "":
+    if elapsed_time < 1 and sents[si]["nod"] == "":
         cur_nod = "skipped"
     tries = 0
     avg = cur_sent["rtime"]
@@ -2284,11 +2297,11 @@ def set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time):
     cur_sent["rtime"] = reading_time
     for ii in range(bmark, si + 1):
         if ii < si:
-            nods[ii] = "next"
+            sents[ii]["next"] = True
         if cur_nod == "remove":
-            visible[ii] = False
-    if visible[si]:  # and (nods[si] == "" or nod_set):
-        nods[si] = cur_nod
+            sents[ii]["visible"] = False
+    sents[si]["next"] = False
+    if sents[si]["visible"]:  # and (sents[si]["nod"] == "" or nod_set):
         cur_sent["nod"] = cur_nod
         if not cur_nod in cur_sent["nods"]:
             cur_sent["nods"].insert(0, cur_nod)
@@ -2296,45 +2309,57 @@ def set_nod(cur_nod, cur_sent, nods, visible, bmark, si, elapsed_time):
             #cur_sent["nods"].remove(cur_nod)
             cur_sent["nods"].insert(0, cur_nod)
 
-def contract_sel(i, visible, passable, nods, pass_over="next"):
-    if i == 0:
-        return 0
-    i -= 1
-    while i > 0 and (not visible[i] or passable[i] or nods[i] == pass_over):
-        i -= 1
-    return i + 1
 
-def move_bmark(si, nods, pass_over="next"):
-    if si <= 0:
-        return 0
-    bmark = si
-    while bmark > 1 and nods[bmark - 1] == pass_over:
-        bmark -= 1
-    return bmark
 
-def expand_sel(si, visible, passable, nods, pass_over="next"):
-    total_sents = len(nods)
-    while si < total_sents - 1 and (not visible[si] or passable[si] or nods[si] == pass_over):
+def can_pass(sents, si):
+    total_sents = len(sents)
+    cond1 = si < total_sents - 1 
+    cond2 = sents[si]["next"] 
+    cond3 = not sents[si]["visible"] or sents[si]["passable"]
+    return cond1 and (cond2 or cond3)
+
+def inc_si(sents, si):
+    total_sents = len(sents)
+    if si == total_sents - 1:
+        return si
+    si += 1
+    while si < total_sents and not sents[si]["visible"] or sents[si]["passable"]:
         si += 1
     return si
 
-def move_next(si, visible, passable):
-    total_sents = len(visible)
-    if si < total_sents - 1:
-        si += 1
-        while (si < total_sents - 1 and not visible[si] or passable[si]):
-            si += 1 
+def dec_si(sents, si):
+    total_sents = len(sents)
+    si -= 1
+    while si > 1 and not sents[si]["visible"] or sents[si]["passable"]:
+        si -= 1
     return si
 
-def moveon(si, visible, passable, nods):
-    si = expand_sel(si + 1, visible, passable, nods)
-    bmark = move_bmark(si, nods)
+def pass_forward(sents,si, eol=False):
+    if eol:
+        while not sents[si]["eol"]:
+            si = inc_si(sents,si)
+    else:
+        while can_pass(sents, si):
+            si = inc_si(sents,si)
+    return si
+
+def pass_backward(sents,i, eol=False):
+    if i <= 0:
+        return 0
+    ii = dec_si(sents,i)
+    if eol:
+        while not sents[ii]["eol"]:
+            ii = dec_si(sents, ii)
+    else:
+        while ii > 1 and can_pass(sents, ii):
+            ii = dec_si(sents, ii)
+    return inc_si(sents, ii) 
+
+def moveon(sents, si):
+    ii = inc_si(sents, si)
+    si = pass_forward(sents, ii)
+    bmark = pass_backward(sents, si)
     return si, bmark
-
-def expand_to_next(si, visible, passable, nods, pass_over="next"):
-    si = expand_sel(si, visible, passable, nods, pass_over = pass_over)
-    si = move_next(si, visible, passable)
-    return si
 
 def create_figures_file(figures, fname):
     if figures is None:
