@@ -176,6 +176,7 @@ def m_print(text, win, color, attr = None, end="\n", refresh = False):
     if win is None:
         print(text, end=end)
     else:
+        color = int(color)
         c = cur.color_pair(color)
         if attr is not None:
             c = cur.color_pair(color) | attr
@@ -251,12 +252,13 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = 0, fo
         mwin.border()
         print_there(row, col, prompt_string, mwin)
         if footer == "":
-            footer =  "Insert: Insert | Tab: Close | Shift + Del: Clear | Shift + Left: Delete line"
+            footer =  "Insert: Insert | ESC: Close | Shift + Del: Clear | Shift + Left: Delete line"
             footer = textwrap.shorten(footer, mcols)
         if mode == 2:
             print_there(mrows-1, col, footer, mwin)
             win = mwin.derwin(mrows - 2, mcols-2, 1, 1)
         else:
+            print_there(mrows-1, col, footer, mwin)
             win = mwin.derwin(mrows - 2, mcols-2, 1, 1)
         win.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
         mwin.refresh()
@@ -411,7 +413,7 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = 0, fo
                 enters = inp.count("\n", 0, pos + yloc + 1)
                 pos += enters
                 pos += min(xloc, len(out[yloc + 1]))
-        elif ch == 27:
+        elif ord(ch) == 27:
             hide_cursor()
             cur.noecho()
             return "<ESC>",ch
