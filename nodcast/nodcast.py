@@ -12,15 +12,15 @@ import pickle
 import textwrap
 import json
 import urllib.request
+import urllib.parse
 try:
     from nodcast.util import *
 except:
     from util import *
 import curses as cur
 from curses import wrapper
-from curses import textpad
 from pathlib import Path
-from urllib.parse import urlparse
+import shutil
 from appdirs import *
 import logging, sys
 import traceback
@@ -51,7 +51,8 @@ menu_win = None
 common_subwin = None
 list_win = None
 text_win = None
-side_win = None
+left_side_win = None
+right_side_win = None
 
 doc_path = os.path.expanduser('~/Documents/Checkideh')
 app_path = user_data_dir(appname, appauthor)
@@ -79,6 +80,20 @@ try:
 except ImportError as e:
     newspaper_imported = False
 
+pdf2text_imported = True
+#try:
+from pdfminer.pdfparser import  PDFParser
+from pdfminer.pdfdocument import PDFDocument
+from pdfminer.layout import LAParams
+from pdfminer.converter import PDFPageAggregator
+from pdfminer.pdfpage import PDFTextExtractionNotAllowed
+from pdfminer.pdfinterp import PDFResourceManager
+from pdfminer.pdfinterp import PDFPageInterpreter
+from pdfminer.pdfpage import PDFPage
+from pdfminer.layout import LTTextBoxHorizontal
+#except ImportError as e:
+#    pdf2text_imported = False
+
 std = None
 theme_menu = {}
 theme_options = {}
@@ -105,6 +120,8 @@ nod_colors = {
     "OK": 36,
     "OK, I get it now": 36,
     "I agree!": 22,
+    "answer": 41,
+    "idea": 151,
     "correct": 30,
     "incorrect": 161,
     "background": 93,
@@ -132,7 +149,8 @@ nod_colors = {
     "didn't get!": 161,
     "didn't get": 161,
     "unclear": 161,
-    "question": 161,
+    "question": 136,
+    "comment": 141,
     "didn't get the article": 161,
     "didn't get, needs review": 161,
     "what?!": 161,
@@ -202,6 +220,73 @@ color_map = {
     "back-color": TEXT_COLOR,
     "input-color": INPUT_COLOR,
 }
+#xxxx
+def extractText(file):
+    if not pdf2text_imported:
+        return ""
+    text = ""
+    with open(file, 'rb') as in_file:
+        parser = PDFParser(in_file)
+        doc = PDFDocument(parser)
+        if not doc.is_extractable:
+            show_err("The Pdf file doesn't allow text extraction")
+            return ""
+        rsrcmgr = PDFResourceManager()
+        laparams = LAParams()
+        device = PDFPageAggregator(rsrcmgr, laparams=laparams)
+        interpreter = PDFPageInterpreter(rsrcmgr, device)
+        pat = re.compile("^(?:(\d{1,3}\.?(?:\d{1,3}\.?)*)?) ?([\w \t]{5,40})$")
+        seen = {}
+        sections = ["abstract","introduction","references","related work", "summary", "conclusion"]
+        for page in PDFPage.create_pages(doc):
+            interpreter.process_page(page)
+            layout = device.get_result()
+            short_line = False
+            for element in layout:
+                if isinstance(element, LTTextBoxHorizontal):
+                    p = element.get_text().strip()
+                    if not "title" in seen:
+                        text += "# " + p + "\n"
+                        seen["title"] = True
+                        continue
+                    lines = p.splitlines()
+                    for line in lines:
+                        sect_seen = False
+                        for sect in sections:
+                            if len(line) < len(sect) + 5 and sect in line.lower():
+                                text += "## " + line + "\n"
+                                seen[sect] = True
+                                sect_seen = True
+                        if sect_seen:
+                            continue
+                        if not "abstract" in seen:
+                            continue
+                        if "references" in seen:
+                            continue
+                        out = pat.search(line)
+                        if out and out.group(1): 
+                            if len(out.group(2)) > 5 and len(out.group(2)) < 40:
+                                parts = out.group(1).split('.')
+                                if len(parts) <= 1:
+                                    text += "## " + out.group(1) + " " + out.group(2)+ "\n"
+                                else:
+                                    text += "### " + out.group(1) + " " +  out.group(2)+ "\n"
+                                continue
+                        if len(line) < 20: # Remove successive short lines
+                            if short_line:
+                                continue
+                            else:
+                                short_line = True
+                        else:
+                            short_line = False
+                        if "abstract" in seen:
+                            if line.endswith("-"):
+                                line = line[:-1]
+                            else:
+                                line += " "
+                        text += line 
+                    text += "\n"
+    return text
 
 def reset_colors(theme, bg=None):
     global back_color, TEXT_COLOR, ITEM_COLOR, SEL_ITEM_COLOR, TITLE_COLOR, DIM_COLOR, color_map
@@ -298,6 +383,10 @@ def download_or_open(url, art, fname):
     if not url.endswith("pdf"):
         webbrowser.open(url)
         return
+    if url.startswith("file://"):
+        src_file = Path(url[7:])
+        if src_file.is_file():
+            shutil.copy(src_file, Path(fname))
 
     _file = Path(fname)
     if _file.is_file():
@@ -410,6 +499,59 @@ def del_obj(name, directory, common = False):
         obj_file.unlink()
 
 
+def save_doc(doc, docname, folder=""):
+    if folder == "":
+        path = doc_path + '/Articles/' + profile +"/"  
+    else:
+        path = doc_path + '/Articles/' + profile +"/" + folder + "/" 
+    Path(path).mkdir(parents=True, exist_ok=True)
+    fname = path + docname 
+    with open(fname, 'w') as outfile:
+        json.dump(doc, outfile)
+
+def load_doc(docname, folder, default = {}):
+    if folder == "":
+        path = doc_path + '/Articles/' + profile +"/"  
+    else:
+        path = doc_path + '/Articles/' + profile +"/" + folder + "/" 
+    fname = path + docname 
+    obj_file = Path(fname)
+    if not obj_file.is_file():
+        return default
+    with open(fname, 'r') as _file:
+        doc = json.load(_file)
+        return doc
+
+def load_docs(folder, ext):
+    if folder == "":
+        path = doc_path + '/Articles/' + profile +"/"  
+    else:
+        path = doc_path + '/Articles/' + profile +"/" + folder + "/" 
+    _, files = load_rec_docs(path, ext)
+    docs = []
+    for fname in files:
+        with open(fname, 'r') as _file:
+            doc = json.load(_file)
+            docs.append(doc)
+    return docs
+
+def load_rec_docs(folder, ext):    # folder: str, ext: list
+    subfolders, files = [], []
+
+    for f in os.scandir(folder):
+        if f.is_dir():
+            subfolders.append(f.path)
+        if f.is_file():
+            if os.path.splitext(f.name)[1].lower() in ext:
+                files.append(f.path)
+
+
+    for folder in list(subfolders):
+        sf, f = load_rec_docs(folder, ext)
+        subfolders.extend(sf)
+        files.extend(f)
+    return subfolders, files
+
 def get_index(articles, art):
     i = 0
     for a in articles:
@@ -480,8 +622,21 @@ def get_sects(text):
             ret.append(new_sect)
     return ret
 
-
 def get_frags(text, cohesive =False, split_level = 0, word_limit=5):
+    text = "\n" + text
+    subs = text.split("\n### ")
+    if len(subs) == 1:
+        return extract_frags(text, cohesive, split_level, word_limit)
+    else:
+        frags = []
+        for sub in subs[1:]:
+            end = sub.find("\n")
+            title = sub[:end]
+            sub_frags = extract_frags(sub[end:], cohesive, split_level, word_limit, title)
+            frags.extend(sub_frags)
+        return frags
+
+def extract_frags(text, cohesive=False, split_level = 0, word_limit=5, title = ""):
     text = text.strip()
     delimits = split_levels[split_level]
     if split_level == 0:
@@ -495,8 +650,9 @@ def get_frags(text, cohesive =False, split_level = 0, word_limit=5):
         frag = {"text":t}
         frag["sents"] = init_frag_sents(t, cohesive)
         frags.append(frag)
+    if title != "" and len(frags) > 0:
+        frags[0]["title"] = title
     return frags
-
 
 def remove_tag(art, fid, saved_articles):
     if "tags" in art:
@@ -879,7 +1035,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
 
                 path = doc_path + '/Articles/' + folder + "/"
                 Path(path).mkdir(parents=True, exist_ok=True)
-                with open(path + fid + " [ " + str(len(sel_arts)) + " articles]" + '.list', 'w') as outfile:
+                with open(path + " [ " + str(len(sel_arts)) + " articles]" + '.list', 'w') as outfile:
                     json.dump(sel_arts, outfile)
                 for a in sel_arts:
                     write_article(a, folder)
@@ -923,14 +1079,14 @@ def write_article(article, folder=""):
 
 continue_nod = "continue"
 okay_nod = "I see!"
-notes_dict = {"*":"point", "!":"got an idea","&":"answers",  "_":"todo","?":"question", ":":"comment"}
+notes_dict = {"*":"point", "!":"idea","&":"answer",  "_":"todo","?":"question", ":":"comment"}
 notes_list = list(notes_dict.values())
 notes_keys = list(notes_dict.keys())
 nods_show = ["correct", "incorrect"]
 pos_nods = ["okay", "interesting!"]
 neg_nods = ["so?", "didn't get but okay","didn't get"]
 nods_list = ["didn't get", continue_nod, "OK, I get it now", "okay", "I see!", "interesting!"]
-art_sent_types = ["problem statement", "definition", "claim", "background", "proposed solution", "goal", "feature", "comparison", "usage"]
+art_sent_types = ["problem statement", "definition", "claim", "background", "proposed solution", "goal", "feature", "contribution", "comparison", "usage"]
 sent_types = ["main idea", "example", "support"]
 art_status = ["interesting!", "novel idea!", "my favorite!", "important!", "needs review", "todo", "not bad","not of my interest","didn't get it!", "survey paper", "archive", "not reviewed", "to read later"]
 feedbacks = set(pos_nods + neg_nods + notes_list + nods_list + art_status)
@@ -963,6 +1119,19 @@ def find_nod_color(nod):
                 ret = val
     return int(ret)
 
+def list_nods(win, ypos, cur_nod):
+    if cur_nod == "": cur_nod = "okay"
+    xpos = 2
+    nods = list(reversed(neg_nods)) + pos_nods
+    ni = nods.index(cur_nod) if cur_nod in nods else len(neg_nods) + 1
+    for nod in reversed(nods):
+        if nod == cur_nod:
+            color = find_nod_color(nod)
+        else:
+            color = DIM_COLOR
+        print_there(ypos, xpos, nod, win, color)
+        win.clrtoeol()
+        ypos += 1
 
 def print_notes(win, notes, ypos, xpos):
     for note in notes:
@@ -1047,12 +1216,14 @@ def init_frag_sents(text, cohesive =False, unit_sep = "", word_limit = 20, nod =
             if not unit:
                 continue
             unit_sents = split_into_sentences(unit, limit = word_limit, split_on=split_levels[split_level])
+            if not unit_sents:
+                continue
             sents = [new_sent(s) for s in unit_sents]
             for i,s in enumerate(sents):
                 s["nod"] = nod
                 s["block_id"] = block_id if block_id < 0 else block_id + i
                 s["eos"] = True 
-                s["eob"] = True 
+                s["eob"] = block_id >= 0
             if cohesive:
                 for s in sents:
                     s["next"] = True
@@ -1117,6 +1288,7 @@ def locate(art, si, sel_first_sent=False):
             break
     return sect, frag, sent, min(si, s_start)
 
+
 def get_path(art):
     file_name = art["title"].replace(' ', '-')[:50]  # url.split('/')[-1]
     if "save_folder" in art and art["save_folder"] != "":
@@ -1125,9 +1297,9 @@ def get_path(art):
     else:
         folder = profile 
         _def =""
-        if 'task' in filters and filters['task']:
+        if 'task' in filters and filters['task'] and filters['task'] != profile:
             _def = filters['task']
-        fid, _ = minput(win_info, 0, 1, " Folder name (relative to profile root):", default=_def)
+        fid, _ = minput(win_info, 0, 1, " Folder name: My articles/" + profile+"/", default=_def)
         if fid != "<ESC>":
             folder += "/" + fid
         else:
@@ -1138,16 +1310,18 @@ def get_path(art):
         fname = path + file_name
         return fname 
 def unset_sent(sent, ch =0):
-    conf_msg = """Select which do you want to unset: 
+    conf_msg = """Select what do you want to unset: 
     a) all 
     n) all notes  
          l) last note
          :) last comment ?) last queston _) last todo 
          !) last idea  &) last answer 
          *) all points
-    t) types 
+    t) type 
     o) nods
+    s) sentence
     r) reading time 
+    f) external pdf file 
     q) nothing
         """
     if ch == 0:
@@ -1161,24 +1335,29 @@ def unset_sent(sent, ch =0):
             sent["block_id"] = -1 
         if _c == "t" or _c == "a": sent["type"] = ""
         if _c == "n" or _c == "a": sent["notes"] = {}
+        if _c == "s":
+            sent["visible"] = False
         if _c == "l":
             last_note = list(sent["notes"])[-1]
-            if len(sent["notes"][last_note]) > 0:
+            if len(sent["notes"][last_note]) > 1:
                 sent["notes"][last_note].pop()
             else:
                 del sent["notes"][last_note]
         if _c in notes_keys:
             note_type = notes_dict[_c]
             if note_type in sent["notes"]:
-                if len(sent["notes"][note_type]) > 0:
+                if len(sent["notes"][note_type]) > 1:
                     sent["notes"][note_type].pop()
                 else:
                     del sents["notes"][note_type]
         if _c == "*" and "point" in sent["notes"]:
-            sent["notes"]["point"] = []
+            del sent["notes"]["point"]
         if _c == "r" or _c == "a": 
             sent["rtime"] = 0
             sent["tries"] = 1
+        if _c == "f":
+            delete_file(art)
+            art["save_folder"] = ""
     return _c
 
 def reset_q_context(sect): #reset context text for a question
@@ -1259,7 +1438,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 
     bg = ""
     saved_articles = load_obj("saved_articles", "articles", {})
-    articles_notes = load_obj("articles_notes", "articles", {})
     frags_text = ""
     art_id = -1
     si = 0
@@ -1347,8 +1525,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     #bbb
     true_answers = []
     context = None
+    show_sel_nod = False
     if rc_text:
         context = art["sections"][1]
+    ni = -1
     while ch != ord('q'):
         # clear_screen(text_win)
         too_big_art = False
@@ -1379,9 +1559,20 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 cur_sent["hidden"] = False
                 do_scroll = False
                 reset_q_context(context)
+            elif ch == ord('g'):
+                for note, val in cur_sent["notes"].items():
+                    if note == "answer":
+                        for ans in val:
+                            ans['visible'] = True
+                can_skip = True
+                cur_sent["nod"] = "give up"
+                cur_sent["hidden"] = False
+                cur_sent["can_skip"] = True
+                do_scroll = False
+                reset_q_context(context)
             elif ch == RIGHT or ch == ord('\t'):
                 ref_q = prev_si
-                true_answers = cur_sent["notes"]["answers"]
+                true_answers = cur_sent["notes"]["answer"]
                 si = cur_sect["offset"] + cur_sect["sents_num"] if ref_rc_sent < 0 else ref_rc_sent
                 si, bmark = moveon(sents, si)
                 rc_mode = rc_text 
@@ -1496,17 +1687,20 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             # text_win.refresh(start_row,0, 0,0, rows-1, cols-1)
             show_info(main_info)
         text_win.erase()
-        side_win.erase()
+        left_side_win.erase()
+        right_side_win.erase()
         sn = 0
         title = "\n".join(textwrap.wrap(art["title"], width))  # wrap at 60 characters
         pdfurl = art["pdfUrl"]
-        if "save_folder" in art and Path(art["save_folder"]).is_file():
-            top = "[open file] "
-        else:
-            if pdfurl.endswith("pdf"):
-                top = "[download] " + pdfurl
+        top = ""
+        if not collect_art:
+            if "save_folder" in art and Path(art["save_folder"]).is_file():
+                top = "[open file] "
             else:
-                top = "[open link] " + pdfurl
+                if pdfurl.endswith("pdf"):
+                    top = "[download] " + pdfurl
+                else:
+                    top = "[open link] " + pdfurl
 
         total_prog = int(round(total_pr / total_sects, 2))
         art["total_prog"] = str(total_prog)
@@ -1582,11 +1776,13 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 ffn += len(b["fragments"])
             else:
                 for frag in fragments:
-                    if pos[fsn] > start_row + rows + rows//2 and not first:
+                    if too_big_art: 
                         break
                     if frag != cur_frag and expand == 3:
                         fsn += frag['sents_num']
                         ffn += 1
+                    elif (not first and pos[fsn] > start_row + rows + rows//2):
+                        break
                     else:
                         new_frag = True
                         prev_sent = None
@@ -1605,10 +1801,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                             word_count = 0
                             frag_offset = fsn
                             frag_end = frag_offset + len(_sents) -1
-                            while fsn <= frag_end:
+                            while fsn <= frag_end and not too_big_art:
                                 sent = _sents[fsn - frag_offset] 
-                                if too_big_art:
-                                    break
                                 feedback = sent["nod"] if "nod" in sent else ""
                                 if b == cur_sect:
                                     if sent["nod"] in pos_nods:
@@ -1733,33 +1927,18 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                     for note in sent["nods"]:
                                         nn.append(note)
                                     #print_notes(text_win, nn, ypos, width + 1)
-                                    color = find_nod_color(sent["nod"])
-                                    if (count_sents and sent["eob"]): 
+                                    if (count_sents and sent["eob"]):
                                         print_there(_y - (lines_count // 2 + 1), 
-                                                5, ' ' + str(sent_count), side_win, TEXT_COLOR)
+                                                5, ' ' + str(sent_count), left_side_win, TEXT_COLOR)
                                         sent_count += 1
                                         lines_count = 0 
-                                    if ("eob" in sent and sent["eob"]) or sent["nod"] in nods_show:
-                                        if fsn >= bmark and fsn <= si:
-                                            if sent["nod"] == "": 
-                                                n_color = DIM_COLOR
-                                                top = middle = bottom = ""
-                                                if show_instruct:
-                                                    top = " Left) so?"
-                                                    middle = " Right) okay"
-                                                    bottom = " +) interesting!"
-                                            else:
-                                                n_color = color
-                                                top, middle, bottom = get_nod(sent["nod"])
-                                            print_there(_y - (lines_count //2 + 2), 
-                                                width + 1, top, text_win, DIM_COLOR)
-                                            print_there(_y - (lines_count //2 + 1), 
-                                                width + 1, middle, text_win, n_color)
-                                            print_there(_y - (lines_count //2 + 0), 
-                                                width + 1, bottom, text_win, DIM_COLOR)
-                                        else:
-                                            print_there(_y - (lines_count //2 + 1), 
-                                                width + 1, ' ' + sent["nod"], text_win, color)
+                                    if ("eob" in sent and sent["eob"]): # or sent["nod"] in nods_show:
+                                        color = find_nod_color(sent["nod"])
+                                        print_there(_y - (lines_count //2 + 1), 
+                                            2, sent["nod"], right_side_win, color)
+                                        if not rc_text and show_sel_nod and fsn >= bmark and fsn <= si:
+                                            cur_nod = sents[fsn]["nod"]
+                                            list_nods(right_side_win, _y - lines_count, cur_nod)
                                         lines_count = 0 
                                 prev_sent = sent
                                 text_win.move(_y, _x)
@@ -1779,9 +1958,11 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                                 empty.append((_note_type,""))
                                     note_count = 0
                                     for _note, _note_text in empty:
+                                        if _note != "point":
+                                            continue
                                         print_there(_y - (lines_count // 2 + 2), 
                                                 4+note_count, notes_keys[notes_list.index(_note)],
-                                                side_win, TEXT_COLOR)
+                                                left_side_win, TEXT_COLOR)
                                         note_count += 1
                                         lines_count = 0 
                                     #    _note_color = find_nod_color(_note)
@@ -1855,8 +2036,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if not word_level and end_row > limit_row:
             start_row -= limit_row - end_row
         if hotkey == "":
-            text_win.refresh(start_row, 0, 2, left, rows - 2, cols - 1)
-            side_win.refresh(start_row, 0, 2, 0, rows - 2, left - 1)
+            text_win.refresh(start_row, 0, 2, left, rows - 2, left + width)
+            left_side_win.refresh(start_row, 0, 2, 0, rows - 2, left - 1)
+            right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols -1)
             #cur.doupdate()
             #show_info(main_info)
         if art["sections"].index(cur_sect) > 1 and expand != 0:
@@ -1944,10 +2126,13 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 tmp, _ = select_box({"Notes":notes_list}, nod_win, in_row=True)
                 show_note = tmp if tmp != "NULL" else ""
         if ch == ord('d'):
-            _confirm = confirm("delete the pdf file from your computer")
-            if _confirm == "y" or _confirm == "a":
-                delete_file(art)
-                art["save_folder"] = ""
+            acc = notes_keys + ['l','o','q','d']
+            _ch = confirm("Delete: Press d to see the list or choose from " + ",".join(acc),
+                    acc=acc, yesno = False)
+            if _ch == 'd':
+                unset_sent(cur_sent)
+            elif _ch != 'q':
+                unset_sent(cur_sent, _ch)
         if ch == ord("^"):
             if len(cur_sent["nods"]) > 0:
                 cur_sent["nods"].pop(0)
@@ -2032,16 +2217,20 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             fname = get_path(art)
             with open(fname + ".art", 'w') as outfile:
                 json.dump(art, outfile)
+            show_msg("File was saved in " + fname)
+        #ddd
         if ch == ord('u') or ch == cur.KEY_DC:
-            _c = unset_sent(sents[si])
-            if _c != "q" and ch == ord('u'):
-                for sect in art["sections"]:
-                    for frag in sect["fragments"]:
-                        for sent in frag["sents"]:
-                            unset_sent(sent, _c)
-                si = 2
-                art_changed = True
-                update_si = True
+            if ch == cur.KEY_DC and not cur_sent["notes"]:
+                cur_sent["visible"] = False
+                si = inc_si(sents, si)
+            else:
+                _c = unset_sent(sents[si])
+                if _c != "q" and ch == ord('u'):
+                    for sect in art["sections"]:
+                        for frag in sect["fragments"]:
+                            for sent in frag["sents"]:
+                                unset_sent(sent, _c)
+            art_changed = True
 
         if ch == ord('g'):
             cur_sect_title = cur_sect["title"].lower()
@@ -2084,8 +2273,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             _notes_list = []
             for k,v in notes_dict.items():
                 _notes_list.append(v + " (" + k + ")")
-            #n_list = {"Notes":_notes_list, "Types": art_sent_types}
-            n_list = {"Types": art_sent_types}
+            n_list = {"Notes":_notes_list, "Types": art_sent_types}
+            #n_list = {"Types": art_sent_types}
             _win_w = 55
             # NNN
             nod_win = cur.newwin(9, _win_w, ypos + 2, left)
@@ -2099,7 +2288,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 if tmp_sent == cur_sent: 
                     for ii in range(bmark, si):
                         sents[ii]["next"] = True
-                    sents[si]["nod"] = "noted" if cur_note not in nods_list else cur_note
                 if cur_note in notes_list:
                     _ind = notes_list.index(cur_note)
                     ch = ord(notes_keys[_ind])
@@ -2128,19 +2316,22 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         answer += _sent["text"] + " "
                     answer = answer.strip()
                     true_ans = true_answers[0]["text"]
-                    correct = answer == true_ans.strip()
+                    correct = answer == true_ans.strip() or true_ans.strip() in answer
                     if correct:
-                        sents[ref_q]["notes"]["answers"][0]["visible"] = True
+                        sents[ref_q]["notes"]["answer"][0]["visible"] = True
                     can_pass_q = correct
                     if len(true_answers) > 1:
                         for i, ans in enumerate(true_answers[1:]):
                             true_ans += " or " + ans["text"]
-                            correct = correct or answer == ans["text"].strip()
-                            can_pass_q = can_pass_q and answer == ans["text"].strip()
+                            correct = (correct or 
+                                    answer == ans["text"].strip() or ans["text"].strip() in answer)
+                            can_pass_q = (can_pass_q and answer == ans["text"].strip() or
+                                    ans["text"].strip() in answer)
                             if correct:
-                                sents[ref_q]["notes"]["answers"][i]["visible"] = True
+                                sents[ref_q]["notes"]["answer"][i]["visible"] = True
                     if can_pass_q:
                         sents[ref_q]["can_skip"] = True
+                        sents[ref_q]["nod"] = "correct" 
                         reset_q_context(context)
 
                     for _sent in sents[bmark:si+1]:
@@ -2225,50 +2416,66 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     forward = True
         #kkkd
         if ch == DOWN: 
-            nf = cur_frag["offset"] + len(cur_frag["sents"])
-            ii = inc_si(sents, si)
-            if word_level:
-                si = pass_forward(sents, si)
-                si = inc_si(sents, si) 
-                bmark = si
-            elif ii < nf and (sents[si]["block_id"] < 0):
-                si = ii 
-            else:
+            if show_sel_nod: 
                 cur_nod = sents[si]["nod"]
-                if cur_nod == "" and ii >= nf: cur_nod = "pass"
-                if cur_nod != "":
-                    set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
-                si, bmark = moveon(sents, si)
+                cur_nod = sel_nod(cur_nod, ch)
+                set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
+            else:
+                nf = cur_frag["offset"] + len(cur_frag["sents"])
+                ii = inc_si(sents, si)
+                if word_level:
+                    si = pass_forward(sents, si)
+                    si = inc_si(sents, si) 
+                    bmark = si
+                elif ii < nf and (sents[si]["block_id"] < 0):
+                    si = ii 
+                else:
+                    cur_nod = sents[si]["nod"]
+                    if cur_nod == "" and ii >= nf: cur_nod = "pass"
+                    if cur_nod != "":
+                        set_nod(cur_nod, cur_sent, sents, bmark, si, -1)
+                    if sents[si]["nod"] == "interesting!": ch = ord("*")
+                    si, bmark = moveon(sents, si)
 
         # kkku
-        if ch == UP: 
-            bf = cur_frag["offset"]
-            ii = dec_si(sents, si)
-            if word_level:
-                bmark = pass_backward(sents, bmark)
-                bmark = dec_si(sents, bmark)
-                si = bmark
-            elif ii >= bf and ii >= bmark and (sents[si]["block_id"] < 0):
-                si = ii 
+        if ch == UP:
+            if show_sel_nod: 
+                cur_nod = sents[si]["nod"]
+                cur_nod = sel_nod(cur_nod, ch)
+                set_nod(cur_nod, cur_sent, sents, bmark, si, -1)
             else:
-                si, bmark = backoff(sents,  bmark)
+                bf = cur_frag["offset"]
+                ii = dec_si(sents, si)
+                if word_level:
+                    bmark = pass_backward(sents, bmark)
+                    bmark = dec_si(sents, bmark)
+                    si = bmark
+                elif ii >= bf and ii >= bmark and (sents[si]["block_id"] < 0):
+                    si = ii 
+                else:
+                    si, bmark = backoff(sents,  bmark)
         #kkkr
         if ch == RIGHT and (not rc_mode or word_level): # move next
+            show_sel_nod = False
             if not rc_text and (bmark != si or sents[bmark]["block"] != "word" 
                                 and sents[si]["block"] != "word"):
                 cur_nod = "okay"
                 if sents[si]["nod"] == "":
                     set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
+                if sents[si]["nod"] == "interesting!": ch = ord("*")
             si, bmark = moveon(sents, si)
             forward = True
         #kkkl
-        if ch == LEFT and (not rc_mode or word_level): # move previous
+        if ch == LEFT and (not rc_text or word_level): # move previous
             if not word_level:
-                cur_nod = "so?"
-                if sents[si]["nod"] == "":
-                    set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
-                si, bmark = moveon(sents, si)
-                forward = True
+                show_sel_nod = not show_sel_nod
+                if show_sel_nod:
+                    cur_nod = "so?"
+                    if sents[si]["nod"] == "":
+                        set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
+                if False:
+                    si, bmark = moveon(sents, si)
+                    forward = True
             else:
                 si, bmark = backoff(sents, bmark) 
                 forward = True
@@ -2280,16 +2487,19 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 _sent = sents[bmark]
                 for ans in true_answers:
                    ofs = _sent["char_offset"] 
-                   start = ans["answer_start"]
-                   _len = len(_sent["text"])
-                   if _sent["block"] == "word":
-                       _len = 0
-                       ii = bmark
-                       while not sents[ii]["eob"]:
-                           _len += len(sents[ii]['text']) + 1
-                           ii += 1
-                   if (start >= ofs and start < ofs + _len):
-                       in_sent = True
+                   if "answer_start" in ans: 
+                       start = ans["answer_start"] 
+                       _len = len(_sent["text"])
+                       if _sent["block"] == "word":
+                           _len = 0
+                           ii = bmark
+                           while not sents[ii]["eob"]:
+                               _len += len(sents[ii]['text']) + 1
+                               ii += 1
+                       if (start >= ofs and start < ofs + _len):
+                           in_sent = True
+                   else:
+                        in_sent = ans["text"] in _sent["text"]
                 if not in_sent:
                     mbeep()
                     _sent["nod"] = "incorrect"
@@ -2417,7 +2627,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if ch == ord('o'):
             fname = get_path(art)
             if fname:
-                download_or_open(art["pdfUrl"], art, fname + ".pdf")
+                url = art["pdfUrl"]
+                fname = fname + ".pdf"
+                download_or_open(url, art, fname)
                 with open(fname + ".art", 'w') as outfile:
                     json.dump(art, outfile)
                 art_changed = True
@@ -2496,7 +2708,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             choice = ''
             mi = 0
             tags_menu = {"tags (one per line)": "", "select tag": ""}
-            tags_options = {}
+            tags_options = {"select tag":{}}
             cur_tags = load_obj("tags", "", [""])
             tags_options["select tag"]["range"] = cur_tags
             tags_options["tags (one per line)"] = {"type":"input-box-mline", "rows":12, "addto":"select tag"}
@@ -2573,6 +2785,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 ii = 1
                 begin = 1
                 sect_counter = 0
+                article_notes = {}
                 for sect in art["sections"]:
                     ii += 1
                     frag_counter = 0
@@ -2590,12 +2803,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                     _frag["ref_url"] = art["pdfUrl"]
                                     _frag["ref_sent"] = str(sect_counter) + "_" + str(frag_counter) + "_" + str(begin) + "_" + str(sent_counter) 
                                     frag_id = art_id + "_" + _frag["ref_sent"]
-                                    if not note in articles_notes:
-                                        articles_notes[note] = {art_id:{frag_id:_frag}}
-                                    elif not art_id in articles_notes[note]:
-                                        articles_notes[note][art_id] = {frag_id:_frag}
-                                    elif not frag_id in articles_notes[note][art_id]:
-                                        articles_notes[note][art_id][frag_id] = _frag
+                                    if not note in article_notes:
+                                        article_notes[note] = {art_id:{frag_id:_frag}}
+                                    elif not art_id in article_notes[note]:
+                                        article_notes[note][art_id] = {frag_id:_frag}
+                                    elif not frag_id in article_notes[note][art_id]:
+                                        article_notes[note][art_id][frag_id] = _frag
                             if sent["nod"] != "" and not sent["next"]:
                                 begin = sent_counter
                                 _frag = {"sents":[]}
@@ -2605,7 +2818,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         # end for fragments
                     sect_counter += 1
                     # end for sect
-                save_obj(articles_notes, "articles_notes", "articles")
+                for note in article_notes:
+                    if note != "instruct":
+                        append_notes(note, article_notes[note])
+
             if not collect_art:
                 if "save_folder" in art:
                     file_name = title.replace(' ', '-')[:50] + ".art"  # url.split('/')[-1]
@@ -2619,26 +2835,28 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 save_obj(last_visited, "last_visited", "articles")
     return ""
 
-key_neg = ord('-')
-key_pos = ord('+')
-def get_nod(cur_nod):
+key_neg = DOWN 
+key_pos = UP
+def get_nod(cur_nod, ni = -1):
     nods = list(reversed(neg_nods)) + pos_nods
-    ni = len(neg_nods)
     top = middle = bottom = ""
-    if cur_nod in nods:
-        ni = nods.index(cur_nod)
-    if ni > 0:
-        top = " -) " + nods[ni-1]
-    middle = cur_nod
+    if ni < 0:
+        ni = nods.index(cur_nod) if cur_nod in nods else len(neg_nods) + 1
+    else:
+        cur_nod = nods[ni]
     if ni < len(nods) - 1:
-        bottom = " +) " + nods[ni+1]
+        top = " Up) " + nods[ni+1]
+    middle = "Right) " + cur_nod
+    if ni > 0:
+        bottom = " Down) " + nods[ni-1]
     if cur_nod in neg_nods:
-        bottom = " +) OK, I get it now"
-    return top, middle, bottom
+        bottom = " Down) OK, I get it now"
+    return top, middle, bottom, cur_nod 
 
-def sel_nod(cur_nod, ch, ni): 
+def sel_nod(cur_nod, ch): 
     nods = list(reversed(neg_nods)) + pos_nods
-    ni = len(neg_nods)
+    if cur_nod == "": cur_nod = "okay"
+    ni = len(neg_nods) + 1
     if cur_nod in nods:
         ni = nods.index(cur_nod)
     ni = ni + 1 if ch == key_pos else ni - 1
@@ -2679,12 +2897,12 @@ def set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time):
             #cur_sent["nods"].remove(cur_nod)
             cur_sent["nods"].insert(0, cur_nod)
 
-
-
 def can_pass(sents, si, cond = False):
     pass_words = not word_level
     total_sents = len(sents)
     cond1 = si < total_sents - 1 
+    if not cond1:
+        return False
     cond2 = sents[si]["next"] 
     cond3 = not sents[si]["visible"] or sents[si]["passable"]
     cond4 = pass_words and sents[si]["block"]=="word" and not sents[si]["eob"]
@@ -2699,7 +2917,7 @@ def inc_si(sents, si):
         mbeep()
         return si
     si += 1
-    while (si < total_sents and not sents[si]["visible"] 
+    while si < total_sents - 1 and (not sents[si]["visible"] 
            or sents[si]["passable"] 
            or (pass_words and sents[si]["block"]=="word" and not sents[si]["eob"])):
         si += 1
@@ -2712,7 +2930,7 @@ def dec_si(sents, si):
         mbeep()
         return si
     si -= 1
-    while (si > 1 and not sents[si]["visible"] 
+    while si > 1 and (not sents[si]["visible"] 
            or sents[si]["passable"] 
            or (pass_words and sents[si]["block"]=="word" and not sents[si]["eob"])):
         si -= 1
@@ -2742,12 +2960,15 @@ def pass_backward(sents,i):
         while ii > 1 and can_pass(sents, ii):
             ii = dec_si(sents, ii)
     ii += 1
-    while not sents[ii]["visible"] or sents[ii]["passable"]:
+    while ii < len(sents) and (not sents[ii]["visible"] or sents[ii]["passable"]):
         ii += 1
     return ii 
 
 def moveon(sents, i):
     ii = inc_si(sents, i)
+    if ii >= len(sents) -1:
+        mbeep()
+        return i, i
     if not word_level:
         si = pass_forward(sents, ii)
         bmark = pass_backward(sents, si)
@@ -3372,7 +3593,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                     for tag in new_tags:
                         tag = tag.strip()
                         if tag != '' and not tag in options[addto_list]:
-                            options[addto_list].append(tag)
+                            options[addto_list]["range"].append(tag)
                 val = val.replace("\n",",")
                 val = textwrap.fill(val, width=cols - 12 - _m)
                 menu[sel] = val
@@ -3629,7 +3850,7 @@ colors = []
 
 
 def start(stdscr):
-    global colors, template_menu, template_options, theme_options, theme_menu, std, conf, query, filters, top_win, hotkey, menu_win, list_win, common_subwin, text_win, side_win, profile
+    global colors, template_menu, template_options, theme_options, theme_menu, std, conf, query, filters, top_win, hotkey, menu_win, list_win, common_subwin, text_win, left_side_win,right_side_win, profile, cur_articles
 
     std = stdscr
     stdscr.refresh()
@@ -3645,8 +3866,10 @@ def start(stdscr):
     list_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     text_win = cur.newpad(rows * 50, cols - 1)
     text_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
-    side_win = cur.newpad(rows * 50, (cols - text_width) //2)
-    side_win.bkgd(' ', cur.color_pair(ITEM_COLOR))  # | cur.A_REVERSE)
+    left_side_win = cur.newpad(rows * 50, (cols - text_width) //2)
+    left_side_win.bkgd(' ', cur.color_pair(ITEM_COLOR))  # | cur.A_REVERSE)
+    right_side_win = cur.newpad(rows * 50, text_width//2)
+    right_side_win.bkgd(' ', cur.color_pair(ITEM_COLOR))  # | cur.A_REVERSE)
     menu_win = cur.newpad(rows*3 , cols)
     menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     common_subwin = cur.newwin(rows - 6, width // 2 + 5, 5, width // 2 - 5)
@@ -3669,7 +3892,8 @@ def start(stdscr):
             menu["recent articles"] = "button"
         else:
             menu["recent articles"] = "button-hidden"
-        menu["notes, reviews and comments"] = "button"
+        #menu["notes, reviews and comments"] = "button"
+        menu["open file"] = "button"
         menu["my articles"] = "button"
         menu["sepb1"] = ""
         menu["sep1"] = "Search AI-related papers"
@@ -3686,7 +3910,6 @@ def start(stdscr):
             menu["sep2"] = "Load website articles"
             menu["website articles"] = "button"
             menu["webpage"] = "button"
-        menu["open file"] = "button"
         menu["settings"] = "button"
 
     options = {
@@ -3782,6 +4005,8 @@ def start(stdscr):
         elif ch == "m" or ch == "my articles":
             save_folder = doc_path + '/Articles/' + profile
             Path(save_folder).mkdir(parents=True, exist_ok=True)
+            cur_articles = load_docs("", ['.art'])
+            refresh_tags()
             show_files(save_folder, exts=["*.list", "*.pdf", "*.txt", '*.art', '*.html'])
         elif ch == "last results":
             show_last_results()
@@ -3848,7 +4073,7 @@ def start(stdscr):
         elif ch == 'o' or ch == 'open file':
             save_folder = doc_path + '/Files'
             Path(save_folder).mkdir(parents=True, exist_ok=True)
-            show_files(save_folder, exts=['*.txt','*.json','*.squad'])
+            show_files(save_folder, exts=['*.txt','*.pdf','*.json','*.squad','*.prc'], extract=True)
         last_visited = load_obj("last_visited", "articles", [])
         if len(last_visited) > 0:
             menu["recent articles"] = "button"
@@ -3875,7 +4100,7 @@ def rev_articles(sel_art=None):
         list_articles(rev_articles, "Reviewed Articles", group="saved_articles", sel_art=sel_art)
 
 #ttt
-def refresh_files(save_folder, subfolders, files):
+def refresh_files(save_folder, subfolders, files, depth=1):
     menu = {}
     menu[".."] = "button"
     menu["back home"] = "button"
@@ -3883,7 +4108,7 @@ def refresh_files(save_folder, subfolders, files):
     menu["new article"] = "button"
     menu["refresh"] = "button-hidden"
     _folder = save_folder
-    if len(_folder) > 80:
+    if len(_folder) > 80 or depth > 1:
         _folder = "/".join(_folder.split("/")[-2:])
         _folder = "[..] " + _folder
         menu[_folder] = "button@parent"  
@@ -3905,7 +4130,7 @@ def refresh_files(save_folder, subfolders, files):
 
 
 # ttt
-def show_files(save_folder, exts, depth = 1, title ="My Articles"):
+def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = False):
     global hotkey
     options = {}
     menu =[]
@@ -3920,7 +4145,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles"):
             for ext in exts:
                 _files = [str(Path(f)) for f in Path(save_folder).glob(ext) if f.is_file()]
                 files.extend(_files)
-            menu, sk, menu_len = refresh_files(save_folder, subfolders, files)
+            menu, sk, menu_len = refresh_files(save_folder, subfolders, files, depth)
             mi = menu_len
 
         ch, menu, mi = show_menu(menu, options, mi=mi, hotkeys = {'r':'refresh'}, shortkeys = sk, title=title)
@@ -3981,21 +4206,92 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles"):
             name = filename.split("/")[-1]
             _file = open(filename, "r")
             show_info("Openning ...  Please wait...")
-            if ext == ".txt":
+            data = ""
+            #sqq
+            if ext == ".pdf" and extract:
+                text = extractText(filename)
+                with open(filename + ".txt", "w") as text_file:
+                    text_file.write(text)
+                show_msg("Pdf was converted to text, and you can open the text file")
+                ch = "refresh"
+            elif ext == ".txt":
                 data = _file.read()
                 _file.close()
                 title, i = get_title(data, name)
+                url = filename
+                if url.endswith("pdf.txt"):
+                    url = url[:-4]
+                url = "file://" + url
                 if i > 0:
                     data = data[i:]
-                art = {"id": filename, "save_folder":save_folder, "pdfUrl": filename, "title": title, "sections": get_sects(data)}
+                art = {"id": filename, "pdfUrl": url, "title": title, "sections": get_sects(data)}
                 show_article(art)
             elif ext == ".json" or ext == ".list":
                 arts = json.load(_file)
                 list_articles(arts, fid = name, group=filename)
             elif ext == ".art":
                 art = json.load(_file)
-                show_article(art)
-            #sqq
+                collect_art = "Notes/" in filename
+                art["save_folder"] = save_folder
+                show_article(art, collect_art=collect_art)
+            elif ext == ".prc":
+                jlist = list(_file)
+                data = [json.loads(jline) for jline in jlist]
+                arts = []
+                for i, part in enumerate(data):
+                    art = {}
+                    if type(part['url']) == str:
+                        up = urllib.parse.unquote(part['url'])
+                        title = up.split('/')[-1]
+                    else:
+                        title = "None " + str(i)
+                    art["needs_review"] = False
+                    art["rc_text"] = True
+                    art["title"] = title
+                    art["id"] = "parsinlu-v-1-part-" + str(i)
+                    art["pdfUrl"] = "na"
+                    k = 1
+                    c_sect = {}
+                    c_sect["title"] = "Context" 
+                    c_sect["count_sents"]=True
+                    c_sect["can_skip"] = False
+                    c_frag = {}
+                    c_frag["sents"] = init_frag_sents(part["passage"], block_id = 0)
+                    c_sect["fragments"] = [c_frag] 
+                    q_sect = {"fragments":[]}
+                    q_sect["title"] = "Reading Comprehension"
+                    instruct = "Find and highlight the answers to the following questions in the given text. Follow the instructions that appears in the instruction window."
+                    first_frag = {"title":"Instruction"}
+                    first_frag["sents"] = init_frag_sents(instruct, unit_sep="\n", cohesive=True)
+                    for s in first_frag["sents"]:
+                        s["passable"] = True
+                    q_sect["fragments"].append(first_frag)
+                    q_frag = {"title":"Question", "sents":[]}
+                    sent = new_sent(part['question'])
+                    sent['type'] = "question"
+                    sent['nod'] = "okay?"
+                    sent['block_id'] = i
+                    sent['can_skip'] = False
+                    sent['hidden'] = True
+                    sent['countable'] = True
+                    #sent['is_impossible'] = qa['is_impossible']
+                    for ans in part["answers"]:
+                        note = {"text":ans}
+                        note["visible"]=False
+                        if not "answer" in sent["notes"]:
+                            sent["notes"]["answer"] = [note]
+                        else:
+                            sent["notes"]["answer"].append(note)
+                    q_frag["sents"].append(sent)
+                    q_sect["fragments"].append(q_frag)
+                    sections = []
+                    sections.append(q_sect)
+                    sections.append(c_sect)
+                    art["sections"] = sections
+                    arts.append(art)
+                with open(save_folder + '/parsinlu-rc.json', 'w') as outfile:
+                    json.dump(arts, outfile)
+                list_articles(arts, "ParsiNlu Reading Comprehension")
             elif ext == ".squad":
                 squad = json.load(_file)
                 version = squad['version']
@@ -4018,6 +4314,8 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles"):
                         c_sect["can_skip"] = False
                         c_frag = {}
                         c_frag["sents"] = init_frag_sents(p["context"], block_id = 0)
+                        for ss in c_frag["sents"]:
+                            ss["hidden"] = True
                         c_sect["fragments"] = [c_frag] 
                         q_sect = {"fragments":[]}
                         q_sect["title"] = "Reading Comprehension"
@@ -4043,15 +4341,15 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles"):
                             sent['countable'] = True
                             sent['is_impossible'] = qa['is_impossible']
                             if qa['is_impossible']:
-                                sent["notes"]["answers"] = [{"text":"Impossible to answer based on the text"}]
+                                sent["notes"]["answer"] = [{"text":"Impossible to answer based on the text"}]
                             else:
                                 for ans in qa["answers"]:
                                     note = ans.copy()
                                     note["visible"]=False
-                                    if not "answers" in sent["notes"]:
-                                        sent["notes"]["answers"] = [note]
+                                    if not "answer" in sent["notes"]:
+                                        sent["notes"]["answer"] = [note]
                                     else:
-                                        sent["notes"]["answers"].append(note)
+                                        sent["notes"]["answer"].append(note)
                             q_frag["sents"].append(sent)
 
                         q_sect["fragments"].append(q_frag)
@@ -4169,34 +4467,41 @@ def settings():
     Path(doc_path).mkdir(parents=True, exist_ok=True)
     save_obj(menu, "settings", "", common = True)
 
-def list_notes(note):
-    saved_articles = load_obj("saved_articles", "articles", {})
-    art_status = load_obj("articles_notes", "articles", {})
-    if not note in art_status:
-        return
-    arts = art_status[note]
-    n_art = {"id":note, "title": "Sentences for " + note ,"pdfUrl":"na", "sections":[]}
-    new_sect = {"title":"all"}
-    frags = []
+cur_articles = {}
+def append_notes(note, arts):
+    n_art = load_doc(note + ".art","Notes",{})
+    if not n_art:
+        n_art = {"id":note, "title": note ,"pdfUrl":"na", "sections":[]}
+        new_sect = {"title":"all", "fragments":[]}
+        n_art["sections"].append(new_sect)
+    else:
+        new_sect = n_art["sections"][-1]
+    frags = new_sect["fragments"]
+    frag_ids = {}
+    for frag in frags:
+        if "id" in frag:
+            frag_ids[frag["id"]] = frag
+
     old_art_id = 0
     for art_id, frags_dict in arts.items():
-        if art_id in saved_articles:
+        if art_id in cur_articles:
             avail = " [Enter to open]"
         else:
             avail = " [Not available]"
-        for frag in frags_dict.values():
+        for frag_id, frag in frags_dict.items():
+            if frag_id in frag_ids:
+                continue
             title = frag["ref_title"]
             title = title if art_id != old_art_id else "Same article"
             old_art_id = art_id
             ref = new_sent("[Ref] " + title + avail)
             ref["passable"] = "True"
+            frag["id"] = frag_id
             frag["sents"].append(ref)
-            frags.append(frag)
+            frags.insert(0, frag)
     frags[-1]["end_mark"] = "True"
-    new_sect["fragments"] = frags
-    n_art["sections"].append(new_sect)
 
-    show_article(n_art, collect_art = True)
+    save_doc(n_art, note + ".art", "Notes")
 
 def list_comments():
     saved_articles = load_obj("saved_articles", "articles", [])
@@ -4276,9 +4581,10 @@ def refresh_notes_2(in_note="notes"):
         opts[in_note].append(note.ljust(40) + str(art_num[note]))
     return opts, art_list
 
-
 def refresh_tags():
-    saved_articles = load_obj("saved_articles", "articles", {})
+    saved_articles = {}
+    for art in cur_articles:
+        saved_articles[art["id"]] = art
     N = len(saved_articles)
     art_num = {}
     art_list = {}
@@ -4299,9 +4605,9 @@ def refresh_tags():
                 art_list[tag] = [art]
     opts = []
     for tag in tag_list:
-        opts.append(tag.ljust(40) + str(art_num[tag]))
-    save_obj(tag_list, "tags", "")
-    return opts, art_list
+        fname = tag.ljust(10) + str(art_num[tag]) + ".list"
+        save_doc(art_list[tag], fname, "Tags")
+
 
 def list_tags():
     subwins = {
@@ -4415,7 +4721,7 @@ def website():
                            "sections": get_sects(a.text)}
                     articles.append(art)
                 if articles != []:
-                    uri = urlparse(site_addr)
+                    uri = urlib.parse.urlparse(site_addr)
                     save_obj(articles, uri.netloc, "websites")
                     ret = list_articles(articles, site_addr)
                 else:
@@ -4445,7 +4751,7 @@ def webpage():
     recent_pages = load_obj("recent_pages", "articles",[])
     arts = []
     for art in recent_pages:
-        uri = urlparse(art["pdfUrl"])
+        uri = urlib.parse.urlparse(art["pdfUrl"])
         name = "(" + uri.netloc + ") " + art["title"]
         arts.append(name)
     options["recent pages"] = {"range":arts}
