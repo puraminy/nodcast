@@ -230,21 +230,6 @@ def rinput(win, r, c, prompt_string, default=""):
         cur.noecho()
         return default
 
-
-def get_confirm(win, msg, acc = ['y','n']):
-    win.erase()
-    print_there(0,1, msg, win) 
-    ch = 0
-    while chr(ch).lower() not in acc:
-        ch = win.getch()
-        if not chr(ch).lower() in acc:
-            mbeep()
-        else:
-            break
-    win.clear()
-    win.refresh()
-    return chr(ch).lower()
-
 def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = 0, footer="", color=nc.HL_COLOR):
     multi_line = mode == 2
     if mode > 0:
@@ -413,7 +398,7 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = 0, fo
                 enters = inp.count("\n", 0, pos + yloc + 1)
                 pos += enters
                 pos += min(xloc, len(out[yloc + 1]))
-        elif ord(ch) == 27:
+        elif type(ch) == str and len(ch) == 1 and  ord(ch) == 27:
             hide_cursor()
             cur.noecho()
             return "<ESC>",ch
