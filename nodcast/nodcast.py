@@ -527,6 +527,10 @@ def load_docs(folder, ext):
         path = doc_path + '/Articles/' + profile +"/"  
     else:
         path = doc_path + '/Articles/' + profile +"/" + folder + "/" 
+
+    return load_docs_path(path, ext)
+
+def load_docs_path(path, ext):
     _, files = load_rec_docs(path, ext)
     docs = []
     for fname in files:
@@ -659,6 +663,7 @@ def remove_tag(art, fid, saved_articles):
         for i, tag in enumerate(art["tags"]):
             if tag == fid:
                 art["tags"].pop(i)
+                save_article(art)
                 update_article(saved_articles, art)
                 save_obj(saved_articles, "saved_articles", "articles")
                 break
@@ -946,7 +951,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
             for art in sel_arts:
                 if group != "":
                     if not _confirm == "a":
-                        _confirm = confirm_all("remove the article " + art["title"][:20])
+                        _confirm = confirm_all("Are you sure you want to remove the article " + art["title"][:20])
                     if _confirm == "y" or _confirm == "a":
                         articles.remove(art)
                         if k > len(articles) - 1:
@@ -970,7 +975,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
             for art in sel_arts:
                 if len(art["tags"]) == 1:
                     if _confirm != "a":
-                        _confirm = confirm_all("remove the last tag of " + art["title"][:20])
+                        _confirm = confirm_all("Are you sure you want to remove the last tag of " + art["title"][:20])
                     if _confirm == "y" or _confirm == "a":
                         remove_tag(art, fid, saved_articles)
                         articles.remove(art)
@@ -1365,6 +1370,11 @@ def reset_q_context(sect): #reset context text for a question
         for s in f["sents"]:
             if s["nod"] != "correct":
                 s["nod"] = ""
+
+def save_article(art):
+    fname = get_path(art)
+    with open(fname + ".art", 'w') as outfile:
+        json.dump(art, outfile)
 # sss
 word_level = False
 def show_article(art, show_note="", collect_art = False, ref_sent = ""):
@@ -2128,7 +2138,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if ch == ord('d'):
             acc = notes_keys + ['l','o','q','d']
             _ch = confirm("Delete: Press d to see the list or choose from " + ",".join(acc),
-                    acc=acc, yesno = False)
+                    acc=acc, show_opts = False)
             if _ch == 'd':
                 unset_sent(cur_sent)
             elif _ch != 'q':
@@ -2214,10 +2224,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                        ''),
                       bottom=False)
         if ch == ord('w'):
-            fname = get_path(art)
-            with open(fname + ".art", 'w') as outfile:
-                json.dump(art, outfile)
-            show_msg("File was saved in " + fname)
+            save_article(art)
+            show_msg(art["save_folder"])
         #ddd
         if ch == ord('u') or ch == cur.KEY_DC:
             if ch == cur.KEY_DC and not cur_sent["notes"]:
@@ -2279,7 +2287,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             # NNN
             nod_win = cur.newwin(9, _win_w, ypos + 2, left)
             nod_win.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
-            tmp_note, note_index = select_box(n_list, nod_win, 0, in_row=True)
+            tmp_note, note_index = select_box(n_list, nod_win, 1, in_row=True)
             if tmp_note != 'NULL':
                 cur_note = tmp_note.split("(")[0].strip()
                 if cur_note in art_sent_types:
@@ -2824,10 +2832,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 
             if not collect_art:
                 if "save_folder" in art:
-                    file_name = title.replace(' ', '-')[:50] + ".art"  # url.split('/')[-1]
-                    art_file = art["save_folder"] + "/" + file_name 
-                    with open(art_file, 'w') as outfile:
-                        json.dump(art, outfile)
+                    save_article(art)
+                else:
+                    _conf = confirm("You didn't save the article, are you sure you want to quit?")
+                    if _conf != "n":
+                        show_msg("Press w to save the article")
+                        ch = 0
                 insert_article(saved_articles, art)
                 save_obj(saved_articles, "saved_articles", "articles")
                 last_visited = load_obj("last_visited", "articles", [])
@@ -3139,10 +3149,10 @@ def confirm_all(msg):
     return confirm(msg, acc=['y', 'n', 'a'])
 
 
-def confirm(msg, acc=['y', 'n'], color=WARNING_COLOR, yesno=True, bottom = True):
+def confirm(msg, acc=['y', 'n'], color=WARNING_COLOR, list_opts=True, bottom = True):
     mbeep()
-    if yesno:
-        msg = "Are you sure you want to " + msg + "? (" + "/".join(acc) + ")"
+    if list_opts:
+        msg = msg + " (" + "/".join(acc) + ")"
     if not bottom:
         ch = show_info(msg, color, bottom, title="Confirm", acc=acc)
     else:
@@ -3223,11 +3233,13 @@ def show_info(msg, color=INFO_COLOR, bottom=True, title = "Info", acc =[]):
                 return chr(ch).lower()
 
 
-def show_msg(msg, color=MSG_COLOR):
+def show_msg(msg, color=MSG_COLOR, delay=2000):
     temp = old_msg
     mbeep()
     show_info(msg + "; press any key", color)
+    std.timeout(delay)
     std.getch()
+    std.timeout(-1)
     show_info(temp)
 
 
@@ -3789,7 +3801,7 @@ def open_submenu(sub_menu_win, options, sel, si, title):
                     can_delete = False
             if can_delete:
                 item = sel_range[si]
-                _confirm = confirm("delete '" + item)
+                _confirm = confirm("Are you sure you want to delete '" + item)
                 if _confirm == "y" or _confirm == "a":
                     del_obj(item, title, common = True)
                 if item in sel_range:
@@ -4006,7 +4018,6 @@ def start(stdscr):
             save_folder = doc_path + '/Articles/' + profile
             Path(save_folder).mkdir(parents=True, exist_ok=True)
             cur_articles = load_docs("", ['.art'])
-            refresh_tags()
             show_files(save_folder, exts=["*.list", "*.pdf", "*.txt", '*.art', '*.html'])
         elif ch == "last results":
             show_last_results()
@@ -4105,6 +4116,7 @@ def refresh_files(save_folder, subfolders, files, depth=1):
     menu[".."] = "button"
     menu["back home"] = "button"
     menu["explore"] = "button"
+    menu["tags"] = "button"
     menu["new article"] = "button"
     menu["refresh"] = "button-hidden"
     _folder = save_folder
@@ -4118,7 +4130,7 @@ def refresh_files(save_folder, subfolders, files, depth=1):
     for sf in subfolders:
         menu["[>] " + sf] = "button@folder"
     count = 1
-    sk = {'q':"..", 'e':"explore", 'h':'back home', 'n':'new article'}
+    sk = {'q':"..", 'e':"explore", 'h':'back home', 'n':'new article', 't':'tags'}
     for f in files:
         name = Path(f).name
         if len(name) > 60:
@@ -4154,6 +4166,8 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             show_files(sfolder, exts, depth + 1)
         elif ch == ".." or ch.startswith("[..]"):
             ch = 'q'
+        elif ch == "tags":
+            list_tags(save_folder)
         elif (ch == "back home" or ch == "H" or ch == 'h'):
             if depth >= 1:
                 hotkey = 'q'*(depth - 1)
@@ -4183,7 +4197,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 index = mi - len(subfolders) - menu_len
                 filepath = files[index]
                 fname = filepath.split("/")[-1]
-                _confirm = confirm("to delete "+fname)
+                _confirm = confirm("Are you sure you want to delete "+fname)
                 if _confirm == "y":
                     Path(filepath).unlink()
             else:
@@ -4194,7 +4208,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 if not is_empty:
                     show_msg("The folder " + fname + " is not empty and can't be deleted!")
                 else:
-                    _confirm = confirm("to delete "+fname)
+                    _confirm = confirm("Are you sure you want to delete "+fname)
                 if _confirm == "y":
                     Path(filepath).rmdir()
 
@@ -4228,7 +4242,10 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 show_article(art)
             elif ext == ".json" or ext == ".list":
                 arts = json.load(_file)
-                list_articles(arts, fid = name, group=filename)
+                group = filename
+                if "Tags/" in filename:
+                    group = "tags"
+                list_articles(arts, fid = name, group=group)
             elif ext == ".art":
                 art = json.load(_file)
                 collect_art = "Notes/" in filename
@@ -4581,19 +4598,16 @@ def refresh_notes_2(in_note="notes"):
         opts[in_note].append(note.ljust(40) + str(art_num[note]))
     return opts, art_list
 
-def refresh_tags():
-    saved_articles = {}
-    for art in cur_articles:
-        saved_articles[art["id"]] = art
-    N = len(saved_articles)
+def refresh_tags(save_folder):
+    saved_articles = load_docs_path(save_folder, [".art"])
     art_num = {}
     art_list = {}
     tag_list = []
-    for art in saved_articles.values():
+    for art in saved_articles:
         if not "tags" in art:
             continue
         for tag in art["tags"]:
-            tag = tag.strip()
+            tag = tag.strip().replace("\n"," ")
             if not tag in tag_list:
                 tag_list.append(tag)
             if tag in art_num:
@@ -4605,17 +4619,30 @@ def refresh_tags():
                 art_list[tag] = [art]
     opts = []
     for tag in tag_list:
-        fname = tag.ljust(10) + str(art_num[tag]) + ".list"
-        save_doc(art_list[tag], fname, "Tags")
+        fname = tag.ljust(40) + "(" + str(art_num[tag]) + ")"
+        opts.append(fname)
 
+    return opts, art_list
 
-def list_tags():
+def list_tags(save_folder):
+    tag_win = cur.newwin(10, 60, 2, 5)
+    tag_win.bkgd(' ', cur.color_pair(HL_COLOR))  # | cur.A_REVERSE)
+    tag_win.border()
+    opts, art_list = refresh_tags(save_folder)
+    ti, _ = select_box({"Tags":opts}, tag_win, 0, in_row=False, border=True, ret_index =True)
+
+    if ti >= 0:
+        articles = list(art_list.values())[ti]
+        if len(articles) > 0:
+            ret = list_articles(articles, opts[ti], group = "tags")
+
+def list_tags2(save_folder):
     subwins = {
             "tags":{"x":7,"y":5,"h":15,"w":68},
             }
     choice = ''
-    opts = {}
-    opts["tags"], art_list = refresh_tags()
+    opts = {"tags":{}}
+    opts["tags"]["range"], art_list = refresh_tags(save_folder)
     if not art_list:
         show_msg("There is no tagged article!")
         return
@@ -4632,7 +4659,7 @@ def list_tags():
             articles = art_list[sel_tag]
             if len(articles) > 0:
                 ret = list_articles(articles, sel_tag, group = "tags")
-            opts["tags"], art_list = refresh_tags()
+            opts["tags"]["range"], art_list = refresh_tags(save_folder)
         elif choice.startswith("del@tags"):
             save_obj(menu["tags"], "tags", "")
 
