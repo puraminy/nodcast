@@ -7,6 +7,7 @@ import time
 import string
 import re
 from time import sleep
+from itertools import filterfalse
 import datetime
 import pickle
 import textwrap
@@ -155,7 +156,7 @@ nod_colors = {
     "didn't get, needs review": 161,
     "what?!": 161,
     "what?! needs review": 161,
-    # "didn't get, but okay":199,
+    "didn't get, but okay":199,
     "don't think so": 179,
     "not sure!": 179,
     "didn't get, but okay": 179,
@@ -902,7 +903,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
                        ' d/DEL)        delete the selected items from list\n'
                        ' w)            save the selected articles as al list\n'
                        ' x)            export the selected files\n'
-                       ' m)            change the color theme\n'
+                       ' T)            change the color theme\n'
                        ' HOME)         go to the first item\n'
                        ' END)          go to the last item\n'
                        ' PageDown)     next page or load more\n'
@@ -929,7 +930,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
                 list_articles(articles, fid, show_note, group, _note, note_index = note_index + 1)
             elif _note == "remove filter":
                 ch = ord('q')
-        if ch == ord('m'):
+        if ch == ord('T'):
             choice = ''
             while choice != 'q':
                 choice, theme_menu, _ = show_menu(theme_menu, theme_options, title="theme")
@@ -1089,9 +1090,9 @@ notes_list = list(notes_dict.values())
 notes_keys = list(notes_dict.keys())
 nods_show = ["correct", "incorrect"]
 pos_nods = ["okay", "interesting!"]
-neg_nods = ["so?", "didn't get but okay","didn't get"]
+neg_nods = ["so?", "didn't get, but okay","didn't get"]
 nods_list = ["didn't get", continue_nod, "OK, I get it now", "okay", "I see!", "interesting!"]
-art_sent_types = ["problem statement", "definition", "claim", "background", "proposed solution", "goal", "feature", "contribution", "comparison", "usage"]
+art_sent_types = ["problem statement", "research question", "definition", "classification","claim", "background", "proposed solution", "goal", "feature", "contribution", "comparison", "usage", "example"]
 sent_types = ["main idea", "example", "support"]
 art_status = ["interesting!", "novel idea!", "my favorite!", "important!", "needs review", "todo", "not bad","not of my interest","didn't get it!", "survey paper", "archive", "not reviewed", "to read later"]
 feedbacks = set(pos_nods + neg_nods + notes_list + nods_list + art_status)
@@ -1125,7 +1126,7 @@ def find_nod_color(nod):
     return int(ret)
 
 def list_nods(win, ypos, cur_nod):
-    if cur_nod == "": cur_nod = "okay"
+    if cur_nod == "" or cur_nod == "skipped": cur_nod = "okay"
     xpos = 2
     nods = list(reversed(neg_nods)) + pos_nods
     ni = nods.index(cur_nod) if cur_nod in nods else len(neg_nods) + 1
@@ -1257,7 +1258,6 @@ def refresh_offsets(art, split_level = 1):
         sents.append(_sect)
         ii += 1
         for frag in sect["fragments"]:
-            fn += 1
             frag["offset"] = ii
             ofs = 0
             if not "sents" in frag:
@@ -1268,6 +1268,8 @@ def refresh_offsets(art, split_level = 1):
                 sents.append(sent)
                 ofs += len(sent["text"])
                 ii += 1
+        sect["fragments"] = [x for x in sect["fragments"] if x["sents"]]
+        fn += len(sect["fragments"])
     sect["sents_num"] = ii - prev_sect["offset"]
     return len(art["sections"]),fn, ii, sents
 
@@ -1292,7 +1294,6 @@ def locate(art, si, sel_first_sent=False):
         elif s_start >= si:
             break
     return sect, frag, sent, min(si, s_start)
-
 
 def get_path(art):
     file_name = art["title"].replace(' ', '-')[:50]  # url.split('/')[-1]
@@ -1811,6 +1812,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                             word_count = 0
                             frag_offset = fsn
                             frag_end = frag_offset + len(_sents) -1
+                            has_sents = False
                             while fsn <= frag_end and not too_big_art:
                                 sent = _sents[fsn - frag_offset] 
                                 feedback = sent["nod"] if "nod" in sent else ""
@@ -1838,6 +1840,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                     pos[fsn], _ = text_win.getyx()
                                     fsn += 1
                                     continue
+                                has_sents =True
 
                                 is_word = sent["block"] == "word"
                                 is_sent = sent["block"] == "sent" and sent["type"] == "sentence"
@@ -1996,13 +1999,14 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                 new_frag = False
 
                         #fffe
-                        if "end_mark" in frag:  # fsn >= bmark and fsn <= si:
-                            w =  width - 5
-                            mprint("-" * (w), text_win, DIM_COLOR)
-                        else:
-                            w1 = 4  # width - 5
-                            w2 = 6
-                            mprint("-" * w1 + ' ' * (width - w1 - w2) + "-" * w2, text_win, DIM_COLOR)
+                        if has_sents:
+                            if "end_mark" in frag:  # fsn >= bmark and fsn <= si:
+                                w =  width - 5
+                                mprint("-" * (w), text_win, DIM_COLOR)
+                            else:
+                                w1 = 4  # width - 5
+                                w2 = 6
+                                mprint("-" * w1 + ' ' * (width - w1 - w2) + "-" * w2, text_win, DIM_COLOR)
                         ffn += 1
                     # end for fragments
             sn += 1
@@ -2125,16 +2129,16 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if ch == ord("H") or ch == ord("Q"):
             hotkey = "qq" if expand == 0 else "qqq"
         if ch == ord('n') and not rc_text:
-            if show_note != '':
-                show_note = ''
+            ypos = pos[bmark] - start_row
+            nod_win = cur.newwin(9, 50, ypos + 2, left)
+            nod_win.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
+            tmp, _ = select_box({"Notes":["All"] + notes_list}, nod_win, title="Show only", in_row=True)
+            show_note = tmp if tmp != "NULL" and tmp != "All" else ""
+            if show_note == "":
                 for _sent in sents:
-                    sent["visible"] = True
-            else:
-                ypos = pos[bmark] - start_row
-                nod_win = cur.newwin(9, 50, ypos + 2, left)
-                nod_win.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
-                tmp, _ = select_box({"Notes":notes_list}, nod_win, in_row=True)
-                show_note = tmp if tmp != "NULL" else ""
+                    if not "remove" in _sent["notes"]:
+                        _sent["visible"] = True
+                bmark = si = 0
         if ch == ord('d'):
             acc = notes_keys + ['l','o','q','d']
             _ch = confirm("Delete: Press d to see the list or choose from " + ",".join(acc),
@@ -2191,22 +2195,22 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 
         if ch == ord('h'):  # article help
             show_info(('\n'
-                       '  Down)          expand the selection to next sentence\n'
-                       '  Right)         expaned a collapsed section\n'
-                       '  Right)         nod the selected sentences with a positive feedback\n'
-                       '  Left)          nod the selected sentences with a negative feedback\n'
+                       '  Down)          expand the selection to the next sentence\n'
+                       '  Right)         open a collapsed section\n'
+                       '  Right)         nod the selected sentences and move to the next\n'
+                       '  Left)          show a list of nods\n'
                        '  Enter)         open a link, article or refrence associated to the selected sentence\n'
-                       '  +/-)           show the list of positive and negative nods\n'
                        '  o)             download/open the pdf file externally\n'
                        '  f)             list figures\n'
                        '  t)             add a tag to the article\n'
-                       '  d)             delete the external pdf file \n'
                        '  w)             save the article into the saved articles\n     `'
                        '  x)             save as/export the article into a file\n'
-                       '  m)             change the color theme\n'
+                       '  T)             change the color theme\n'
+                       '  m)             merege selected sentences\n'
                        '  u)             reset comments and notes\n'
                        '  n)             filter sentences by a note\n'
-                       '  DEL)           remove current notes in order\n'
+                       '  DEL)           remove the sentece or the current notes \n'
+                       '  d)             a shorkey for DEL \n'
                        '  TAB)           skip current fragment\n'
                        '  e)             expand/collapse sections\n'
                        '  BackSpace)     collapse the current section\n'
@@ -2226,11 +2230,39 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if ch == ord('w'):
             save_article(art)
             show_msg(art["save_folder"])
+        if ch == ord('m'):
+            new_sent_text = ""
+            new_sent_notes = {}
+            _,m_frag,_,_ = locate(art, bmark)
+            m_pos = bmark - m_frag['offset']
+            for ii in range(bmark, si+1):
+                if is_passable(sents, ii):
+                    continue
+                new_sent_text += sents[ii]["text"] + " "
+                for _note,_note_val in sents[ii]["notes"]:
+                    new_sent_notes[_note] = _note_val
+                _,_frag,_,_ = locate(art, ii)
+                _pos = ii - _frag["offset"]
+                _frag["sents"].pop(_pos)
+
+            si = bmark
+            _new_sent = new_sent(new_sent_text)
+            _new_sent["notes"] = new_sent_notes
+            m_frag['sents'][m_pos:m_pos] = [_new_sent]
+            old_total_sents = total_sents
+            total_sects, total_frags, total_sents, sents = refresh_offsets(art)
+            dif = total_sents - old_total_sents
+            first = True
+            if dif > 0:
+                pos += [0]*dif
         #ddd
         if ch == ord('u') or ch == cur.KEY_DC:
-            if ch == cur.KEY_DC and not cur_sent["notes"]:
-                cur_sent["visible"] = False
-                si = inc_si(sents, si)
+            if ch == cur.KEY_DC and not cur_sent["notes"]: 
+                for ii in range(bmark, si + 1):
+                    if not sents[ii]["notes"]:
+                        sents[ii]["visible"] = False
+                        sents[ii]["notes"]["remove"] = ""
+                bmark, si = moveon(sents, si)
             else:
                 _c = unset_sent(sents[si])
                 if _c != "q" and ch == ord('u'):
@@ -2283,7 +2315,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 _notes_list.append(v + " (" + k + ")")
             n_list = {"Notes":_notes_list, "Types": art_sent_types}
             #n_list = {"Types": art_sent_types}
-            _win_w = 55
+            _win_w = 75
             # NNN
             nod_win = cur.newwin(9, _win_w, ypos + 2, left)
             nod_win.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
@@ -2439,7 +2471,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     si = ii 
                 else:
                     cur_nod = sents[si]["nod"]
-                    if cur_nod == "" and ii >= nf: cur_nod = "pass"
+                    if cur_nod == "" and ii >= nf: cur_nod = "skipped"
                     if cur_nod != "":
                         set_nod(cur_nod, cur_sent, sents, bmark, si, -1)
                     if sents[si]["nod"] == "interesting!": ch = ord("*")
@@ -2468,7 +2500,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if not rc_text and (bmark != si or sents[bmark]["block"] != "word" 
                                 and sents[si]["block"] != "word"):
                 cur_nod = "okay"
-                if sents[si]["nod"] == "":
+                if sents[si]["nod"] == "" or sents[si]["nod"] == "skipped":
                     set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
                 if sents[si]["nod"] == "interesting!": ch = ord("*")
             si, bmark = moveon(sents, si)
@@ -2774,7 +2806,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         create_figures_file(figures, fname)
                         figures_created = True
                     webbrowser.open("file://" + fname + "#fig" + str(fi))
-        if ch == ord('m'):
+        if ch == ord('T'):
             choice = ''
             while choice != 'q':
                 choice, theme_menu, _ = show_menu(theme_menu, theme_options, title="theme")
@@ -2906,6 +2938,10 @@ def set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time):
         else:
             #cur_sent["nods"].remove(cur_nod)
             cur_sent["nods"].insert(0, cur_nod)
+
+def is_passable(sents, si):
+    cond = not sents[si]["visible"] or sents[si]["passable"]
+    return cond
 
 def can_pass(sents, si, cond = False):
     pass_words = not word_level
