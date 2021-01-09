@@ -230,8 +230,11 @@ def rinput(win, r, c, prompt_string, default=""):
         cur.noecho()
         return default
 
-def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = 0, footer="", color=nc.HL_COLOR):
-    multi_line = mode == 2
+PROMPT_LINE = 0
+SINGLE_LINE = 1
+MULTI_LINE = 2
+def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMPT_LINE, footer="", color=nc.HL_COLOR):
+    multi_line = mode == MULTI_LINE
     if mode > 0:
         mrows, mcols = mwin.getmaxyx()
         mwin.border()
@@ -239,7 +242,7 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = 0, fo
         if footer == "":
             footer =  "Insert: Insert | ESC: Close | Shift + Del: Clear | Shift + Left: Delete line"
             footer = textwrap.shorten(footer, mcols)
-        if mode == 2:
+        if mode == MULTI_LINE:
             print_there(mrows-1, col, footer, mwin)
             win = mwin.derwin(mrows - 2, mcols-2, 1, 1)
         else:
@@ -448,25 +451,40 @@ def qplit_into_sentences(text):
     except ImportError as e:
         return rplit_into_sentences(text)
 
-def split_into_sentences(text, debug = False, limit = 15, split_on = ['.','?','!']):
+def split_into_sentences(text, debug = False, limit = 15, split_on = ['.','?','!',':']):
     text = " " + text + "  "
-    text = text.replace("\n","<stop>")
+
+    rep = {"Ph.D.": "Ph<prd>D<prd>",
+            "[FRAG]":"<stop>",
+            "et al.":"et al<prd>",
+            " et.":" et<prd>",
+            "e.g.":"e<prd>g<prd>",
+            "e.g":"e<prd>g",
+            "vs.":"vs<prd>",
+            "www.":"www<prd>",
+            "etc.":"etc<prd>",
+            "i.e.":"i<prd>e<prd>",
+            "...":"<prd><prd><prd>",
+           }
+
+    # use these three lines to do the replacement
+    rep = dict((re.escape(k), v) for k, v in rep.items())
+    #Python 3 renamed dict.iteritems to dict.items so use rep.items() for latest versions
+    pattern = re.compile("|".join(rep.keys()))
+    text = pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
+    #print(text)
+
+    #text = text.replace("\n","<stop>")
     text = re.sub(prefixes,"\\1<prd>",text)
     text = re.sub(websites,"<prd>\\1",text)
-    text = text.replace("[FRAG]","<stop>")
-    text = text.replace("Ph.D.","Ph<prd>D<prd>")
-    text = text.replace("et al.","et al<prd>")
-    text = text.replace("e.g.","e<prd>g<prd>")
-    text = text.replace("vs.","vs<prd>")
-    text = text.replace("etc.","etc<prd>")
-    text = text.replace("i.e.","i<prd>e<prd>")
     text = re.sub("\s" + alphabets + "[.] "," \\1<prd> ",text)
     text = re.sub(acronyms+" "+starters,"\\1<stop> \\2",text)
     text = re.sub(alphabets + "[.]" + alphabets + "[.]" + alphabets + "[.]","\\1<prd>\\2<prd>\\3<prd>",text)
     text = re.sub(alphabets + "[.]" + alphabets + "[.]","\\1<prd>\\2<prd>",text)
     text = re.sub(" "+suffixes+"[.] "+starters," \\1<stop> \\2",text)
     text = re.sub(" (\d+)[.](\d+) "," \\1<prd>\\2 ",text)
-    text = text.replace("...","<prd><prd><prd>")
+    text = re.sub(" ([abcdefg]\))"," <stop>\\1",text)
+    text = re.sub(";\s+(\(\d{1}\))",";<stop>\\1 ",text)
     text = re.sub(digits + "[.]" + digits,"\\1<prd>\\2",text)
     text = re.sub(" "+suffixes+"[.]"," \\1<prd>",text)
     text = re.sub(" " + alphabets + "[.]"," \\1<prd>",text)
