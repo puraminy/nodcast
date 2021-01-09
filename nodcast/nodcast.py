@@ -135,6 +135,7 @@ nod_colors = {
     "archive": 145,
     "okay": 36,
     "okay, okay!": 25,
+    "okay, go on": 35,
     "okay?": 240,
     "not reviewed": 143,
     "goal": 22,
@@ -160,11 +161,12 @@ nod_colors = {
     "comment": 141,
     "didn't get the article": 161,
     "didn't get, needs review": 161,
+    "okay, never mind": 145,
     "what?!": 161,
     "what?! needs review": 161,
     "don't think so": 179,
     "not sure!": 179,
-    "recheck": 31,
+    "what?!": 31,
     "didn't get, so?": 196,
     "so?": 39,
     "Let's continue": 39,
@@ -177,7 +179,7 @@ nod_colors = {
     "needs review": 177,
     "review later": 177,
     "to read later": 177,
-    "todo": 186,
+    "check later": 186,
     "problem": 179,
     "definition": 250,
     "got it!": 69,
@@ -255,8 +257,8 @@ def extractPdfText(file):
                     show_err("Invalid input, enter two numbers separated by a dash, example 3-7")
                     continue
                 else:
-                    _from = int(_from)
-                    _to = int(_to)
+                    _from = int(_from) - 1
+                    _to = int(_to) - 1
                     pages = range(_from, _to)
             show_info("Converting ...")
             if menu["sections"] == "All except References":
@@ -281,25 +283,29 @@ def extractText(file, sel_sects="", pages=[], params={"boxes_flow":0.5, "char_ma
                 char_margin=params["char_margin"], detect_vertical=False)
         device = PDFPageAggregator(rsrcmgr, laparams=laparams)
         interpreter = PDFPageInterpreter(rsrcmgr, device)
-        pat = re.compile("^(?:(\d{1,3}\.?(?:\d{1,3}\.?)*)?) ?([\w \t]{5,40})$")
+        pat = re.compile("^(?:(\d{1,3}\.?(?:\d{1,3}\.?)*)?) ?([\w\-\t\?:]{3,50})$")
+        page_numbers = re.compile("^(\d{1,3}( of \d{1,3})?)$")
         seen = {}
         sections = ["abstract","introduction","references","related work", "summary", "conclusion"]
         cur_sect = ""
+        to_prev = 0
         for pn, page in enumerate(PDFPage.create_pages(doc)):
             if pages and not pn in pages:
                 continue
             interpreter.process_page(page)
             layout = device.get_result()
             short_line = True
+            new_page = True
             for element in layout:
                 # if isinstance(element, LTFigure):
                 if isinstance(element, LTTextBox):
                     p = element.get_text().strip()
-                    #if "This indicates" in p:
+                    #if "4.10.2" in p:
                     #    seen["indcate"] = True
                     lines = p.splitlines()
                     for line in lines:
                         sect_seen = False
+                        to_prev += 1
                         for sect in sections:
                             if len(line) < len(sect) + 5 and sect in line.lower():
                                 seen[sect] = True
@@ -312,18 +318,22 @@ def extractText(file, sel_sects="", pages=[], params={"boxes_flow":0.5, "char_ma
                             if not "all" in sel_sects and not cur_sect in sel_sects:
                                 continue
                         if sect_seen:
-                            text += "## " + line + "\n"
+                            text += "\n## " + line + "\n"
                             continue
                         #if not "abstract" in seen:
                         #    continue
+                        page_number = page_numbers.search(line)
+                        if page_number:
+                            continue
                         out = pat.search(line)
-                        if out and out.group(1): 
-                            if len(out.group(2)) > 5 and len(out.group(2)) < 40:
+                        if out and out.group(1) and to_prev > 5: 
+                            if len(out.group(2)) >= 2 and len(out.group(2)) < 60:
                                 parts = out.group(1).split('.')
+                                to_prev = 0
                                 if len(parts) <= 1:
-                                    text += "## " + out.group(1) + " " + out.group(2)+ "\n"
+                                    text += "\n## " + out.group(1) + " " + out.group(2)+ "\n"
                                 else:
-                                    text += "### " + out.group(1) + " " +  out.group(2)+ "\n"
+                                    text += "\n### " + out.group(1) + " " +  out.group(2)+ "\n"
                                 continue
 
                         if len(line) < 10: # Remove successive short lines
@@ -337,12 +347,15 @@ def extractText(file, sel_sects="", pages=[], params={"boxes_flow":0.5, "char_ma
                             text += "# " + p.replace("\n"," ") + "\n"
                             seen["title"] = True
                             break
+                        if new_page and line[0].isupper():
+                            text += "\n"
+                            new_page = False
                         if line.endswith("-"):
                             line = line[:-1]
                         else:
                             line += " "
                         text += line 
-                    text += "\n"
+                    #text += "\n"
     return text
 
 def reset_colors(theme, bg=None):
@@ -679,7 +692,8 @@ def get_sects(text):
                 continue
             new_sect = {}
             end = sect.find("\n")
-            new_sect["title"] = sect[:end]
+            sect_title = sect[:end]
+            new_sect["title"] = sect_title if sect_title.strip() else "untitled section"
             frags = sect[end:]
             new_sect["fragments"] = get_frags(frags)
             ret.append(new_sect)
@@ -693,9 +707,10 @@ def get_frags(text, cohesive =False, split_level = 0, word_limit=5):
     else:
         frags = []
         for i, sub in enumerate(subs):
-            if not sub.strip():
+            sub = sub.strip()
+            if not sub:
                 continue
-            if i > 0 or text.startswith("### "):
+            if i > 0 or sub.startswith("### "):
                 end = sub.find("\n")
                 title = sub[:end]
                 sub_text = sub[end:]
@@ -719,9 +734,10 @@ def extract_frags(text, cohesive=False, split_level = 0, word_limit=5, title = "
     for t in parts:
         frag = {"text":t}
         frag["sents"] = init_frag_sents(t, cohesive)
+        if len(frag["sents"]) > 0 and title != "":
+            frag["title"] = title
+            title = ""
         frags.append(frag)
-    if title != "" and len(frags) > 0:
-        frags[0]["title"] = title
     return frags
 
 def remove_tag(art, fid, saved_articles):
@@ -1150,16 +1166,16 @@ def write_article(article, folder=""):
 
 continue_nod = "continue"
 okay_nod = "I see!"
-notes_dict = {"+":"point", "&":"answer",  "_":"todo","?":"question", ":":"comment"}
+notes_dict = {"+":"point", "&":"answer",  "_":"check later","?":"question", "@":"comment"}
 notes_list = list(notes_dict.values())
 notes_keys = list(notes_dict.keys())
 nods_show = ["correct", "incorrect"]
-pos_nods = ["okay", "I see!", "interesting!"]
-neg_nods = ["recheck","didn't get"]
+pos_nods = ["okay", "I see!"]
+neg_nods = ["what?!","okay, never mind"]
 nods_list = ["didn't get", continue_nod, "OK, I get it now", "okay", "I see!", "interesting!"]
 art_sent_types = ["problem statement", "research question", "definition", "description", "classification","claim", "background", "proposed solution", "finding", "goal", "feature", "contribution", "comparison", "usage", "example"]
 sent_types = ["main idea", "example", "support"]
-art_status = ["interesting!", "novel idea!", "my favorite!", "important!", "needs review", "todo", "not bad","not of my interest","didn't get it!", "survey paper", "archive", "not reviewed", "to read later"]
+art_status = ["interesting!", "novel idea!", "my favorite!", "important!", "needs review", "check later", "not bad","not of my interest","didn't get it!", "survey paper", "archive", "not reviewed", "to read later"]
 feedbacks = set(pos_nods + neg_nods + notes_list + nods_list + art_status)
 
 def find_color(sents, fsn, check_next = False):
@@ -1239,14 +1255,14 @@ def print_prog(text_win, prog, width):
     mprint(addinfo, text_win, d_color)
 
 def print_comment(text_win, comment, width):
-    com_sents = split_into_sentences(comment, limit=1)
+    com_sents = split_into_sentences(comment, limit=2)
     for com in com_sents:
         com = textwrap.fill(com,
                         width=width - 4, replace_whitespace=False)
         mprint(com, text_win, TEXT_COLOR, end="\n")
         
 def new_sent(s):
-    _new_sent = {"text":s,"type":"sentence", "end":'\n','eol':False, 'eob':False, 'eos':False, 'next':False, "block":"sent", "block_id":-1, "nod":"", "countable":False, "visible":True, "hidden":False, 'can_skip':True, "passable":False, "nods":[], "rtime":0, "tries":1, "comment":"", "notes":{}}
+    _new_sent = {"text":s,"type":"sentence", "end":'\n','eol':False, 'eob':False, 'eos':False, 'next':False, "block":"sent", "merged":False, "block_id":-1, "nod":"", "countable":False, "visible":True, "hidden":False, 'can_skip':True, "passable":False, "nods":[], "rtime":0, "tries":1, "comment":"", "notes":{}}
     if len(s.split(' ')) <= 1:
         _new_sent["end"] = " "
     return _new_sent
@@ -1296,12 +1312,21 @@ def init_frag_sents(text, cohesive =False, unit_sep = "", word_limit = 20, nod =
                 s["block_id"] = block_id if block_id < 0 else block_id + i
                 s["eos"] = True 
                 s["eob"] = block_id >= 0
-                if (prev_s and s["text"].lower().startswith(("thus","hense",
-                    "so ", "so,", "therefore","thereby","this "))):
-                    prev_s["nod"] = "so?"
-                #if any(x in s["text"].lower() for x in ["find", "found"]):
-                #    s["type"] = "finding"
+                if prev_s and not prev_s["merged"] and len(prev_s["text"]) < 160 and ( 
+                    s["text"].lower().startswith(("thus","hense",
+                        "so ", "so,", "therefore","thereby","this ", "however", "instead"))
+                    or any(x in prev_s["text"].lower() for x in ["shows "])):
+                    s["merged"] = True
+                    prev_s["text"] = prev_s["text"] +  " " + s["text"]
                 prev_s = s
+            sents = [sent for sent in sents if not sent["merged"]] 
+            prev_s = None
+            for i,s in enumerate(sents):
+                if prev_s and not prev_s["merged"] and len(s["text"]) < 150:
+                    s["merged"] = True
+                    prev_s["text"] = prev_s["text"] +  " " + s["text"]
+                prev_s = s
+            sents = [sent for sent in sents if not sent["merged"]] 
             if cohesive:
                 for s in sents:
                     s["next"] = True
@@ -1371,6 +1396,27 @@ def locate(art, si, sel_first_sent=False):
             break
     return sect, frag, sent, min(si, s_start)
 
+def get_sel_name(path, ext="", cat = "Folder"):
+    _win = cur.newwin(10, 60, 2, 5)
+    _win.bkgd(' ', cur.color_pair(HL_COLOR))  # | cur.A_REVERSE)
+    _win.border()
+    if ext == "":
+        fs = ["Create New " + cat]+ [f.name for f in os.scandir(path) if f.is_dir()]
+    else:
+        fs = ["Create New " + cat ]+ [f.name for f in Path(path).glob(ext) if f.is_file()]
+    sfi, _ = select_box({cat + "s":fs}, _win, 0, in_row=False, border=True, ret_index =True)
+    if sfi < 0:
+        return False
+    if sfi == 0:
+        fid, _ = minput(win_info, 0, 1, cat + " name: My articles/" + profile+"/", default="")
+        if fid != "<ESC>":
+            if fid.strip() == "": fid = "UC"
+            return fid
+        else:
+            return ""
+    else:
+        return fs[sfi]
+
 def get_path(art):
     file_name = textwrap.shorten(art["title"],70)  # url.split('/')[-1]
     if "save_folder" in art and art["save_folder"] != "":
@@ -1380,22 +1426,11 @@ def get_path(art):
         folder = profile 
         _def = ""
         path = doc_path + '/Articles/' + folder 
-        _win = cur.newwin(10, 60, 2, 5)
-        _win.bkgd(' ', cur.color_pair(HL_COLOR))  # | cur.A_REVERSE)
-        _win.border()
-        subfolders = ["Create New Folder"]+ [f.name for f in os.scandir(path) if f.is_dir()]
-        sfi, _ = select_box({"Folders":subfolders}, _win, 0, in_row=False, border=True, ret_index =True)
-        if sfi < 0:
+        fid = get_sel_name(path, "", "Folder")
+        if not fid:
             return False
-        if sfi == 0:
-            fid, _ = minput(win_info, 0, 1, " Folder name: My articles/" + profile+"/", default=_def)
-            if fid != "<ESC>":
-                if fid.strip() == "": fid = "UC"
-                folder += "/" + fid
-            else:
-                return False
         else:
-            folder += "/" + subfolders[sfi]
+            folder += "/" + fid
         path = doc_path + '/Articles/' + folder 
         if path.endswith("/"):
             path = path[:-1]
@@ -1408,7 +1443,7 @@ def unset_sent(sent, ch =0):
     a) all 
     n) all notes  
          l) last note
-         :) last comment ?) last queston _) last todo 
+         :) last comment ?) last queston _) last check later 
          !) last idea  &) last answer 
          *) all points
     t) type 
@@ -1613,7 +1648,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     logging.info("Article:" + art["title"])
     nr_opts = load_obj("settings", "", common = True)
     sel_first_sent = False
-    total_pr = int(art["total_prog"])*total_sects if "total_prog" in art else 0
+    total_pr = int(art["total_prog"]) if "total_prog" in art else 0
     start_time = 0
     too_big_warn = False
     start_reading = True
@@ -1820,7 +1855,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 else:
                     top = "[open link] " + pdfurl
 
-        total_prog = int(round(si / total_sents, 2))
+        total_prog = int(round(si / total_sents*100, 2))
         art["total_prog"] = str(total_prog)
         mprint("", text_win)
         if si == 0:
@@ -2375,8 +2410,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 if is_passable(sents, ii):
                     continue
                 _,_frag,_,_ = locate(art, ii)
-                _frag["sents"] = [sent for sent in _frag["sents"] if not "merged" in sent] 
-
+                _frag["sents"] = [sent for sent in _frag["sents"] if not "merged" in sent or not sent["merged"]] 
             si = bmark
             _new_sent = new_sent(new_sent_text)
             _new_sent["notes"] = new_sent_notes
@@ -2421,9 +2455,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if tmp_ch == cur.KEY_NPAGE:
                 ch = cur.KEY_END
             std.timeout(-1)
-        ####
-        if ch == ord('#'):
-            if ch == ord('#') or (cur_sect["title"] == "Review" and cur_sect == art["sections"][0]):
+        #~~~
+        if ch == ord('~'):
+            if ch == ord('~') or (cur_sect["title"] == "Review" and cur_sect == art["sections"][0]):
                 tmp_sent = art["sections"][0]["fragments"][0]["sents"][-1]
                 win_title = "Review tag on the article:"
                 n_list = {"Article Notes:":art_status}
@@ -2602,14 +2636,16 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     si = pass_forward(sents, si)
                     si = inc_si(sents, si) 
                     bmark = si
-                elif ii < nf and (sents[si]["block_id"] < 0) and si < bmark + 1:
+                elif (sents[si]["block_id"] < 0) and ii < nf and si < bmark:
                     si = ii 
                 else:
-                    cur_nod = sents[si]["nod"]
-                    #if cur_nod == "" and ii >= nf: cur_nod = "skipped"
-                    if cur_nod != "":
-                        set_nod(cur_nod, cur_sent, sents, bmark, si, -1)
-                    si, bmark = moveon(sents, si)
+                    prev_nod = sents[si]["nod"]
+                    if prev_nod == "":
+                        set_nod("okay", cur_sent, sents, bmark, si, -1)
+                    if prev_nod == "what?!":
+                        show_msg("Press either Right or Left key to move to the next sentence")
+                    else:
+                        si, bmark = moveon(sents, si)
 
         # kkku
         if ch == UP:
@@ -2634,9 +2670,22 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if not rc_text and (bmark != si or sents[bmark]["block"] != "word" 
                                 and sents[si]["block"] != "word"):
                 prev_nod = sents[si]["nod"] 
-                cur_nod = next_nod(prev_nod, key_pos) if not auto_mode else "okay"
+                if prev_nod == "": prev_nod = "okay"
+                if prev_nod != "what?!" and prev_nod != "okay, go on":
+                    cur_nod = next_nod(prev_nod, key_pos) if not auto_mode else "okay"
+                else:
+                    cur_nod = "okay, go on"
                 set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
-            if prev_nod == "":
+
+                #std.timeout(1000)
+                #ch = get_key(std)
+                #if ch < 0:
+                #    set_nod("", cur_sent, sents, bmark, si, elapsed_time)
+                #    jump_key = ch = RIGHT
+                #else:
+                #    jump_key = ch
+                #std.timeout(-1)
+            if True: #prev_nod == "okay":
                 si, bmark = moveon(sents, si)
                 forward = True
         #kkkl
@@ -2644,16 +2693,15 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if not word_level:
                 if True: #not show_sel_nod:
                     #show_sel_nod = True
-                    cur_nod = "interesting!"
-                    cur_nod = sents[si]["nod"] 
-                    cur_nod = next_nod(cur_nod, key_neg) 
+                    prev_nod = sents[si]["nod"] 
+                    cur_nod = next_nod(prev_nod, key_neg) 
                     set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
                 #else:
                     #show_sel_nod = False
                     #si, bmark = moveon(sents, si)
                     #forward = True
-            else:
-                si, bmark = backoff(sents, bmark) 
+            if prev_nod == "what?!":
+                si, bmark = moveon(sents, bmark) 
                 forward = True
         #ppp
         if ((rc_mode and ch==RIGHT) or ch == cur.KEY_IC) and not word_level and expand != 0:
@@ -2813,11 +2861,23 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 art_changed = True
             else:
                 show_info(main_info)
-        if ch == ord('!'): #@@@
-            win = cur.newwin(10, width, 6, left)
-            win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
-            _idea, _ = minput(win, 0, 0, "Got an idea:", 
-                    default="", mode =MULTI_LINE)
+        if chr(ch) in ['!','$','%','#','^']: #@@@
+            if ch == ord('!'): note_file = "ideas" 
+            if ch == ord('^'): note_file = "findings" 
+            if ch == ord('$'): note_file = "jj"
+            if ch == ord('%'): note_file = "nn"
+            _idea = ""
+            if ch == ord('#'):
+                path = doc_path + '/Articles/' + profile 
+                note_file = get_sel_name(path, "*.tag.art", "Tag")
+            if note_file:
+                if not note_file.endswith(".tag.art"):
+                    note_file += ".tag.art"
+                note_title = note_file[:-4]
+                win = cur.newwin(10, width, 6, left)
+                win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
+                _idea, _ = minput(win, 0, 0, note_title, 
+                        default="", mode =MULTI_LINE)
             if _idea != "":
                 _frag = {}
                 _frag["sents"] = init_frag_sents(_idea, word_limit=1)
@@ -2826,36 +2886,36 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 _frag["ref_sent"] = si
                 _frag["time"] = str(datetime.datetime.now())
                 frag_id = art["id"] + "_" + _frag["time"]
-                ideas_doc = load_doc("ideas.art", "")
-                if not ideas_doc:
-                    ideas_doc = {"id": profile + "ideas", "needs_review":False, "pdfUrl": "na", "title": "ideas", "sections":[]}
+                notes_doc = load_doc(note_file, "")
+                if not notes_doc:
+                    notes_doc = {"id": profile + note_title, "needs_review":False, "pdfUrl": "na", "title": note_title, "sections":[]}
                     new_sect = {"title":"all", "fragments":[]}
                     new_sect["fragments"].append(_frag)
-                    ideas_doc["sections"].append(new_sect)
-                    save_doc(ideas_doc,"ideas.art","")
-                    show_msg("The idea was saved into the ideas file", delay=5000)
+                    notes_doc["sections"].append(new_sect)
+                    save_doc(notes_doc, note_file,"")
+                    show_msg("The note was saved into the file " + note_file, delay=500)
                 else:
-                    _f_sect = ideas_doc["sections"][0]
+                    _f_sect = notes_doc["sections"][0]
                     _f_sect["fragments"].append(_frag)
-                    save_doc(ideas_doc,"ideas.art","")
-                    show_msg("The idea was saved into the ideas file", delay=500)
-        if ch == ord('@'): #@@@
+                    save_doc(notes_doc, note_file,"")
+                    show_msg("The note was saved into the file " + note_file, delay=500)
+        if ch == ord(':'): #@@@
             win = cur.newwin(10, width, 6, left)
             win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
             win.refresh()
             review = art["sections"][0]["fragments"][-1]
             default = ""
-            if review["text"] != def_review:
-                for sent in review["sents"]:
-                    default += sent["text"]
+            #if review["text"] != def_review:
+            #    for sent in review["sents"]:
+            #        default += sent["text"]
             _review, _ = minput(win, 0, 0, "Article notes and review:", 
                     default=default, mode =MULTI_LINE)
             show_info(main_info)
             _review = _review if _review != "<ESC>" and _review != "q" else default
             art_changed = True
             if _review != "" and _review != def_review:
-                review["text"] = _review
-                review["sents"] = init_frag_sents(_review, True, word_limit = 2, nod ="okay")
+                review["text"] += _review
+                review["sents"] += init_frag_sents(_review, True, word_limit = 2, nod ="okay")
                 if not "reviewed" in review["sents"][-1]["notes"]:
                     review["sents"][-1]["nods"].append("reviewed")
             old_total_sents = total_sents
@@ -2888,7 +2948,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             _lines = 5
             if note_type != "": #and note_type in cur_sent["noets"]:
                 default = "" #cur_sent["notes"][note_type]["text"]
-            if chr(ch) == "_":
+            if chr(ch) == "*":
                 prompt = "What do you want to research on?"
             elif chr(ch) == "!":
                 prompt = "What is your idea?"
@@ -2907,7 +2967,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             _y_pos = ypos + 2 if ypos + 2 < rows - 2 else rows - _lines - 5
             win = cur.newwin(_lines, width, _y_pos, left)
             win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
-            if chr(ch) != "+":
+            if chr(ch) not in ["+","_"]:
                 _comment, _ = minput(win, 0, 0, prompt, default=default, mode=inp_mode)
             #show_info(main_info)
                 _comment = _comment if _comment != "<ESC>" and _comment != "q" else cur_sent["comment"]
@@ -2915,12 +2975,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if note_type == "":
                 cur_sent["comment"]= _comment
             else:
-                if _comment or (chr(ch) in ["+"]):
+                if _comment or (chr(ch) in ["+", "_"]):
                     if not note_type in cur_sent["notes"]:
                         cur_sent["notes"][note_type] = [{"text":_comment}]
                     elif _comment and not _comment in cur_sent["notes"][note_type]:
                         cur_sent["notes"][note_type].append({"text":_comment})
-                    elif not _comment and chr(ch) in ["+"]:
+                    elif not _comment and chr(ch) in ["+","_"]:
                         del cur_sent["notes"][note_type]
                     cur_sent["block_id"] = si
                 if chr(ch) == "+" and needs_review and False:
@@ -3100,8 +3160,8 @@ def set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time):
     if cur_sent_length == 0:
         cur_sent_length = 0.01
     reading_time = round(elapsed_time / cur_sent_length, 2)
-    if elapsed_time < 1 and sents[si]["nod"] == "":
-        cur_nod = "skipped"
+    #if elapsed_time < 1 and sents[si]["nod"] == "":
+    #    cur_nod = "skipped"
     tries = 0
     avg = cur_sent["rtime"]
     tries = cur_sent["tries"]
@@ -4462,7 +4522,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 show_info("Converting to text ... Please wait...")
                 if ch == "c":
                     text, pages, sel_sects = extractPdfText(filename)
-                    output = filename[:-4] + "_" + pages + sel_sects[:2] + ".pdf.txt"
+                    output = filename[:-4] + "_pages_" + pages + sel_sects[:2] + ".pdf.txt"
                 else:
                     text = extractText(filename)
                     output = filename + ".txt"
@@ -4476,8 +4536,11 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 title, i = get_title(data, name)
                 url = filename
                 if url.endswith("pdf.txt"):
-                    url = url[:-4]
-                url = "file://" + url
+                    if not "_pages_" in url:
+                        _url = url[:-4]
+                    else:
+                        _url = url.split("_pages_")[0] + ".pdf"
+                url = "file://" + _url
                 if i > 0:
                     data = data[i:]
                 art = {"id": filename, "pdfUrl": url, "save_folder":save_folder, 
@@ -5042,7 +5105,6 @@ def webpage():
         url = ""
         if ch == 'l' or ch == "load" or ch == "address":
             url = menu["address"]
-        if url != "":
             show_info("Gettign article from " + url)
             config = newspaper.Config()
             config.memoize_articles = False
@@ -5068,7 +5130,7 @@ def webpage():
             del recent_pages[100:]
             save_obj(recent_pages, "recent_pages", "articles")
             show_article(art)
-        elif ch == "recent pages":
+        if ch == "recent pages":
             si = options["recent pages"]["range"].index(menu["recent pages"])
             show_article(recent_pages[si])
     save_obj(menu, "webpage_menu", "")
