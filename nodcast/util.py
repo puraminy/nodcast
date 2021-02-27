@@ -5,6 +5,12 @@ import locale
 import sys
 import string
 import textwrap
+pyperclip_imported =False
+try:
+    import pyperclip 
+    pyperclip_imported =True
+except:
+    pass
 #locale.setlocale(locale.LC_ALL, '')
 code = "utf-8" #locale.getpreferredencoding()
 
@@ -98,6 +104,7 @@ def resize_font_on_windows(height, get_size = False):
     get_last_error_func.argtypes = []
     get_last_error_func.restype = DWORD
 
+
     get_std_handle_func = kernel32_dll.GetStdHandle
     get_std_handle_func.argtypes = [DWORD]
     get_std_handle_func.restype = HANDLE
@@ -171,7 +178,7 @@ def show_cursor(useCur = True):
         sys.stdout.write("\033[?25h")
         sys.stdout.flush()
 
-import nodcast as nc
+from nodcast import HL_COLOR, WARNING_COLOR
 def m_print(text, win, color, attr = None, end="\n", refresh = False):
     if win is None:
         print(text, end=end)
@@ -233,14 +240,14 @@ def rinput(win, r, c, prompt_string, default=""):
 PROMPT_LINE = 0
 SINGLE_LINE = 1
 MULTI_LINE = 2
-def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMPT_LINE, footer="", color=nc.HL_COLOR):
+def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMPT_LINE, footer="", color=HL_COLOR):
     multi_line = mode == MULTI_LINE
     if mode > 0:
         mrows, mcols = mwin.getmaxyx()
         mwin.border()
         print_there(row, col, prompt_string, mwin)
         if footer == "":
-            footer =  "Insert: Insert | ESC: Close | Shift + Del: Clear | Shift + Left: Delete line"
+            footer =  "<Insert> or \: Insert | <ESC>: Close | Shift + Del: Clear | Shift + Left: Delete line"
             footer = textwrap.shorten(footer, mcols)
         if mode == MULTI_LINE:
             print_there(mrows-1, col, footer, mwin)
@@ -328,6 +335,8 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
         else:
             win.move(rows -1 , xloc)
         ch = win.get_wch()
+        if type(ch) == str and ch == '٫':
+            ch = '#'
         if type(ch) == str and ord(ch) == 127: # ch == 8 or ch == 127 or ch == cur.KEY_BACKSPACE:
             if pos > 0:
                 inp = inp[:pos-1] + inp[pos:]
@@ -342,6 +351,11 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
         elif ch == cur.KEY_SDC:
             inp = ""
             pos = 0
+        elif ch == '=':
+            mbeep()
+            if pyperclip_imported:
+                pyperclip.copy(inp)
+            break
         elif ch == cur.KEY_SLEFT:
             if len(inp) > 0:
                 temp = inp.split("\n")
@@ -354,18 +368,19 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
                         inp += line + "\n"
                     c += len(line)
                 inp = inp.strip("\n")
-        elif multi_line and type(ch) == str and ch == next_line:
-            enters = inp.count("\n")
-            if enters < max_lines - 1:
-                inp = inp[:pos] + "\n" + inp[pos:]
-                pos += 1
-            else:
-                mbeep()
-                print_there(mrows-1, col, f"You reached the maximum number of {max_lines} lines", mwin, color=nc.WARNING_COLOR)
-                mwin.clrtoeol()
-                mwin.get_wch()
-                print_there(mrows-1, col, footer, mwin)
-                mwin.refresh()
+        elif  ch == next_line:
+            if multi_line and type(ch) == str:
+                enters = inp.count("\n")
+                if enters < max_lines - 1:
+                    inp = inp[:pos] + "\n" + inp[pos:]
+                    pos += 1
+                else:
+                    mbeep()
+                    print_there(mrows-1, col, f"You reached the maximum number of {max_lines} lines", mwin, color=WARNING_COLOR)
+                    mwin.clrtoeol()
+                    mwin.get_wch()
+                    print_there(mrows-1, col, footer, mwin)
+                    mwin.refresh()
         elif ch == cur.KEY_HOME:
             pos = 0
         elif ch == cur.KEY_END:
@@ -405,7 +420,9 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
             hide_cursor()
             cur.noecho()
             return "<ESC>",ch
-        elif ch == cur.KEY_IC:
+        elif ch == cur.KEY_IC or ch == "\\":
+            if pyperclip_imported:
+                pyperclip.copy(inp)
             break
         else:
             letter = ch
@@ -465,6 +482,7 @@ def split_into_sentences(text, debug = False, limit = 15, split_on = ['.','?','!
             "etc.":"etc<prd>",
             "i.e.":"i<prd>e<prd>",
             "...":"<prd><prd><prd>",
+            "•":"<stop>•"
            }
 
     # use these three lines to do the replacement
