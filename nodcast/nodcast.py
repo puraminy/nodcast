@@ -33,7 +33,7 @@ from appdirs import *
 import logging, sys
 import traceback
 import subprocess
-from gtts import gTTS
+#from gtts import gTTS
 
 appname = "Checkideh"
 appauthor = "App"
@@ -99,7 +99,7 @@ from pdfminer.pdfpage import PDFTextExtractionNotAllowed
 from pdfminer.pdfinterp import PDFResourceManager
 from pdfminer.pdfinterp import PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import LTTextBox, LTTextBoxHorizontal,LTFigure,LTImage
+from pdfminer.layout import LTTextBox,LTTextLine,LTChar, LTTextBoxHorizontal,LTFigure,LTImage
 #except ImportError as e:
 #    pdf2text_imported = False
 
@@ -231,7 +231,7 @@ color_map = {
     "input-color": INPUT_COLOR,
 }
 
-hl_colors = [(137,52), (137,237), (137,234), (95,235), (245,17), (247,237), (246,236), (245,235)]
+hl_colors = [(137,52), (137,236), (137,234), (95,233), (95, 17), (245,17), (247,237), (246,236), (245,235)]
 
 def extractPdfText(file):
     menu = {}
@@ -239,22 +239,22 @@ def extractPdfText(file):
     menu["pages (from-to)"] = ""
     menu["convert"] = "button"
     menu["sep1"] = "Advanced Options for pdfMiner"
-    menu["boxes-flow"] = "0"
-    menu["line-margin"] = "0.1"
-    menu["word-margin"] = "0.1"
-    menu["char-margin"] = "20"
+    menu["boxes-flow"] = "-0.5"
+    menu["line-margin"] = "0.5"
+    menu["word-margin"] = "0.2"
+    menu["char-margin"] = "2.0"
     options = {"sections":{"range":["All except References", "All", "References", "Abstract", "Abstract+Introduction+Conclusion"]} }
     options["boxes-flow"]= {"range":[str(x/10) for x in range(-10,11)]}
-    options["line-margin"]= {"range":[str(x/10) for x in range(0,11)]}
-    options["word-margin"]= {"range":[str(x/10) for x in range(0,11)]}
-    options["char-margin"]= {"range":[str(x) for x in range(5,25)]}
+    options["line-margin"]= {"range":[str(x/20) for x in range(0,11)]}
+    options["word-margin"]= {"range":[str(x/20) for x in range(0,11)]}
+    options["char-margin"]= {"range":[str(x/1) for x in range(1,25)]}
     ch = ''
     mi=0
     while ch != 'q':
         ch, opts, mi = show_menu(menu, options, shortkeys={"c":"convert"}, mi = mi)
         if ch == "convert":
             params={"boxes_flow":float(menu["boxes-flow"]), 
-                    "char_margin":int(menu["char-margin"]),
+                    "char_margin":float(menu["char-margin"]),
                     "word_margin":float(menu["word-margin"]),
                     "line_margin":float(menu["line-margin"])}
             _from_to = menu["pages (from-to)"]
@@ -305,15 +305,14 @@ def convert_pdf_to_txt(path):
     device.close()
     retstr.close()
 
-    return text
+    return str(text)
 
 def extractText(file, sel_sects="", pages=[], params={}):
     if not pdf2text_imported:
         return ""
     text = ""
     if not params:
-        params={"boxes_flow":0.5, "char_margin":20, "word_margin":0.1, "line_margin":0.1}
-        params = {}
+        params={"boxes_flow":-0.5, "char_margin":2.0, "word_margin":0.15, "line_margin":0.5}
     with open(file, 'rb') as in_file:
         parser = PDFParser(in_file)
         doc = PDFDocument(parser)
@@ -338,6 +337,9 @@ def extractText(file, sel_sects="", pages=[], params={}):
         cur_sect = ""
         to_prev = 0
         figure = ""
+        def_size = 9
+        def_size_set = False
+        table_pat = re.compile("Table \d{1,2}:")
         for pn, page in enumerate(PDFPage.create_pages(doc)):
             if pages and not pn in pages:
                 continue
@@ -350,6 +352,10 @@ def extractText(file, sel_sects="", pages=[], params={}):
                 if isinstance(element, LTTextBox):
                     new_box = True
                     p = element.get_text().strip()
+                    if not p:
+                        continue
+                    if table_pat.search(p):
+                       continue
                     #if "4.10.2" in p:
                     #    seen["indcate"] = True
                     if "references" in seen:
@@ -360,63 +366,74 @@ def extractText(file, sel_sects="", pages=[], params={}):
                     if p.startswith("Figure"):
                         figure = p
                     else:
-                        lines = p.splitlines()
-                        for line in lines:
-                            sect_seen = False
-                            to_prev += 1
-                            for sect in sections:
-                                if len(line) < len(sect) + 5 and sect in line.lower():
-                                    seen[sect] = True
-                                    cur_sect = sect
-                                    sect_seen = True
+                        for lineObj in element._objs:
+                            if isinstance(lineObj, LTTextLine):
+                                line = lineObj.get_text().strip()
+                                if not line:
+                                    continue
+                                if line.strip():
+                                    charObj=lineObj._objs[0]
+                                    if not def_size_set and "abstract" in seen:
+                                        def_size = charObj.size
+                                        def_size_set = True
+                                    if isinstance(charObj, LTChar):
+                                        if charObj.size < def_size:
+                                            break
+                                sect_seen = False
+                                to_prev += 1
+                                for sect in sections:
+                                    if len(line) < len(sect) + 5 and sect in line.lower():
+                                        seen[sect] = True
+                                        cur_sect = sect
+                                        sect_seen = True
 
-                            if sel_sects and cur_sect:
-                                if "-"+cur_sect in sel_sects:
+                                if sel_sects and cur_sect:
+                                    if "-"+cur_sect in sel_sects:
+                                        continue
+                                    if not "all" in sel_sects and not cur_sect in sel_sects:
+                                        continue
+                                if sect_seen:
+                                    text += "\n## " + line + "\n"
                                     continue
-                                if not "all" in sel_sects and not cur_sect in sel_sects:
+                                #if not "abstract" in seen:
+                                #    continue
+                                page_number = page_numbers.search(line)
+                                if page_number:
                                     continue
-                            if sect_seen:
-                                text += "\n## " + line + "\n"
-                                continue
-                            #if not "abstract" in seen:
-                            #    continue
-                            page_number = page_numbers.search(line)
-                            if page_number:
-                                continue
-                            out = pat.search(line)
-                            if out and out.group(2) and to_prev > 5 and not "references" in seen: 
-                                if len(out.group(3)) >= 2 and len(out.group(3)) < 60:
-                                    parts = out.group(2).split('.')
-                                    to_prev = 0
-                                    if len(parts) <= 1:
-                                        text += "\n## " + out.group(2) + " " + out.group(3)+ "\n"
+                                out = pat.search(line)
+                                if out and out.group(2) and to_prev > 5 and not "references" in seen: 
+                                    if len(out.group(3)) >= 2 and len(out.group(3)) < 60:
+                                        parts = out.group(2).split('.')
+                                        to_prev = 0
+                                        if len(parts) <= 1:
+                                            text += "\n## " + out.group(2) + " " + out.group(3)+ "\n"
+                                        else:
+                                            text += "\n### " + out.group(2) + " " +  out.group(3)+ "\n"
+                                        continue
+
+                                if len(line) < 10: # Remove successive short lines
+                                    if short_line or not "title" in seen:
+                                        continue
                                     else:
-                                        text += "\n### " + out.group(2) + " " +  out.group(3)+ "\n"
-                                    continue
-
-                            if len(line) < 10: # Remove successive short lines
-                                if short_line or not "title" in seen:
-                                    continue
+                                        short_line = True
                                 else:
-                                    short_line = True
-                            else:
-                                short_line = False
-                            if not "title" in seen:
-                                text += "# " + p.replace("\n"," ") + "\n"
-                                seen["title"] = True
-                                break
-                            if (new_page or new_box):
-                                if line[0].isupper() or text.endswith('.'):
-                                    if new_page:
-                                        text += f"============= Page {pn} ==========<stop>"
-                                        new_page = False
-                                    text += "\n"
-                                    new_box = False
-                            if line.endswith("-"):
-                                line = line[:-1]
-                            else:
-                                line += " "
-                            text += line 
+                                    short_line = False
+                                if not "title" in seen:
+                                    text += "# " + p.replace("\n"," ") + "\n"
+                                    seen["title"] = True
+                                    break
+                                if (new_page or new_box):
+                                    if line[0].isupper() or text.endswith('.'):
+                                        if new_page:
+                                            text += f"============= Page {pn} ==========<stop>"
+                                            new_page = False
+                                        text += "\n"
+                                        new_box = False
+                                if line.endswith("-"):
+                                    line = line[:-1]
+                                else:
+                                    line += " "
+                                text += line 
                     if "references" in seen:
                         text += "</FRAG>"
                     #text += "\n"
@@ -527,24 +544,22 @@ def move_pdf(art,fname):
                 shutil.move(src_file, Path(fname))
                 art["localPdfUrl"] = "file://" + fname
         return True
-    elif not Path(fname).is_file():
-        show_err("Source file not found:" + str(src_file))
-        return False 
+    return True
 
 def download_or_open(url, art, fname, open_file =True, download_if_not_found=True):
     if not url.endswith("pdf"):
         webbrowser.open(url)
         return
     if url.startswith("file://"):
-        if not move_pdf(art, fname):
-            path = Path(fname).parent.absolute()
-            platform_open(path)
+        move_pdf(art, fname)
 
     _file = Path(fname)
+    if "localPdfUrl" in art:
+        _file = Path(art["localPdfUrl"][7:])
     if _file.is_file():
         if open_file:
             openFile(_file)
-    elif download_if_not_found:
+    elif not url.startswith("file://") and download_if_not_found:
         show_info("Starting download ... please wait")
         sleep(0.1)
         with urllib.request.urlopen(url) as Response:
@@ -585,6 +600,9 @@ def download_or_open(url, art, fname, open_file =True, download_if_not_found=Tru
             show_info("File was written to " + str(_file))
             if open_file:
                 openFile(_file)
+    else:
+        path = Path(fname).parent.absolute()
+        platform_open(path)
 
 def save_obj(obj, name, directory, data_dir=True, common=False):
     if obj is None or name.strip() == "":
@@ -738,6 +756,11 @@ def remove_article_list(articles, art):
     i = get_index(articles, art)
     if i >= 0:
         articles.pop(i)
+
+def remove_saved_article(artid):
+    saved_articles = load_obj("saved_articles", "articles", {})
+    del saved_articles[artid]
+    save_obj(saved_articles, "saved_articles", "articles")
 
 def remove_article(articles, art):
     del articles[art["id"]]
@@ -893,6 +916,21 @@ def request(p=0):
     return rsp, ""
 
 # lll
+def list_artids(id_list, fid, group):
+    articles = []
+    saved_articles = load_obj("saved_articles", "articles", {})
+    for _id in id_list:
+        if _id in saved_articles:
+            articles.append(saved_articles[_id])
+    arts = list_articles(articles, fid, group=group)
+    artids = []
+    for art in arts:
+        artids.append(art["id"])
+    if group != "":
+        with open(group, 'w') as outfile:
+            json.dump(artids, outfile)
+
+
 def list_articles(in_articles, fid, show_note=False, group="", filter_note="", note_index=0, sel_art=None, search_results = False):
     global template_menu, theme_menu, hotkey
     clear_screen(std)
@@ -1116,6 +1154,9 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
             list_win.erase()
             #list_win.refresh()
             list_win.refresh(0, 0, 1, 2, rows - 2, cols - 2)
+        if ch == ord('A'):
+            pyperclip.copy(articles[k]["title"])
+            show_msg("Title was copied to the clipboard")
         if ch == ord('a'):
             for ss in range(start, min(N, start + cap)):
                 art = articles[ss]
@@ -1224,6 +1265,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
                 for a in sel_arts:
                     write_article(a, folder)
                 show_msg(str(len(sel_arts)) + " articles were downloaded and saved into saved articles")
+    return articles
 
 
 def replace_template(template, old_val, new_val):
@@ -1797,6 +1839,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     #bbb
     true_answers = []
     context = None
+    prev_idea = ""
     show_sel_nod = False
     if rc_text:
         context = art["sections"][1]
@@ -1971,7 +2014,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         right_side_win.erase()
         sn = 0
         title = "\n".join(textwrap.wrap(art["title"], width))  # wrap at 60 characters
-        pdfurl = art["pdfUrl"] if "pdfUrl" in art else "local_file"
+        pdfurl = art["pdfUrl"] if "pdfUrl" in art else art["localPdfUrl"].split("Files")[1]
         top = ""
         if not collect_art:
             if "save_folder" in art and Path(art["save_folder"]).is_file():
@@ -2341,7 +2384,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             print_sect(art["title"], art["total_prog"], left)
 
 #III
-
+        if ch == ord('A'):
+            pyperclip.copy(art["title"])
+            show_msg("Title was copied to the clipboard")
         if ch == ord('a'): 
             show_msg(" Total:" + art["total_prog"] + "% | Section:" +str(cur_sect["prog"]) + "% ")
         if ch == ord('l'):
@@ -2524,7 +2569,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if "save_folder" in art and "/Files" in art["save_folder"]:
                 ch = ord('C') # Move it to articles
             else:
-                save_article(art)
+                #save_article(art)
+                update_article(save_article, art)
                 show_msg(art["save_folder"])
         if ch == ord('W') or ch == ord('C'):
             if ch == ord('C'):
@@ -3122,7 +3168,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 bg_color = 12
                 win_height = 3
             _idea = _comment = ""
-            if note_file == "nn" or note_file == "jj" or note_file == "exp" or note_file == "ideas":
+            if note_file == "nn" or note_file == "jj" or note_file == "exp":
                 month = mydate.strftime("%Y-%B-%V")
                 note_art_title = month
                 fifo = True
@@ -3134,10 +3180,15 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     note_file += ".tag.list"
                 note_title = note_file[:-4]
                 win = cur.newwin(win_height, width - 1, 6, left)
+                _default = prev_idea
                 win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
                 _comment, ret_ch = minput(win, 0, 0, note_title, 
-                        default="", mode =MULTI_LINE, color=bg_color)
+                        default=_default, mode =MULTI_LINE, color=bg_color)
                 _idea = _comment
+                if ret_ch == "=":
+                    prev_idea = _idea
+                else:
+                    prev_idea = ""
             if _idea != "":
                 _frag = {}
                 _idea = mydate.strftime("%Y-%m-%d-%H-%M") + ":" +  _idea
@@ -3168,7 +3219,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     notes_arts.insert(0, _f_art)
                 else:
                     _f_sect = _f_art["sections"][0]
-                    if ret_ch == "\\" or not _f_sect["fragments"]:
+                    if not ret_ch == cur.KEY_IC or not _f_sect["fragments"]:
                         if fifo:
                             _f_sect["fragments"].insert(0, _frag)
                         else:
@@ -3269,7 +3320,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             mi = 0
             tags_menu = {"tags (one per line)": "", "select tag": ""}
             tags_options = {"select tag":{}}
-            cur_tags = load_obj("tags", "", [""])
+            tag_path = doc_path + "/" + profile 
+            cur_tags = [str(Path(f).stem) for f in Path(tag_path).glob("*.listid") if f.is_file()]
             tags_options["select tag"]["range"] = cur_tags
             tags_options["tags (one per line)"] = {"type":"input-box-mline", "rows":12, "addto":"select tag"}
             while choice != 'q':
@@ -3300,6 +3352,20 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         remove_article(saved_articles, art)
 
                     save_obj(saved_articles, "saved_articles", "articles")
+            for tag in art["tags"]:
+                tag_file = doc_path + "/" + profile + "/" + tag + ".listid"
+                if not Path(tag_file).is_file():
+                    new_list = [art["id"]]
+                    with open(tag_file, "w") as outfile:
+                        json.dump(new_list, outfile)
+                else:
+                    with open(tag_file, "r") as infile:
+                        artids = json.load(infile)
+                    if not art["id"] in artids:
+                        artids.append(art["id"])
+                    with open(tag_file, "w") as outfile:
+                        json.dump(artids, outfile)
+
             text_win.erase()
             text_win.refresh(0, 0, 2, 0, rows - 2, cols - 1)
         if ch == ord('f'):  # show figures
@@ -4457,7 +4523,7 @@ def start(stdscr):
     left_side_win.bkgd(' ', cur.color_pair(ITEM_COLOR))  # | cur.A_REVERSE)
     right_side_win = cur.newpad(rows * 200, text_width//2)
     right_side_win.bkgd(' ', cur.color_pair(ITEM_COLOR))  # | cur.A_REVERSE)
-    menu_win = cur.newpad(rows*3 , cols*2)
+    menu_win = cur.newpad(rows*20 , cols*2)
     menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     common_subwin = cur.newwin(rows - 6, width // 2 + 5, 5, width // 2 - 5)
     common_subwin.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
@@ -4593,7 +4659,7 @@ def start(stdscr):
             save_folder = doc_path + '/' + profile
             Path(save_folder).mkdir(parents=True, exist_ok=True)
             cur_articles = load_docs("", ['.art'])
-            show_files(save_folder, exts=["*.list","*.artid", "*.pdf", "*.txt", '*.art', '*.html'])
+            show_files(save_folder, exts=["*.list", "*.listid","*.artid", "*.pdf", "*.txt", '*.art', '*.html'])
         elif ch == "last results":
             show_last_results()
         elif ch == 'v' or ch == "reviewed articles":
@@ -4659,11 +4725,11 @@ def start(stdscr):
         elif ch == 'n' or ch == "notes":
             save_folder = doc_path + "/Notes"
             Path(save_folder).mkdir(parents=True, exist_ok=True)
-            show_files(save_folder, exts=['*.txt','*.artid','*.art','*.list','*.tag.art'], extract=True)
+            show_files(save_folder, exts=['*.txt','*.artid','*.art',"*.listid", '*.list','*.tag.art'], extract=True)
         elif ch == 'o' or ch == "open file":
             save_folder = doc_path + "/" +  profile + '/Files'
             Path(save_folder).mkdir(parents=True, exist_ok=True)
-            show_files(save_folder, exts=['*.txt', '*.artid', '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+            show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
         last_visited = load_obj("last_visited", "articles", [])
         if len(last_visited) > 0:
             menu["recent articles"] = "button"
@@ -4706,9 +4772,12 @@ def refresh_files(save_folder, subfolders, files, depth=1):
     else:
         menu["sep1"] = _folder
     menu_len = len(menu)
-    if not save_folder.endswith("Files"):
+    mydate = datetime.datetime.now()
+    today = mydate.strftime("%Y-%m-%d")
+    if True: #not save_folder.endswith("Files"):
         for ind, sf in enumerate(subfolders):
-            menu["[>] " + sf] = "button@folder@" + str(ind)
+            if sf.endswith(today):
+                menu["[>] " + sf] = "button@folder@" + str(ind)
     count = 1
     sk = {'q':"..", 'e':"explore", 'h':'back home', 'n':'new article', 't':'tags'}
     rows, cols = std.getmaxyx()
@@ -4719,7 +4788,7 @@ def refresh_files(save_folder, subfolders, files, depth=1):
         sk[str(count)] = name
         menu[name] = "button-light@file@" + str(ind)
         count += 1
-    if save_folder.endswith("Files"):
+    if True: #save_folder.endswith("Files"):
         for ind, sf in enumerate(subfolders):
             menu["[>] " + sf] = "button@folder@" + str(ind)
     return menu, sk, menu_len
@@ -4790,9 +4859,15 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             if parts[2] == "file":
                 index = int(parts[3]) 
                 filepath = files[index]
+                ext = os.path.splitext(filepath)[1]
                 fname = filepath.split("/")[-1]
                 _confirm = confirm("Are you sure you want to delete "+fname)
                 if _confirm == "y":
+                    if ext == ".artid":
+                        _file = open(filepath, "r")
+                        artid = _file.read().strip()
+                        remove_saved_article(artid)
+                        _file.close()
                     Path(filepath).unlink()
             else:
                 index = int(parts[3])
@@ -4807,8 +4882,8 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                     Path(filepath).rmdir()
 
             ch = "refresh"
-        elif ch != "q" and len(ch) > 1 and ch != "refresh":
-            mval = menu[ch]
+        elif ch != "q" and (len(ch) > 1 or ch in ["c", "o"]) and ch != "refresh":
+            mval = list(menu.values())[mi]
             parts = mval.split("@")
             index = int(parts[2]) 
             filename = files[index]
@@ -4819,7 +4894,9 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             data = ""
             #sqq
             extract = ch == "c" or not Path(filename + ".txt").is_file()
-            if ext == ".pdf" and extract and not ch == "o":
+            if ch == "o" or (ext == ".pdf" and not extract):
+                openFile(filename)
+            elif ext == ".pdf" and extract:
                 show_info("Converting to text ... Please wait...")
                 mydate = datetime.datetime.now()
                 create_date = mydate.strftime("%Y-%m-%d")
@@ -4887,6 +4964,11 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 if "Tags/" in filename:
                     group = "tags"
                 list_articles(arts, fid = name, group=group)
+            elif ext == ".listid":
+                artids = json.load(_file)
+                group = filename
+                list_artids(artids, fid=name, group=group)
+
             elif ext == ".artid":
                 art_id = _file.read()
                 saved_articles = load_obj("saved_articles", "articles", {})
