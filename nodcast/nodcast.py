@@ -313,6 +313,7 @@ def extractText(file, sel_sects="", pages=[], params={}):
     text = ""
     if not params:
         params={"boxes_flow":-0.5, "char_margin":2.0, "word_margin":0.15, "line_margin":0.5}
+        #params = {}
     with open(file, 'rb') as in_file:
         parser = PDFParser(in_file)
         doc = PDFDocument(parser)
@@ -337,7 +338,7 @@ def extractText(file, sel_sects="", pages=[], params={}):
         cur_sect = ""
         to_prev = 0
         figure = ""
-        def_size = 9
+        def_size = 8
         def_size_set = False
         table_pat = re.compile("Table \d{1,2}:")
         for pn, page in enumerate(PDFPage.create_pages(doc)):
@@ -356,8 +357,8 @@ def extractText(file, sel_sects="", pages=[], params={}):
                         continue
                     if table_pat.search(p):
                        continue
-                    #if "4.10.2" in p:
-                    #    seen["indcate"] = True
+                    if "following the above" in p:
+                        seen["indcate"] = True
                     if "references" in seen:
                         text += "<FRAG>"
                     if text.endswith(".") and figure != "":
@@ -374,10 +375,10 @@ def extractText(file, sel_sects="", pages=[], params={}):
                                 if line.strip():
                                     charObj=lineObj._objs[0]
                                     if not def_size_set and "abstract" in seen:
-                                        def_size = charObj.size
+                                        def_size = round(charObj.size,1) + 0.2
                                         def_size_set = True
                                     if isinstance(charObj, LTChar):
-                                        if charObj.size < def_size:
+                                        if round(charObj.size,1) < def_size:
                                             break
                                 sect_seen = False
                                 to_prev += 1
@@ -411,7 +412,7 @@ def extractText(file, sel_sects="", pages=[], params={}):
                                             text += "\n### " + out.group(2) + " " +  out.group(3)+ "\n"
                                         continue
 
-                                if len(line) < 10: # Remove successive short lines
+                                if False: #len(line) < 10: # Remove successive short lines
                                     if short_line or not "title" in seen:
                                         continue
                                     else:
@@ -4813,13 +4814,15 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             for ext in exts:
                 _files = [str(Path(f)) for f in Path(save_folder).glob(ext) if f.is_file()]
                 files.extend(_files)
-                files = sorted(files)
+                #files = sorted(files)
+                files.sort(key=os.path.getctime, reverse=True)
+                #files = []
                 #for str_file in _files:
-                    #_file = Path(str_file)
-                    #mtime = datetime.datetime.fromtimestamp(_file.stat().st_ctime)
-                    #past = datetime.datetime.now() - datetime.timedelta(days=1)
-                    #if mtime > past: 
-                    #files.extend(_files)
+                #    _file = Path(str_file)
+                #    mtime = datetime.datetime.fromtimestamp(_file.stat().st_ctime)
+                #    past = datetime.datetime.now() - datetime.timedelta(days=1)
+                #    if mtime > past: 
+                #        files.extend(_file)
             menu, sk, menu_len = refresh_files(save_folder, subfolders, files, depth)
             mi = menu_len
 
@@ -4923,7 +4926,10 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 with open(output, "w") as text_file:
                     text_file.write(text)
                 show_msg("Pdf was converted to text, and you can open the text file")
-                save_folder = save_pdf_folder
+                if save_folder.endswith("Files"):
+                    show_files(save_pdf_folder, exts, depth + 1)
+                else:
+                    save_folder = save_pdf_folder
                 ch = "refresh"
             elif ext == ".txt":
                 data = _file.read()
