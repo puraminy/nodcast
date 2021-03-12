@@ -243,11 +243,13 @@ def extractPdfText(file):
     menu["line-margin"] = "0.5"
     menu["word-margin"] = "0.2"
     menu["char-margin"] = "2.0"
+    menu["text-size"] = "9.0"
     options = {"sections":{"range":["All except References", "All", "References", "Abstract", "Abstract+Introduction+Conclusion"]} }
     options["boxes-flow"]= {"range":[str(x/10) for x in range(-10,11)]}
     options["line-margin"]= {"range":[str(x/20) for x in range(0,11)]}
     options["word-margin"]= {"range":[str(x/20) for x in range(0,11)]}
     options["char-margin"]= {"range":[str(x/1) for x in range(1,25)]}
+    options["text-size"]= {"range":[str(x/1) for x in range(5,15)]}
     ch = ''
     mi=0
     while ch != 'q':
@@ -276,7 +278,7 @@ def extractPdfText(file):
                 sel_sects = "all-references"
             else:
                sel_sects = menu["sections"].lower()
-            return extractText(file, sel_sects, pages=pages, params= params), _from_to, sel_sects
+            return extractText(file, sel_sects, pages=pages, params= params, def_size=menu["text-size"]), _from_to, sel_sects
     return "","",""
 
 #xxxx
@@ -307,7 +309,8 @@ def convert_pdf_to_txt(path):
 
     return str(text)
 
-def extractText(file, sel_sects="", pages=[], params={}):
+def extractText(file, sel_sects="", pages=[], params={}, def_size = 9):
+    def_size = int(def_size)
     if not pdf2text_imported:
         return ""
     text = ""
@@ -338,7 +341,6 @@ def extractText(file, sel_sects="", pages=[], params={}):
         cur_sect = ""
         to_prev = 0
         figure = ""
-        def_size = 8
         def_size_set = False
         table_pat = re.compile("Table \d{1,2}:")
         for pn, page in enumerate(PDFPage.create_pages(doc)):
@@ -374,9 +376,9 @@ def extractText(file, sel_sects="", pages=[], params={}):
                                     continue
                                 if line.strip():
                                     charObj=lineObj._objs[0]
-                                    if not def_size_set and "abstract" in seen:
-                                        def_size = round(charObj.size,1) + 0.2
-                                        def_size_set = True
+                                    #if not def_size_set and "abstract" in seen:
+                                    #    def_size = round(charObj.size,1) + 0.2
+                                    #    def_size_set = True
                                     if isinstance(charObj, LTChar):
                                         if round(charObj.size,1) < def_size:
                                             break
@@ -554,10 +556,11 @@ def download_or_open(url, art, fname, open_file =True, download_if_not_found=Tru
     if url.startswith("file://"):
         move_pdf(art, fname)
 
-    _file = Path(fname)
     if "localPdfUrl" in art:
-        _file = Path(art["localPdfUrl"][7:])
+        fname = art["localPdfUrl"][7:]
+    _file = Path(fname)
     if _file.is_file():
+        mbeep()
         if open_file:
             openFile(_file)
     elif not url.startswith("file://") and download_if_not_found:
@@ -602,8 +605,8 @@ def download_or_open(url, art, fname, open_file =True, download_if_not_found=Tru
             if open_file:
                 openFile(_file)
     else:
-        path = Path(fname).parent.absolute()
-        platform_open(path)
+        return False
+    return True
 
 def save_obj(obj, name, directory, data_dir=True, common=False):
     if obj is None or name.strip() == "":
@@ -2015,7 +2018,11 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         right_side_win.erase()
         sn = 0
         title = "\n".join(textwrap.wrap(art["title"], width))  # wrap at 60 characters
-        pdfurl = art["pdfUrl"] if "pdfUrl" in art else art["localPdfUrl"].split("Files")[1]
+        pdfurl = "NA"
+        if "pdfUrl" in art: 
+            pdfurl = art["pdfUrl"] 
+        elif "localPdfUrl" in art and "/" in art["localPdfUrl"]:
+            pdfurl = art["localPdfUrl"].split("/")[-1]
         top = ""
         if not collect_art:
             if "save_folder" in art and Path(art["save_folder"]).is_file():
@@ -3116,7 +3123,15 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     url = art["localPdfUrl"]
                 else:
                     url = art["pdfUrl"]
-                download_or_open(url, art, pdf_name, open_file = (ch == ord('o') or ch == ord('/')))
+                if not download_or_open(url, art, pdf_name, open_file = (ch == ord('o') or ch == ord('/'))):
+                    win_input = cur.newwin(5, cols - 2*left, 5, left)
+                    prompt = "File not found, new File localtion:"
+                    win_input.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
+                    new_loc, ch = minput(win_input, 0, 0, prompt, mode = MULTI_LINE)
+                    if new_loc != "<ESC>":
+                        art["localPdfUrl"] = "file://" + new_loc.strip()
+                        openFile(Path(new_loc))
+
                 art_changed = True
                 if ch == ord('O'):
                     show_info("Converting pdf to text .... Please wait")
@@ -3870,10 +3885,13 @@ def show_msg(msg, color=MSG_COLOR, delay=2000):
     temp = old_msg
     mbeep()
     show_info(msg, color)
-    std.timeout(delay)
-    std.getch()
-    std.timeout(-1)
-    show_info(temp)
+    if delay > 0:
+        std.timeout(delay)
+        std.getch()
+        std.timeout(-1)
+        show_info(temp)
+    else:
+        std.getch()
 
 
 def show_warn(msg, color=WARNING_COLOR, bottom=True, stop=True, delay=3000):
@@ -3883,10 +3901,13 @@ def show_warn(msg, color=WARNING_COLOR, bottom=True, stop=True, delay=3000):
     show_info(msg, color, bottom)
     ch = ''
     if bottom and stop:
-        std.timeout(delay)
-        ch = std.getch()
-        std.timeout(-1)
-        show_info(temp)
+        if delay > 0:
+            std.timeout(delay)
+            ch = std.getch()
+            std.timeout(-1)
+            show_info(temp)
+        else:
+            ch = std.getch()
     return ch
 
 def show_err(msg, color=ERR_COLOR, bottom=True):
