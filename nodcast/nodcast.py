@@ -231,7 +231,7 @@ color_map = {
     "input-color": INPUT_COLOR,
 }
 
-hl_colors = [(137,52), (137,236), (137,234), (95,233), (95, 17), (245,17), (247,237), (246,236), (245,235)]
+hl_colors = [(137,52), (137,236), (137,234), (144, 234), (95,233), (95, 17), (245,17), (245,235)]
 
 def extractPdfText(file):
     menu = {}
@@ -310,7 +310,7 @@ def convert_pdf_to_txt(path):
     return str(text)
 
 def extractText(file, sel_sects="", pages=[], params={}, def_size = 9):
-    def_size = int(def_size)
+    def_size = float(def_size)
     if not pdf2text_imported:
         return ""
     text = ""
@@ -535,11 +535,13 @@ def delete_file(art):
     else:
         show_info("File wasn't found on computer")
 
-def move_pdf(art,fname):
+def move_pdf(art,fname, full_path=True):
     url = art["localPdfUrl"] if "localPdfUrl" in art else art["pdfUrl"]
     src_file = Path(url[7:])
     if src_file.is_file() and not Path(fname).is_file():
-        if src_file.parent == Path(fname).parent:
+        if src_file.parent == Path(fname).parent or not full_path:
+            if not full_path:
+                fname = str(src_file.parent) + "/" + fname
             shutil.move(src_file, Path(fname))
             art["localPdfUrl"] = "file://" + fname
         else:
@@ -791,6 +793,8 @@ def get_title(text, default="No title"):
     if len(parts) > 1:
         part = parts[1]
         end = part.find("\n")
+        if end > 100:
+            end = 100
         return part[:end], end + 2
     else:
         return default, -1
@@ -1384,7 +1388,7 @@ def print_sect(title, prog, left):
     top_win.clear()
     if title != "":
         prog = int(prog)
-        title = textwrap.shorten(title, 2*text_width - 10)
+        title = textwrap.shorten(title, 2*text_width - 20)
         title = textwrap.fill(title,text_width)
         title = textwrap.indent(title," "*left)
         mprint(title, top_win, l_color, attr=cur.A_BOLD, end="")
@@ -1569,7 +1573,7 @@ def get_sel_name(path, ext="", cat = "Folder"):
         return fs[sfi]
 
 def get_path(art):
-    file_name = art["title"][:80]  # url.split('/')[-1]
+    file_name = art["title"][:60]  # url.split('/')[-1]
     if "save_folder" in art and art["save_folder"] != "":
         fname = art["save_folder"] + "/" + file_name 
         return fname
@@ -1841,6 +1845,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     pdf_name = save_pdf_folder + "/" + art["title"] + ".pdf"
     move_pdf(art, pdf_name)
     #bbb
+    update_article(saved_articles, art)
     true_answers = []
     context = None
     prev_idea = ""
@@ -2510,10 +2515,11 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             si = 1
             text_win.erase()
             text_win.refresh(0, 0, 0, 0, rows - 2, cols - 1)
+            si = total_sents - 1
             while True:
-                if "last" in sents[si] and sents[si]["last"]:
+                if sents[si]["nod"]:
                     break
-                si += 1
+                si -= 1
             bmark, si = moveon(sents, si)
             expand = 1
             first = True
@@ -3116,6 +3122,15 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             theme_menu["highlight-color"] = str(hl_colors[hl_index][0])
             theme_menu["hl-text-color"] = str(hl_colors[hl_index][1])
             reset_hl(theme_menu)
+        if ch == ord('E'):
+            win_input = cur.newwin(5, cols - 2*left, 5, left)
+            prompt = "Paper title"
+            win_input.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
+            new_tit, _ch = minput(win_input, 0, 0, prompt, default= cur_sent["text"],mode = MULTI_LINE)
+            if new_tit != "<ESC>":
+                art["title"] = new_tit.strip()
+            pdf_name = art["title"] + ".pdf"
+            move_pdf(art, pdf_name, full_path=False)
         if ch == ord('o') or ch == ord('/') or ch == ord('O'):
             fname = get_path(art)
             if fname:
@@ -3127,7 +3142,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     win_input = cur.newwin(5, cols - 2*left, 5, left)
                     prompt = "File not found, new File localtion:"
                     win_input.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
-                    new_loc, ch = minput(win_input, 0, 0, prompt, mode = MULTI_LINE)
+                    new_loc, _ch = minput(win_input, 0, 0, prompt, mode = MULTI_LINE)
                     if new_loc != "<ESC>":
                         art["localPdfUrl"] = "file://" + new_loc.strip()
                         openFile(Path(new_loc))
@@ -3153,7 +3168,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     show_article(ext_art)
             else:
                 show_info(main_info)
-        if chr(ch) == '"':
+        if type(ch) == str and chr(ch) == '"':
             win = cur.newwin(10, width, 6, left)
             win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
             new_text, _ = minput(win, 0, 0, "New text", 
@@ -3340,26 +3355,29 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             cur_tags = [str(Path(f).stem) for f in Path(tag_path).glob("*.listid") if f.is_file()]
             tags_options["select tag"]["range"] = cur_tags
             tags_options["tags (one per line)"] = {"type":"input-box-mline", "rows":12, "addto":"select tag"}
+            inp_ch = 0
             while choice != 'q':
                 tags = ""
                 if "tags" in art:
                     for tag in art["tags"]:
-                        tags += tag + ", "
+                        tags += tag.replace("\n","") + ", "
                 tags_menu["tags (one per line)"] = tags
                 choice, tags_menu, mi = show_menu(tags_menu, tags_options,
                                                   shortkeys={"s": "select tag"},
-                                                  subwins=subwins, mi=mi, title="tags")
+                                                  subwins=subwins, mi=mi, title="tags", ch = inp_ch)
                 if choice == "select tag":
-                    new_tag = tags_menu["select tag"].strip()
+                    new_tag = tags_menu["select tag"].strip().replace("\n","")
                     if not "tags" in art:
                         art["tags"] = [new_tag]
                     elif not new_tag in art["tags"]:
                         art["tags"].append(new_tag)
+                    inp_ch = cur.KEY_ENTER
                 else:
+                    inp_ch = 0
                     new_tags = tags_menu["tags (one per line)"].split(",")
                     art["tags"] = []
                     for tag in new_tags:
-                        tag = tag.strip()
+                        tag = tag.strip().replace("\n","")
                         if tag != '' and not tag in art["tags"]:
                             art["tags"].append(tag)
                     if len(art["tags"]) > 0:
@@ -4144,6 +4162,7 @@ def show_submenu(sub_menu_win, opts, si, in_colors={}, color=None, active_sel=Tr
     is_color = in_colors or opts == colors
     c_attr = None
     for vi, v in enumerate(opts[start:start + win_rows]):
+        v = v.strip().replace("\n","")
         if is_color:
             if opts == colors:
                 cc = v
@@ -4178,13 +4197,13 @@ def show_submenu(sub_menu_win, opts, si, in_colors={}, color=None, active_sel=Tr
     #   mprint(footer, sub_menu_win, cW)
     sub_menu_win.refresh()
 # mmm
-def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={}, info="h) help | q) quit"):
+def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={}, info="h) help | q) quit", ch = 0):
     global menu_win, common_subwin, hotkey
 
-    ch = 0  # user choice
     rows, cols = std.getmaxyx()
     height = rows - 1
     width = cols
+    key_set = ch != 0
 
     for opt in menu:
         if opt in options and "range" in options[opt] and menu[opt] == "":
@@ -4228,7 +4247,6 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             sel_type = "input-box"
         passable_item = sel_type == 'sep' or is_hidden
         sub_menu_win = common_subwin
-        key_set = False
         cmd = ""
         start_row = 0
         if row + start_row + mi >= 3 * rows - 2:
@@ -4265,11 +4283,11 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                     new_tags = val.split("\n")
                     new_tags = list(filter(None, new_tags))
                     for tag in new_tags:
-                        tag = tag.strip()
+                        tag = tag.strip().replace("\n","")
                         if tag != '' and not tag in options[addto_list]:
                             options[addto_list]["range"].append(tag)
                 val = val.replace("\n",",")
-                val = textwrap.fill(val, width=cols - 12 - _m)
+                val = textwrap.fill(val, width=cols - 12)
                 menu[sel] = val
             else:
                 menu[sel] = cur_val
@@ -4414,6 +4432,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             #_confirm = confirm("you want to exit the program")
             #if _confirm != "y":
             #    ch = 0
+        key_set = False # End_While
     return chr(ch), menu, mi
 
 def open_submenu(sub_menu_win, options, sel, si, title):
@@ -4794,11 +4813,13 @@ def refresh_files(save_folder, subfolders, files, depth=1):
     else:
         menu["sep1"] = _folder
     menu_len = len(menu)
-    mydate = datetime.datetime.now()
+    mydate = datetime.datetime.today()
     today = mydate.strftime("%Y-%m-%d")
+    d = mydate - datetime.timedelta(days=1)
+    yesterday = d.strftime("%Y-%m-%d")
     if True: #not save_folder.endswith("Files"):
         for ind, sf in enumerate(subfolders):
-            if sf.endswith(today):
+            if sf.endswith(today) or sf.endswith(yesterday):
                 menu["[>] " + sf] = "button@folder@" + str(ind)
     count = 1
     sk = {'q':"..", 'e':"explore", 'h':'back home', 'n':'new article', 't':'tags'}
@@ -4921,7 +4942,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             if ch == "o" or (ext == ".pdf" and not extract):
                 openFile(filename)
             elif ext == ".pdf" and extract:
-                show_info("Converting to text ... Please wait...")
+                show_info("Converting to text ... Please wait...(Ctrl + C to cancel)")
                 mydate = datetime.datetime.now()
                 create_date = mydate.strftime("%Y-%m-%d")
                 save_pdf_folder = doc_path + "/" + profile + "/Files/" + create_date
@@ -4937,7 +4958,11 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                     if pages != "all" and pages != "":
                         output =  save_pdf_folder + "/(partial) " + name[:25] + "..._pages_" + pages + sel_sects[:2] + ".pdf.txt"
                 else:
-                    text = extractText(filename)
+                    try:
+                        text = extractText(filename)
+                    except KeyboardInterrupt:
+                        show_info("convert canceled")
+                        continue
                     #text = convert_pdf_to_txt(filename)
                 pdf_file = filename
                 if save_folder.endswith("Files"):
