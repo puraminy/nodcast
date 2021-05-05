@@ -67,8 +67,8 @@ doc_path = os.path.expanduser('~/Documents/Checkideh')
 app_path = user_data_dir(appname, appauthor)
 logFilename = "log_file.log" #app_path + '/log_file.log'
 Path(app_path).mkdir(parents=True, exist_ok=True)
+# log only important messages
 logging.basicConfig(filename=logFilename, level=logging.CRITICAL)
-
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     import sys
