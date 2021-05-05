@@ -1,4 +1,4 @@
-# Nodcast v 0.1.2
+# Nodcast v 0.1.3
 import requests
 import io
 import platform
