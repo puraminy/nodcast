@@ -240,7 +240,7 @@ def rinput(win, r, c, prompt_string, default=""):
 PROMPT_LINE = 0
 SINGLE_LINE = 1
 MULTI_LINE = 2
-def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMPT_LINE, footer="", color=HL_COLOR):
+def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMPT_LINE, footer="", color=HL_COLOR, return_on_char = False):
     multi_line = mode == MULTI_LINE
     if mode > 0:
         mrows, mcols = mwin.getmaxyx()
@@ -286,7 +286,8 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
     max_lines = 40
     row, col = win.getyx()
     start = col
-    while ch not in exit_on:
+    ret_now = False
+    while ch not in exit_on or ret_now:
         if rtl:
             cur.curs_set(0)
         pos = max(pos, 0)
@@ -351,7 +352,7 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
         elif ch == cur.KEY_SDC:
             inp = ""
             pos = 0
-        elif ch == '=':
+        elif ch == '=' or ch == "|":
             mbeep()
             if pyperclip_imported:
                 pyperclip.copy(inp)
@@ -431,6 +432,8 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
             else:
                 inp = inp[:pos] + str(letter) + inp[pos:]
                 pos += 1
+                if return_on_char:
+                    break
     cur.noecho()
     hide_cursor()
     return inp, ch
