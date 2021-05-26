@@ -44,13 +44,13 @@ hotkey = ""
 old_hotkey = "non-blank"
 def get_key(win = None):
     global hotkey, old_hotkey
-    if hotkey == old_hotkey:
-       hotkey = ""
-       old_hotkey = "non-blank"
+    #if hotkey == old_hotkey:
+    #   hotkey = ""
+    #   old_hotkey = "non-blank"
     if hotkey == "":
         ch = win.getch()
     else:
-        old_hotkey = hotkey
+    #    old_hotkey = hotkey
         ch, hotkey = ord(hotkey[0]), hotkey[1:]
     return ch
 
@@ -231,7 +231,7 @@ color_map = {
     "input-color": INPUT_COLOR,
 }
 
-hl_colors = [(137,52), (137,236), (137,234), (144, 234), (95,233), (95, 17), (245,17), (245,235)]
+hl_colors = [(137,52), (234, 243), (234, 137), (234, 95), (137,236), (137,234), (144, 234), (95,233), (95, 17), (245,17), (245,235)]
 
 def extractPdfText(file):
     menu = {}
@@ -346,7 +346,11 @@ def extractText(file, sel_sects="", pages=[], params={}, def_size = 9):
         for pn, page in enumerate(PDFPage.create_pages(doc)):
             if pages and not pn in pages:
                 continue
-            interpreter.process_page(page)
+            try:
+                interpreter.process_page(page)
+            except Exception as e:
+                show_warn(str(e))
+                continue
             layout = device.get_result()
             short_line = True
             new_page = True
@@ -1008,8 +1012,10 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
             art_note = " [" + "not viewed".ljust(12) + "]"
             art_note_color = TEXT_COLOR
             note = "not checked"
-            if (len(a["sections"]) > 0 
-                    and "sents" in a["sections"][0]["fragments"][0]):
+            if (len(a["sections"]) > 0 and "fragments" in a["sections"][0] and
+                    len(a["sections"][0]["fragments"]) > 0 and
+                    "sents" in a["sections"][0]["fragments"][0] and
+                     len(a["sections"][0]["fragments"][0]["sents"]) > 0):
                 review = a["sections"][0]["fragments"][0]["sents"][0]
                 if "nods" in review:
                     note_indx = min(max(0, note_index), len(review["nods"]))
@@ -1661,11 +1667,12 @@ def unset_sent(sent, ch =0):
         if _c == "s":
             sent["visible"] = False
         if _c == "l":
-            last_note = list(sent["notes"])[-1]
-            if len(sent["notes"][last_note]) > 1:
-                sent["notes"][last_note].pop()
-            else:
-                del sent["notes"][last_note]
+            if "notes" in sent:
+                last_note = list(sent["notes"])[-1]
+                if len(sent["notes"][last_note]) > 1:
+                    sent["notes"][last_note].pop()
+                else:
+                    del sent["notes"][last_note]
         if _c in notes_keys:
             note_type = notes_dict[_c]
             if note_type in sent["notes"]:
@@ -1892,6 +1899,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     true_answers = []
     context = None
     prev_idea = ""
+    view_title = False
     show_sel_nod = False
     if rc_text:
         context = art["sections"][1]
@@ -1981,6 +1989,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if ch == cur.KEY_HOME: start_row = 0
             if ch == cur.KEY_END: start_row = end_y 
             scroll_page = True
+            show_msg("Scrolling ...")
         if not do_scroll and not can_skip:
             mbeep()
         if  prev_si != si:
@@ -2036,9 +2045,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 ii += 1
             sents[ii-1]["next"] = False
 
-        if bmark > si:
-            bmark = si
-
+        bmark = min(bmark, si)
         if not scroll_page and not word_level:
             if not do_scroll:
                 scroll_page = False
@@ -2051,9 +2058,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 start_row = pos[cur_pos] - top_margin
             else:
                 start_row = 0
-
         sel_first_sent = False
-        bmark = min(bmark, si)
         start_row = max(0, start_row)
         start_row = min(end_y - 1, start_row)
         if bg != theme_menu["back-color"]:
@@ -2366,7 +2371,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                 else:
                                     pass  # mprint("", text_win, f_color)
                                 pos[fsn], _ = text_win.getyx()
-                                if pos[fsn] > rows*190:
+                                if pos[fsn] > rows*490:
                                     too_big_art = True
                                     if not too_big_warn:
                                         too_big_warn = True
@@ -2420,14 +2425,19 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         rows, cols = std.getmaxyx()
         # width = 2*cols // 3
         left = ((cols - width) // 2) - 10
-        ypos = pos[bmark] - start_row
-        end_row = ypos + (pos[si] - pos[bmark]) 
+        begin_dist = pos[bmark - 1] - start_row
+        end_dist =  pos[si] - start_row 
         limit_row = rows - 5
-        if not scroll_page and not word_level and end_row > limit_row:
-            start_row -= end_row - limit_row
+        _len = end_dist - begin_dist
+        if end_dist > limit_row and begin_dist > limit_row:
+            start_row = pos[bmark - 1] - 2
+
+        #show_info("sr:" + str(start_row) + " bd:" + str(begin_dist) + " ed:" + str(end_dist)  + " lr:" + str(limit_row) + " si:" + str(si) +  "bmark:" + str(bmark) + "len:" + str(_len))
+        if not scroll_page and not word_level and end_dist > limit_row and begin_dist < limit_row:
+            start_row -= end_dist - limit_row
             scroll_page = True
         elif scroll_page:
-            if end_row <= limit_row:
+            if end_dist < limit_row:
                 scroll_page = False
         if hotkey == "":
             text_win.refresh(start_row, 0, 2, left, rows - 2, left + width)
@@ -2573,7 +2583,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             for _sect in art["sections"]:
                 _sect["opened"] = True
             start_reading = True
-
+            view_title = True
+        if view_title:
+            #show_msg(art["title"])
+            view_title = False
         if ch == ord('v'):
             if visual_mode:
                 ch = RIGHT
@@ -2582,6 +2595,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             # show_reading_time = not show_reading_time
             auto_mode = True  # not auto_mode
 
+        if ch == ord('I'):
+            show_info(art["title"] + "\nTags: " + " ,".join(art["tags"] if "tags" in art else ["No tag"]), 
+                       bottom=False)
         if ch == ord('h'):  # article help
             show_info(('\n'
                        '  Down)          expand the selection to the next sentence\n'
@@ -3203,24 +3219,25 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 art_changed = True
                 if ch == ord('O'):
                     show_info("Converting pdf to text .... Please wait")
-                    text_content = extractText(pdf_fname)
-                    output = fname + ".txt"
-                    with open(output, "w") as text_file:
-                        text_file.write(text)
-                        show_msg("Pdf was converted to text, and you can open the text file")
-                    data = text_content 
-                    title, i = get_title(data, fname)
-                    url = fname
-                    url = "file://" + url
-                    if i > 0:
-                        data = data[i:]
-                    ext_art = {"id": fname, "pdfUrl": url, "save_folder":art["save_folder"], 
-                            "title": title, "sections": get_sects(data)}
-                    if profile in fname:
-                        ext_art["save_folder"] = art["save_folder"]
-                    show_article(ext_art)
-            else:
-                show_info(main_info)
+                    if pdf_name:
+                        text_content = extractText(pdf_fname)
+                        output = fname + ".txt"
+                        with open(output, "w") as text_file:
+                            text_file.write(text)
+                            show_msg("Pdf was converted to text, and you can open the text file")
+                        data = text_content 
+                        title, i = get_title(data, fname)
+                        url = fname
+                        url = "file://" + url
+                        if i > 0:
+                            data = data[i:]
+                        ext_art = {"id": fname, "pdfUrl": url, "save_folder":art["save_folder"], 
+                                "title": title, "sections": get_sects(data)}
+                        if profile in fname:
+                            ext_art["save_folder"] = art["save_folder"]
+                        show_article(ext_art)
+                else:
+                    show_info(main_info)
         if type(ch) == str and chr(ch) == '"':
             win = cur.newwin(10, width, 6, left)
             win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
@@ -3513,6 +3530,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 # eee
 
         update_article(saved_articles, art)
+        if "save_folder" in art:
+            save_article(art)
         if ch == ord('q'):  # before exiting artilce
             save_obj(nr_opts, "settings", "", common = True)
             art_changed = True
@@ -4648,11 +4667,11 @@ def start(stdscr):
     # mouse = cur.mousemask(cur.ALL_MOUSE_EVENTS)
     list_win = cur.newpad(rows*2, cols - 1)
     list_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
-    text_win = cur.newpad(rows * 200, cols - 1)
+    text_win = cur.newpad(rows * 500, cols - 1)
     text_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
-    left_side_win = cur.newpad(rows * 200, (cols - text_width) //2)
+    left_side_win = cur.newpad(rows * 500, (cols - text_width) //2)
     left_side_win.bkgd(' ', cur.color_pair(ITEM_COLOR))  # | cur.A_REVERSE)
-    right_side_win = cur.newpad(rows * 200, text_width//2)
+    right_side_win = cur.newpad(rows * 500, text_width//2)
     right_side_win.bkgd(' ', cur.color_pair(ITEM_COLOR))  # | cur.A_REVERSE)
     menu_win = cur.newpad(rows*20 , cols*2)
     menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
@@ -4936,6 +4955,16 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
     menu_len = 0
     ch = 'refresh'
     show_folders = False
+    mydate = datetime.datetime.now()
+    create_date = mydate.strftime("%Y-%m-%d")
+    save_pdf_folder = doc_path + "/" + profile + "/Files/" + create_date
+    pdf_index = 0
+    art_list = save_folder + "/" + create_date + ".listid"
+    if Path(art_list).is_file():
+        with open(art_list, "r") as infile:
+            artids = json.load(infile)
+    else:
+        artids = []
     while ch != 'q':
         if ch == "r" or ch == "refresh":
             #clear_screen(std)
@@ -4963,14 +4992,12 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             show_folders = False
             mi = menu_len
 
-        ch, menu, mi = show_menu(menu, options, mi=mi, hotkeys = {'r':'refresh','c':'convert options', 'o':'open externally', 'f':'show folders'}, shortkeys = sk, title=title)
+        ch, menu, mi = show_menu(menu, options, mi=mi, hotkeys = {'r':'refresh','c':'convert options','a':'convert all pdfs', 'o':'open externally', 'f':'show folders'}, shortkeys = sk, title=title)
         if ch.startswith("[>"):
             sfolder = save_folder + "/" + ch[4:]
             show_files(sfolder, exts, depth + 1)
         elif ch == ".." or ch.startswith("[<]"):
             ch = 'q'
-        elif ch == "tags":
-            list_tags(save_folder)
         elif (ch == "back home" or ch == "H" or ch == 'h'):
             if depth >= 1:
                 hotkey = 'q'*(depth - 1)
@@ -5025,11 +5052,22 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                     Path(filepath).rmdir()
 
             ch = "refresh"
-        elif ch != "q" and (len(ch) > 1 or ch in ["c", "o"]) and ch != "refresh":
-            mval = list(menu.values())[mi]
-            parts = mval.split("@")
-            index = int(parts[2]) 
-            filename = files[index]
+        elif ch == 'a':
+            pdf_files = [str(Path(f)) for f in Path(save_folder).glob("*.pdf") if f.is_file()]
+            if pdf_index < min(10, len(pdf_files)):
+                hotkey = 'a'
+                filename = pdf_files[pdf_index]
+                pdf_index+=1
+            else:
+                pdf_index = 0
+                save_folder = save_pdf_folder
+                ch = "refresh"
+        if Path(save_folder + "/" + ch).is_file() or ch in ["c", "o", "a"]:
+            if ch != "a":
+                mval = list(menu.values())[mi]
+                parts = mval.split("@")
+                index = int(parts[2]) 
+                filename = files[index]
             ext = os.path.splitext(filename)[1]
             name = os.path.basename(filename)
             name_without_ext = name.split('.')[0]
@@ -5040,10 +5078,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             if ch == "o" or (ext == ".pdf" and not extract):
                 openFile(filename)
             elif ext == ".pdf" and extract:
-                show_info("Converting to text ... Please wait...(Ctrl + C to cancel)")
-                mydate = datetime.datetime.now()
-                create_date = mydate.strftime("%Y-%m-%d")
-                save_pdf_folder = doc_path + "/" + profile + "/Files/" + create_date
+                show_info(str(pdf_index) + ": Converting to text ... Please wait...(Ctrl + C to cancel)")
                 Path(save_pdf_folder).mkdir(parents=True, exist_ok=True)
                 pages = "all"
                 if not save_folder.endswith("Files"):
@@ -5059,6 +5094,9 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                     try:
                         text = extractText(filename)
                     except KeyboardInterrupt:
+                        save_folder = save_pdf_folder
+                        pdf_indxe = 0
+                        ch = "refresh"
                         show_info("convert canceled")
                         continue
                     #text = convert_pdf_to_txt(filename)
@@ -5069,13 +5107,12 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 text = pdf_file + "\n" + pages + "\n" + text
                 with open(output, "w") as text_file:
                     text_file.write(text)
-                show_msg("Pdf was converted to text, and you can open the text file")
-                if save_folder.endswith("Files"):
-                    show_files(save_pdf_folder, exts, depth + 1)
-                else:
-                    save_folder = save_pdf_folder
-                ch = "refresh"
-            elif ext == ".txt":
+                filename = output
+                ext = os.path.splitext(filename)[1]
+                name = os.path.basename(filename)
+                name_without_ext = name.split('.')[0]
+                _file = open(filename, "r")
+            if ext == ".txt":
                 data = _file.read()
                 _file.close()
                 url = filename
@@ -5097,17 +5134,17 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 artid, art = find_article(saved_articles, title)
                 if not art is None:
                     show_msg("This article already exists!")
-                    fname = save_folder + "/" + title
-                    ref_artid = fname + ".artid"
-                    with open(ref_artid, 'w') as outfile:
-                        outfile.write(art["id"])
-                    if not "refs" in art:
-                        art["refs"] = [ref_artid]
-                    elif not ref_artid in art["refs"]:
-                        art["refs"].append(ref_artid)
+                    if ch != 'a':
+                        fname = save_pdf_folder + "/" + title
+                        ref_artid = fname + ".artid"
+                        with open(ref_artid, 'w') as outfile:
+                            outfile.write(art["id"])
+                        if not "refs" in art:
+                            art["refs"] = [ref_artid]
+                        elif not ref_artid in art["refs"]:
+                            art["refs"].append(ref_artid)
                     move_pdf(art, pdf_file)
                     Path(filename).unlink()
-                    show_article(art)
                 else: 
                     mydate = datetime.datetime.now()
                     create_date = mydate.strftime("%Y-%m-%d")
@@ -5115,7 +5152,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                             "title": title, "sections": get_sects(data)}
                     art["create_date"] = create_date 
                     if profile in filename:
-                        art["save_folder"] = save_folder
+                        art["save_folder"] = save_pdf_folder 
                     Path(filename).unlink()
                     fname = get_path(art)
                     if fname:
@@ -5128,7 +5165,15 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                             art["refs"] = [ref_artid]
                         elif not ref_artid in art["refs"]:
                             art["refs"].append(ref_artid)
+                if ch != "a":
+                    save_folder = save_pdf_folder
                     show_article(art)
+                else:
+                    if not art["id"] in artids:
+                        artids.append(art["id"])
+                    if artids:
+                        with open(art_list, "w") as outfile:
+                            json.dump(artids, outfile)
             elif ext == ".json" or ext == ".list":
                 arts = json.load(_file)
                 group = filename
@@ -5306,7 +5351,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             else:
                 filepath = filename 
                 openFile(filepath)
-            ch = "refresh"
+            if ch != "a": ch = "refresh"
 
 def saved_items():
     menu = {}
