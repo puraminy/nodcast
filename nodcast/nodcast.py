@@ -1,6 +1,7 @@
 # Nodcast v 0.1.3
 import requests
 import io
+import threading
 import platform
 import webbrowser
 import time
@@ -13,6 +14,8 @@ import datetime
 import pickle
 import textwrap
 import json
+import gtts
+from gtts import gTTS
 import urllib.request
 import urllib.parse
 pyperclip_imported =False
@@ -27,7 +30,7 @@ except:
     from util import *
 import curses as cur
 from curses import wrapper
-from pathlib import Path
+from pathlib import Path,PosixPath
 import shutil
 from appdirs import *
 import logging, sys
@@ -231,7 +234,7 @@ color_map = {
     "input-color": INPUT_COLOR,
 }
 
-hl_colors = [(137,52), (234, 243), (234, 137), (234, 95), (137,236), (137,234), (144, 234), (95,233), (95, 17), (245,17), (245,235)]
+hl_colors = [(234, 137), (234, 95), (234, 243), (234, 144), (137,52), (137,236), (137,234), (144, 234), (95,233), (95, 17), (245,17), (245,235)]
 
 def extractPdfText(file):
     menu = {}
@@ -314,6 +317,8 @@ def extractText(file, sel_sects="", pages=[], params={}, def_size = 9):
     if not pdf2text_imported:
         return ""
     text = ""
+    if not Path(file).exists():
+        return ""
     if not params:
         params={"boxes_flow":-0.5, "char_margin":2.0, "word_margin":0.15, "line_margin":0.5}
         #params = {}
@@ -787,19 +792,12 @@ def remove_article(articles, art):
     del articles[art["id"]]
 
 def insert_article_list(articles, art):
-    i = get_index(articles, art)
-    if i < 0:
-        articles.insert(0, art)
-    else:
-        articles.pop(i)
-        articles.insert(0, art)
+    if art["id"] in articles:
+        articles.remove(art["id"])
+    articles.insert(0, art["id"])
 
 def insert_article(articles, art):
     articles[art["id"]] = art
-
-def update_article(articles, art):
-    insert_article(articles, art)
-
 
 def get_title(text, default="No title"):
     text = text.strip()
@@ -887,7 +885,7 @@ def remove_tag(art, fid, saved_articles):
         for i, tag in enumerate(art["tags"]):
             if tag == fid:
                 art["tags"].pop(i)
-                update_article(saved_articles, art)
+                insert_article(saved_articles, art)
                 save_obj(saved_articles, "saved_articles", "articles")
                 break
 
@@ -939,19 +937,20 @@ def request(p=0):
     return rsp, ""
 
 # lll
-def list_artids(id_list, fid, group):
+def list_artids(id_list, fid, group=""):
     articles = []
     saved_articles = load_obj("saved_articles", "articles", {})
     for _id in id_list:
         if _id in saved_articles:
             articles.append(saved_articles[_id])
     arts = list_articles(articles, fid, group=group)
-    artids = []
-    for art in arts:
-        artids.append(art["id"])
-    if group != "":
-        with open(group, 'w') as outfile:
-            json.dump(artids, outfile)
+    if Path(group).is_file():
+        artids = []
+        for art in arts:
+            artids.append(art["id"])
+        if group != "":
+            with open(group, 'w') as outfile:
+                json.dump(artids, outfile)
 
 
 def list_articles(in_articles, fid, show_note=False, group="", filter_note="", note_index=0, sel_art=None, search_results = False):
@@ -1348,7 +1347,9 @@ def write_article(article, folder=""):
         sect_title = replace_template(template_menu["section-title"], "{section-title}", sect_title)
         print(sect_title, file=f)
         for c in b['fragments']:
-            text = c['text']
+            text = ""
+            for sent in c["sents"]:
+                text += sent['text'] + " "
             text = replace_template(template_menu["paragraph"], "{paragraph}", text)
             f.write(text)
     print(bottom, file=f)
@@ -1468,7 +1469,7 @@ text_width = 72
 text_width = 62
 text_width = 52
 #iii
-def init_frag_sents(text, cohesive =False, unit_sep = "", word_limit = 20, nod = "", split_level = 1, block_id=-1):
+def init_frag_sents(text, cohesive =False, unit_sep = "", word_limit = 20, nod = "", split_level = 1, block_id=-1, merge=False):
     if word_limit == 20 and split_level == 2: word_limit = 10
     all_sents = []
     if split_level == 3:
@@ -1504,29 +1505,30 @@ def init_frag_sents(text, cohesive =False, unit_sep = "", word_limit = 20, nod =
             if not unit_sents:
                 continue
             sents = [new_sent(s) for s in unit_sents]
-            prev_s = None
-            for i,s in enumerate(sents):
-                s["nod"] = nod
-                s["block_id"] = block_id if block_id < 0 else block_id + i
-                s["eos"] = True 
-                s["eob"] = block_id >= 0
-                if (prev_s and not prev_s["merged"] and len(prev_s["text"]) < 160 and ( 
-                    s["text"].lower().startswith(("thus","hense",
-                        "so ", "so,", "therefore","thereby","this ", "they", "however", "instead"))
-                    or any(x in prev_s["text"].lower() for x in ["shows "]))
-                    and not prev_s["text"].startswith(("Figure","Table"))):
-                    s["merged"] = True
-                    prev_s["text"] = prev_s["text"] +  " " + s["text"]
-                prev_s = s
-            sents = [sent for sent in sents if not sent["merged"]] 
-            prev_s = None
-            for i,s in enumerate(sents):
-                if prev_s and not prev_s["merged"] and len(s["text"]) < 150:
-                    s["merged"] = True
-                    prev_s["text"] = prev_s["text"] +  " " + s["text"]
-                prev_s = s
-            sents = [sent for sent in sents if not sent["merged"]] 
-            if cohesive:
+            if merge:
+                prev_s = None
+                for i,s in enumerate(sents):
+                    s["nod"] = nod
+                    s["block_id"] = block_id if block_id < 0 else block_id + i
+                    s["eos"] = True 
+                    s["eob"] = block_id >= 0
+                    if (prev_s and not prev_s["merged"] and len(prev_s["text"]) < 160 and ( 
+                        s["text"].lower().startswith(("thus","hense",
+                            "so ", "so,", "therefore","thereby","this ", "they", "however", "instead"))
+                        or any(x in prev_s["text"].lower() for x in ["shows "]))
+                        and not prev_s["text"].startswith(("Figure","Table"))):
+                        s["merged"] = True
+                        prev_s["text"] = prev_s["text"] +  " " + s["text"]
+                    prev_s = s
+                sents = [sent for sent in sents if not sent["merged"]] 
+                prev_s = None
+                for i,s in enumerate(sents):
+                    if prev_s and not prev_s["merged"] and len(s["text"]) < 150:
+                        s["merged"] = True
+                        prev_s["text"] = prev_s["text"] +  " " + s["text"]
+                    prev_s = s
+                sents = [sent for sent in sents if not sent["merged"]] 
+            if False: #cohesive:
                 for s in sents:
                     s["next"] = True
                     s["block_id"] = uid
@@ -1721,14 +1723,88 @@ def save_article(art):
         with open(fname + ".artid", 'w') as outfile:
             outfile.write(art["id"])
 
-def speak(text, fname):
-  tts = gTTS(text=text, lang="en")
-  tts.save(fname)
+def get_record_file(sound_folder,  file_index):
+  sound_folder = re.sub(r'[\[\]\(\)"\'\?]+', '', sound_folder)
+  p = str(Path.home()) + '/rec_files/'+ sound_folder
+  Path(p).mkdir(parents=True, exist_ok=True)
+  sound_file = p + "/" + file_index + ".mp3"
+  if not Path(sound_file).is_file() or os.path.getsize(sound_file) == 0:
+      return sound_file, False
+  return sound_file, True
+
+def record(text, sound_file):
+  #pat = re.compile("^(\d{1,4}( of \d{1,4})?)$")
+  #out = pat.search(text)
+  #if out and out.group(1):
+  #    rep = out.group(1)
+  if Path(sound_file).exists():
+      return
+  text = re.sub(r'\(.*?\)', '', text)
+  text = re.sub(r'\[[\d\s,]+?\]', '', text)
+  #text = text.replace(r"\([^()]*\)","")
+  text = text.replace ('ﬁ', 'fi')
+  text = text.replace ('ﬂ', 'fl')
+  text = text.replace('\n', ' ').replace('\r', '')
+  text = ' '.join(text.split())
+  tts = gTTS(text=text, lang="en-uk")
+  tts.save(sound_file)
+
+def continue_recording(sents, art, si, to, background=True):
+    try:
+        t = threading.currentThread()
+        ii = si
+        while ii < min(len(sents), si + to) and getattr(t, "do_run", True):
+            if sents[ii]['visible']:
+                sent = sents[ii]
+                #show_info("Recording ... sentence " + ("#"*(ii//5)) + str(ii))
+                if not background:
+                    show_info("Recording (Ctrl + C to cancel):" + "#"* (ii // 5) + str(ii))
+                if "sfile" in sent and Path(sent["sfile"]).is_file():
+                    ii += 1
+                    continue
+                sfile, f_exist = get_record_file(art["title"], f"{ii:03d}" + sent["text"][:4])
+                if not f_exist:
+                    record(sent["text"], sfile)
+                sent["sfile"] = sfile
+            ii += 1
+    except gtts.tts.gTTSError: 
+        show_err("Failed to connect. Probable cause: Unknown")
+    except KeyboardInterrupt:
+        pass
+
+import vlc
+player = None
+recorder = None
+def play(sound_file, sents, art, si, record_all = False):
+    global player, recorder
+    if player is not None:
+        player.stop()
+    if Path(sound_file).is_file():
+        player = vlc.MediaPlayer("file://" + sound_file)
+        player.play()
+    else:
+        show_info("Recording, please wait ... (it's just about the first sentence, the rest will be recorded as you listen previous ones)")
+        sent = sents[si]
+        sfile, f_exist = get_record_file(art["title"], f"{si:03d}" + sent["text"][:4])
+        record(sent["text"], sfile)
+        if Path(sfile).is_file():
+            player = vlc.MediaPlayer("file://" + sfile)
+            player.play()
+    if recorder is None or not recorder.is_alive():
+        limit = 10 if not record_all else len(sents) - si
+        if not record_all:
+            recorder = threading.Thread(target=continue_recording, args=(sents, art, si, limit), daemon=True)
+            recorder.start()
+        else:
+            continue_recording(sents, art, si, limit, background=False)
+
+def speak2(text):
+    os.system(f'echo "{text}" | festival --tts')
 
 # sss
 word_level = False
 def show_article(art, show_note="", collect_art = False, ref_sent = ""):
-    global theme_menu, theme_options, query, filters, hotkey, show_instruct, word_level
+    global theme_menu, theme_options, query, filters, hotkey, show_instruct, word_level, recorder
 
     if not art["sections"]:
         show_msg("The article has no content to show")
@@ -1744,7 +1820,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     #def_inst = """Press @ anywhere in the article to edit the review, and press # to add a review tag."""
     def_inst = """For more information about how to read and review a paper using Checkideh please visit: http://checkideh.com/getting_started#review 
     To hide instructions like this go to the main menu > options > show instructions, and set it to Disabled. """
-    if not collect_art and needs_review and art["sections"][0]["title"] != "Review":
+    if False: #not collect_art and needs_review and art["sections"][0]["title"] != "Review":
         new_sect = {}
         new_sect["title"] = "Review"
         frag = {"text":def_review}
@@ -1755,7 +1831,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 
     figures = []
     fig_file = ""
-    if "figures" in art and not art["figures"] is None:
+    if False: #"figures" in art and not art["figures"] is None:
         figures = art["figures"]
         figures_created = False
         fig_file = app_path + "/nodcast_temp.html"
@@ -1889,15 +1965,18 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     Path(save_pdf_folder).mkdir(parents=True, exist_ok=True)
     pdf_name = save_pdf_folder + "/" + art["title"].strip() + ".pdf"
     move_pdf(art, pdf_name)
+    art_inserted = False
+    recorder = None
     #bbb
     if not "visits" in art:
         art["visits"] = 1
     else:
         art["visits"] += 1
     art["last_visit"] = datetime.datetime.today().strftime('%Y-%m-%d')
-    update_article(saved_articles, art)
+    insert_article(saved_articles, art)
     true_answers = []
     context = None
+    is_paused = False
     prev_idea = ""
     view_title = False
     show_sel_nod = False
@@ -1906,6 +1985,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     ni = -1
     hl_index = 0
     scroll_page = False
+    speak_enabled = False
+    merge_sents = True
     while ch != ord('q'):
         # clear_screen(text_win)
         too_big_art = False
@@ -2049,13 +2130,13 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if not scroll_page and not word_level:
             if not do_scroll:
                 scroll_page = False
-            top_margin = 15 if cur_sect == art["sections"][0] else 12 #rows // 3
+            top_margin = rows//2 if cur_sect == art["sections"][0] else rows // 2
             if len(cur_sent["text"]) > 450:
-                top_margin = 20
+                top_margin = rows // 2
             bmark = max(0, bmark)
             cur_pos = bmark if expand == 1 else cur_sect['offset']
             if cur_pos < len(pos) and pos[cur_pos] > top_margin:
-                start_row = pos[cur_pos] - top_margin
+                start_row = pos[cur_pos - 1] - 1#+ top_margin
             else:
                 start_row = 0
         sel_first_sent = False
@@ -2427,7 +2508,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         left = ((cols - width) // 2) - 10
         begin_dist = pos[bmark - 1] - start_row
         end_dist =  pos[si] - start_row 
-        limit_row = rows - 5
+        limit_row = rows - 2 
         _len = end_dist - begin_dist
         if end_dist > limit_row and begin_dist > limit_row:
             start_row = pos[bmark - 1] - 2
@@ -2479,15 +2560,22 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if jump_key == 0:
             if auto_mode:
                 if si + 1 < total_sents:
-                    sent_len = len(sents[si]["text"])
-                    _timeout = int((sent_len**1.2)*20)
+                    if not speak_enabled:
+                        sent_len = len(sents[si]["text"])
+                        _timeout = int((sent_len**1.2)*20)
+                        show_info("Auto Mode is on: remaining time:" + str(si) + ":" + str(sent_len) + ":" + str(_timeout))
+                    else:
+                        _timeout = 1000 
+                        show_info("Auto Mode is on, it proceed to next sentence automatically, hitting any key will stop it")
                     std.timeout(_timeout)
-                    show_info("remaining time:" + str(si) + ":" + str(sent_len) + ":" + str(_timeout))
                     tmp_ch = get_key(std)
                     if tmp_ch == -1:
-                        ch = RIGHT
+                        if not speak_enabled:
+                            ch = DOWN 
+                        else:
+                            ch = DOWN if not player.is_playing() else ord('b')
                     else:
-                        auto_mode = False
+                        ch = tmp_ch
                         std.timeout(-1)
                 else:
                     auto_mode = False
@@ -2591,9 +2679,32 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if visual_mode:
                 ch = RIGHT
             visual_mode = not visual_mode 
+
+        if ch == ord('S'):
+            ii = si
+            cc = 0
+            while ii < total_sents:
+                sent = sents[ii]
+                if "sfile" in sent and Path(sent["sfile"]).is_file():
+                    cc += 1
+                ii += 1
+            if cc > 0:
+                show_info("Recording (Ctrl + C to cancel):" + "#"* (cc // 5) + str(cc))
+            limit = len(sents) - si
+            continue_recording(sents, art, si, limit, background=False)
+        if ch == ord('s'): 
+            speak_enabled = True
+            ii = 0
+            cc = 0
+            sfile, f_exist = get_record_file(art["title"], f"{bmark:03d}_" + cur_sent["text"][:4])
+            play(sfile, sents, art, bmark, record_all=False)
+            insert_article(saved_articles, art)
+            ch = ord("z")
+        if ch == ord('b'):
+            pass
         if ch == ord('z'):
             # show_reading_time = not show_reading_time
-            auto_mode = True  # not auto_mode
+            auto_mode = not auto_mode  # not auto_mode
 
         if ch == ord('I'):
             show_info(art["title"] + "\nTags: " + " ,".join(art["tags"] if "tags" in art else ["No tag"]), 
@@ -2647,7 +2758,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 ch = ord('C') # Move it to articles
             else:
                 # save_article(art)
-                update_article(saved_articles, art)
+                insert_article(saved_articles, art)
                 show_msg("Article is saved!")
         if ch == ord('W') or ch == ord('C'):
             if ch == ord('C'):
@@ -2891,6 +3002,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     forward = True
         #kkkd
         if ch == DOWN: 
+            is_paused = False
+            if player is not None:
+                player.stop()
             if scroll_page:
                 start_row += scroll
             elif show_sel_nod: 
@@ -2914,10 +3028,15 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         show_msg("Press either Right or Left key to move to the next sentence")
                     else:
                         si, bmark = moveon(sents, si)
-
+            if speak_enabled and "sfile" in sents[bmark] and Path(sents[bmark]["sfile"]).is_file():
+                play(sents[bmark]["sfile"], sents, art, bmark)
+            elif speak_enabled:
+                show_msg("Sound wasn't recorded, press s to record it")
+                speak_enabled = False
         # kkku
         if ch == UP:
             scroll_page = False
+            is_paused = False
             if show_sel_nod: 
                 cur_nod = sents[si]["nod"]
                 cur_nod = next_nod(cur_nod, ch)
@@ -2933,9 +3052,26 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     si = ii 
                 else:
                     si, bmark = backoff(sents,  bmark)
+            if speak_enabled and "sfile" in sents[bmark] and Path(sents[bmark]["sfile"]).is_file():
+                play(sents[bmark]["sfile"], sents, art, bmark)
+                speak_enabled = True
         #kkkr
         if ch == RIGHT and (not rc_mode or word_level): # move next
             show_sel_nod = False
+            if is_paused:
+                player.play()
+                is_paused = False
+                speak_enabled = True
+            elif player is None or not player.is_playing():
+                if "sfile" in cur_sent and Path(cur_sent["sfile"]).is_file():
+                    speak_enabled = True
+                    auto_mode = True
+                    mode = "normal"
+                    play(cur_sent["sfile"], sents, art, bmark)
+                else:
+                    show_warn(cur_sent["sfile"] if "sfile" in cur_sent else "No recording, press s to record text to speech!")
+                    speak_enabled = False
+            
             if not rc_text and (bmark != si or sents[bmark]["block"] != "word" 
                                 and sents[si]["block"] != "word"):
                 prev_nod = sents[si]["nod"] 
@@ -2977,6 +3113,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         #kkkl
         if ch == LEFT and (not rc_text or word_level): # move previous
             if not word_level:
+                if "sfile" in cur_sent and Path(cur_sent["sfile"]).is_file():
+                    speak_enabled = True
+                    auto_mode = False
+                    play(cur_sent["sfile"], sents, art, bmark)
                 if True: #not show_sel_nod:
                     #show_sel_nod = True
                     prev_nod = sents[si]["nod"] 
@@ -2997,10 +3137,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols -1)
                 std.timeout(500)
                 t_ch = get_key(std)
-                #sound_file = art["title"][:10] + "_" + str(si) + ".mp3" 
-                #speak(cur_sent["text"], sound_file) 
-                #call(["ffplay", sound_file])
-
                 if t_ch < 0:
                     std.timeout(-1)
                     set_nod("", cur_sent, sents, bmark, si, elapsed_time)
@@ -3114,6 +3250,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 ch = ord('o')
 
         if ch == ord('e'):
+            platform_open(art["save_folder"])
+        if ch == ord('x'):
             if expand == 1:
                 expand = 0
                 pos = [0] * total_sents
@@ -3173,6 +3311,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             theme_menu["highlight-color"] = str(hl_colors[hl_index][0])
             theme_menu["hl-text-color"] = str(hl_colors[hl_index][1])
             reset_hl(theme_menu)
+            save_obj(theme_menu, theme_menu["preset"], "theme", common=True)
         if ch == ord('['):
             hl_index -=1
             hl_index = max(0, hl_index)
@@ -3185,6 +3324,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             theme_menu["highlight-color"] = str(hl_colors[hl_index][0])
             theme_menu["hl-text-color"] = str(hl_colors[hl_index][1])
             reset_hl(theme_menu)
+            save_obj(theme_menu, theme_menu["preset"], "theme", common= True)
         if ch == ord('E'):
             win_input = cur.newwin(5, cols - 2*left, 5, left)
             prompt = "Paper title"
@@ -3220,7 +3360,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 if ch == ord('O'):
                     show_info("Converting pdf to text .... Please wait")
                     if pdf_name:
-                        text_content = extractText(pdf_fname)
+                        text_content = extractText(pdf_name)
                         output = fname + ".txt"
                         with open(output, "w") as text_file:
                             text_file.write(text)
@@ -3250,9 +3390,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             dif = total_sents - old_total_sents
             if dif > 0:
                 pos += [0]*dif
-            update_article(saved_articles, art)
+            insert_article(saved_articles, art)
 
-        if chr(ch) in ['1','8','9','0','5','3'] or chr(ch) in ['!','*','(',')','=',' ',':']: #@@@
+        if chr(ch) in ['1','8','9','0','5','3'] or chr(ch) in ['!','*','(',')','=','?',':']: #@@@
             bg_color = HL_COLOR
             win_height = 8
             note_art_title = art["title"]
@@ -3264,7 +3404,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if ch == ord('8') or ch == ord('*'): _note_title = "findings" 
             if ch == ord('8') or ch == ord(':'): _note_title = "notes" 
             if ch == ord('6') or ch == ord('='): _note_title = "exp" 
-            if ch == ord('6') or ch == ord(' '): _note_title = "questions" 
+            if ch == ord('6') or ch == ord('?'): _note_title = "questions" 
             if ch == ord('0') or ch == ord('('): 
                 _note_title = "nn"
                 add2art = False
@@ -3360,8 +3500,42 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     art_changed = True
                     if dif > 0:
                         pos += [0]*dif
-                    update_article(saved_articles, art)
+                    insert_article(saved_articles, art)
         #////
+        if ch == ord(' '):
+            if not player is None:
+                if player.is_playing():
+                    player.pause()
+                    mode = "Paused"
+                    is_paused = True
+                    player.pause()
+                    speak_enabled = False
+                    auto_mode = False
+                else:
+                    player.play()
+                    mode = "normal"
+                    is_paused = False
+                    speak_enabled = True
+
+        if ch == ord('M'):
+            merge_sents = not merge_sents
+            for sect in art["sections"]:
+                for frag in sect["fragments"]:
+                    _text = ""
+                    for sent in frag["sents"]:
+                        if sent["visible"]:
+                            text += sent["text"]
+                    frag["sents"] = init_frag_sents(text, merge=merge_sents)
+            old_total_sents = total_sents
+            total_sects, total_frags, total_sents, sents = refresh_offsets(art)
+            dif = total_sents - old_total_sents
+            if si > 1:
+                si += dif
+                bmark += dif
+            art_changed = True
+            if dif > 0:
+                pos += [0]*dif
+            insert_article(saved_articles, art)
         if chr(ch) == "n" or ch == ord("n"):
             if ch == ord("n"):
                 search,_ = minput(win_info, 0, 1, "/")
@@ -3426,7 +3600,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     _rev = {}
                     _rev["sents"] = init_frag_sents(_text)
                     art["sections"][0]["fragments"].append(_rev)
-                update_article(saved_articles, art)
+                insert_article(saved_articles, art)
 
 
         if ch == ord('t'):
@@ -3528,8 +3702,16 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             text_win.erase()
             text_win.refresh(0, 0, 0, 0, rows - 2, cols - 1)
 # eee
-
-        update_article(saved_articles, art)
+        if not art["id"] in saved_articles and not art_inserted:
+            art_inserted = True
+            insert_article(saved_articles, art)
+            save_obj(saved_articles, "saved_articles", "articles")
+            last_visited = load_obj("last_visited", "articles", [])
+            insert_article_list(last_visited, art)
+            save_obj(last_visited, "last_visited", "articles")
+            show_msg("article was saved...")
+        else:
+            insert_article(saved_articles, art)
         if "save_folder" in art:
             save_article(art)
         if ch == ord('q'):  # before exiting artilce
@@ -3876,7 +4058,7 @@ def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, 
 
     rows, cols = std.getmaxyx()
     start_row = max(start_row, 0)
-    start_row = min(start_row, 2 * rows)
+    start_row = min(start_row, MAX_MENU_PAGES * rows)
     if hotkey == "":
         logging.info(f"Refreshing ...", menu)
         if pad:
@@ -3927,7 +4109,7 @@ def confirm(msg, acc=['y', 'n'], color=WARNING_COLOR, list_opts=True, bottom = T
     return ch
 
 old_msg = ''
-def show_info(msg, color=INFO_COLOR, bottom=True, title = "Info", acc =[]):
+def show_info(msg, color=INFO_COLOR, bottom=True, title = "Info", acc =[], refresh=True):
     global win_info, old_msg
     rows, cols = std.getmaxyx()
     if bottom:
@@ -3940,7 +4122,10 @@ def show_info(msg, color=INFO_COLOR, bottom=True, title = "Info", acc =[]):
             msg = msg[:(cols - 16)] + "..."
         print_there(0, 1, " {} ".format(msg), win_info, color)
         win_info.clrtoeol()
-        win_info.refresh()
+        if refresh:
+            win_info.refresh()
+        else:
+            win_info.noutrefresh()
     else:
         mcols = 2*cols//3 - 2
         nlines = 0
@@ -4347,12 +4532,11 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
         sub_menu_win = common_subwin
         cmd = ""
         start_row = 0
-        if row + start_row + mi >= 3 * rows - 2:
-            start_row = 3 * (rows - 2) - 2 
-        if row + start_row + mi >= 2 * rows - 2:
-            start_row = 2 * (rows - 2) -2
-        elif row + start_row + mi >= rows - 1:
-            start_row = rows - 2
+        for _page in range(MAX_MENU_PAGES,0,-1):
+            if mi + row > _page * (rows -2) - start_row:
+                start_row = _page * (rows - 2) #(2 if _page > 1 else 0) 
+                break
+
         refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, active_sel = True, title=title)
         if edit_mode and sel_type.startswith("input-box"):
             cur_val = menu[sel]
@@ -4651,6 +4835,11 @@ def find(list, st, ch, default):
 
 colors = []
 
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("--hotkey", type=str, default='')
+args = parser.parse_args()
+MAX_MENU_PAGES = 20
 
 def start(stdscr):
     global colors, template_menu, template_options, theme_options, theme_menu, std, conf, query, filters, top_win, hotkey, menu_win, list_win, common_subwin, text_win, left_side_win,right_side_win, profile, cur_articles
@@ -4673,7 +4862,7 @@ def start(stdscr):
     left_side_win.bkgd(' ', cur.color_pair(ITEM_COLOR))  # | cur.A_REVERSE)
     right_side_win = cur.newpad(rows * 500, text_width//2)
     right_side_win.bkgd(' ', cur.color_pair(ITEM_COLOR))  # | cur.A_REVERSE)
-    menu_win = cur.newpad(rows*20 , cols*2)
+    menu_win = cur.newpad(rows*MAX_MENU_PAGES , cols*2)
     menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     common_subwin = cur.newwin(rows - 6, width // 2 + 5, 5, width // 2 - 5)
     common_subwin.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
@@ -4699,19 +4888,19 @@ def start(stdscr):
         menu["open file"] = "button"
         menu["my articles"] = "button"
         menu["sepb1"] = ""
-        menu["sep1"] = "Search AI-related papers"
-        if is_obj("last_results", ""):
-            menu["last results"] = "button"
-        else:
-            menu["last results"] = "button-hidden"
-        menu["task"] = prev_menu["task"]
-        menu["keywords"] = prev_menu["keywords"]
-        menu["Go!"] = "button"
-        menu["advanced search"] = "button"
+#        menu["sep1"] = "Search AI-related papers"
+#        if is_obj("last_results", ""):
+#            menu["last results"] = "button"
+#        else:
+#            menu["last results"] = "button-hidden"
+#        menu["task"] = prev_menu["task"]
+#        menu["keywords"] = prev_menu["keywords"]
+#        menu["Go!"] = "button"
+#        menu["advanced search"] = "button"
         if newspaper_imported:
             menu["sepb2"] = ""
-            menu["sep2"] = "Load website articles"
-            menu["website articles"] = "button"
+#            menu["sep2"] = "Load website articles"
+#            menu["website articles"] = "button"
             menu["webpage"] = "button"
         menu["settings"] = "button"
 
@@ -4738,14 +4927,14 @@ def start(stdscr):
     if task_file.is_file():
         with open('tasks.txt', 'r') as f:
             options["task"]['range'] = ["All"] +  [t.strip() for t in f.readlines()]
-    recent_arts = []
     width = 2 * cols // 3
     y_start = 6  # 5len(menu) + 5
     x_start = 60
     hh = rows - y_start - 1
-    for art in last_visited[:10]:
-        recent_arts.append(art["title"][:60] + "...")
     subwins = {}
+    #recent_arts = []
+    #for art in last_visited[:10]:
+    #    recent_arts.append(art["title"][:60] + "...")
     # options["recent articles"] =recent_arts
     # subwins = {"task":{"x":x_start,"y":y_start,"h":hh,"w":width}}
 
@@ -4786,18 +4975,17 @@ def start(stdscr):
     ch = ''
     shortkeys = {"m": "my articles", "l": "last results", "k": "keywords", "n": "notes", "r": "recent articles", "g":"Go!", "t": "tags", "s": "settings", "p": "webpage", "a": "advanced search", "w": "website articles", 'o': "open file"}
     mi = 0
-    hotkey = "rrr"
+    hotkey = args.hotkey 
     while ch != 'q':
         info = "h) help         q) quit"
         show_info(info)
         ch, menu, mi = show_menu(menu, options, shortkeys=shortkeys, mi=mi, subwins=subwins, title=main_title,
-                hotkeys={"R": "resume last article", "c": "Clear saved articles"})
+                hotkeys={"R": "resume last article", "c": "Clear recent articles list"})
         save_obj(menu, "main_menu", "")
         if ch == "R":
             hotkey = "rrr"
         if ch == 'c':
             del_obj("last_visited", "articles")
-            del_obj("saved_articles", "articles")
             mi = 0
         if ch == "advanced search":
             search()
@@ -4869,7 +5057,7 @@ def start(stdscr):
         elif ch == "r" or ch == "recent articles":
             last_visited = load_obj("last_visited", "articles", [])
             if len(last_visited) > 0:
-                list_articles(last_visited, "Recent Articles", group="last_visited")
+                list_artids(last_visited, "Recent Articles", group="last_visited")
             else:
                 show_msg("There is no article in the list.")
 
@@ -4928,7 +5116,7 @@ def refresh_files(save_folder, subfolders, files, depth=1, show_folders =False):
     d = mydate - datetime.timedelta(days=1)
     yesterday = d.strftime("%Y-%m-%d")
     for ind, sf in enumerate(subfolders):
-        if show_folders or sf.endswith(today) or sf.endswith(yesterday):
+        if (show_folders or sf.endswith(today) or sf.endswith(yesterday)) or (show_folders and not valid_date(sf)) and len(os.listdir(save_folder + "/" + sf)) > 0:
             menu["[>] " + sf] = "button@folder@" + str(ind)
     count = 1
     sk = {'q':"..", 'e':"explore", 'h':'back home', 'n':'new article', 't':'tags'}
@@ -4968,8 +5156,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
     while ch != 'q':
         if ch == "r" or ch == "refresh":
             #clear_screen(std)
-            subfolders = [f.name for f in os.scandir(save_folder) if f.is_dir()]
-            subfolders = sorted(subfolders)
+            subfolders = [f.name for f in sorted(Path(save_folder).iterdir(), key=os.path.getmtime) if f.is_dir()]
             if save_folder.endswith("Files"):
                 subfolders = reversed(subfolders)
             files = []
@@ -4989,10 +5176,9 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 #    if mtime > past: 
                 #        files.extend(_file)
             menu, sk, menu_len = refresh_files(save_folder, subfolders, files, depth, show_folders)
-            show_folders = False
             mi = menu_len
 
-        ch, menu, mi = show_menu(menu, options, mi=mi, hotkeys = {'r':'refresh','c':'convert options','a':'convert all pdfs', 'o':'open externally', 'f':'show folders'}, shortkeys = sk, title=title)
+        ch, menu, mi = show_menu(menu, options, mi=mi, hotkeys = {'r':'refresh','c':'convert options','a':'convert all pdfs', 'o':'open externally', 'f':'show folders' if not show_folders else 'hide folders'}, shortkeys = sk, title=title)
         if ch.startswith("[>"):
             sfolder = save_folder + "/" + ch[4:]
             show_files(sfolder, exts, depth + 1)
@@ -5006,8 +5192,8 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
         elif ch == "new folder":
             filepath = save_folder + "/"+menu["new folder"] 
             ch = "refresh"
-        elif ch == "f":
-            show_folders = True
+        elif ch == 'f':
+            show_folders = not show_folders
             ch = "refresh"
         elif ch == "new article" or ch == "explore":
             filepath = save_folder 
@@ -5081,8 +5267,8 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 show_info(str(pdf_index) + ": Converting to text ... Please wait...(Ctrl + C to cancel)")
                 Path(save_pdf_folder).mkdir(parents=True, exist_ok=True)
                 pages = "all"
-                if not save_folder.endswith("Files"):
-                    save_pdf_folder = save_folder
+                #if not save_folder.endswith("Files"):
+                #    save_pdf_folder = save_folder
                 output = save_pdf_folder + "/" + name + ".txt"
                 if ch == "c":
                     text, pages, sel_sects = extractPdfText(filename)
@@ -5101,9 +5287,9 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                         continue
                     #text = convert_pdf_to_txt(filename)
                 pdf_file = filename
-                if save_folder.endswith("Files"):
-                    pdf_file = save_pdf_folder + "/" + name 
-                    shutil.move(filename, pdf_file)
+                #if save_folder.endswith("Files"):
+                pdf_file = save_pdf_folder + "/" + name 
+                shutil.move(filename, pdf_file)
                 text = pdf_file + "\n" + pages + "\n" + text
                 with open(output, "w") as text_file:
                     text_file.write(text)

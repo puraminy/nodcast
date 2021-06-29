@@ -5,6 +5,8 @@ import locale
 import sys
 import string
 import textwrap
+import subprocess
+import datetime
 pyperclip_imported =False
 try:
     import pyperclip 
@@ -237,11 +239,19 @@ def rinput(win, r, c, prompt_string, default=""):
         cur.noecho()
         return default
 
+def valid_date(datestring):
+    try:
+        datetime.datetime.strptime(datestring, '%Y-%m-%d')
+        return True
+    except ValueError:
+        return False
+
 PROMPT_LINE = 0
 SINGLE_LINE = 1
 MULTI_LINE = 2
 def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMPT_LINE, footer="", color=HL_COLOR, return_on_char = False):
     multi_line = mode == MULTI_LINE
+    #subprocess.call('setxkbmap -layout ir', shell=True)
     if mode > 0:
         mrows, mcols = mwin.getmaxyx()
         mwin.border()
@@ -436,6 +446,7 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
                     break
     cur.noecho()
     hide_cursor()
+    #subprocess.call('setxkbmap -layout us', shell=True)
     return inp, ch
 
 def mbeep(repeat=1):
