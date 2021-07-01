@@ -3,6 +3,7 @@
 runs/*
 *.iml
 *.pyc
+*.log
 *.ipynb
 .ipynb_checkpoints
 .pytest_cache

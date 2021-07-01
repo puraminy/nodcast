@@ -7,6 +7,10 @@ import string
 import textwrap
 import subprocess
 import datetime
+try:
+    from nodcast.colors import *
+except:
+    from colors import *
 pyperclip_imported =False
 try:
     import pyperclip 
@@ -180,7 +184,6 @@ def show_cursor(useCur = True):
         sys.stdout.write("\033[?25h")
         sys.stdout.flush()
 
-from nodcast import HL_COLOR, WARNING_COLOR
 def m_print(text, win, color, attr = None, end="\n", refresh = False):
     if win is None:
         print(text, end=end)

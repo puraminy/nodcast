@@ -1997,3 +1997,142 @@ Traceback (most recent call last):
   File "nodcast.py", line 2693, in show_article
     limit = 10 if not record_all else len(sents) - si
 NameError: name 'record_all' is not defined
+CRITICAL:root:
+Date:2021-06-29 09:36:07.938354
+Traceback (most recent call last):
+  File "nodcast.py", line 6095, in <module>
+    main()
+  File "nodcast.py", line 6087, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "nodcast.py", line 5060, in start
+    list_artids(last_visited, "Recent Articles", group="last_visited")
+  File "nodcast.py", line 946, in list_artids
+    arts = list_articles(articles, fid, group=group)
+  File "nodcast.py", line 1278, in list_articles
+    write_article(art, folder)
+  File "nodcast.py", line 1336, in write_article
+    top = replace_template(template_menu["top"], "{url}", article["pdfUrl"])
+KeyError: 'pdfUrl'
+CRITICAL:root:
+Date:2021-06-29 11:48:20.604391
+Traceback (most recent call last):
+  File "nodcast.py", line 6096, in <module>
+    main()
+  File "nodcast.py", line 6088, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "nodcast.py", line 5072, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "nodcast.py", line 5357, in show_files
+    show_article(art)
+  File "nodcast.py", line 2577, in show_article
+    ch = DOWN if not player.is_playing() else ord('b')
+AttributeError: 'NoneType' object has no attribute 'is_playing'
+CRITICAL:root:
+Date:2021-06-29 11:52:05.760587
+Traceback (most recent call last):
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/urllib3/connection.py", line 159, in _new_conn
+    conn = connection.create_connection(
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/urllib3/util/connection.py", line 84, in create_connection
+    raise err
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/urllib3/util/connection.py", line 74, in create_connection
+    sock.connect(sa)
+OSError: [Errno 101] Network is unreachable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/urllib3/connectionpool.py", line 670, in urlopen
+    httplib_response = self._make_request(
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/urllib3/connectionpool.py", line 381, in _make_request
+    self._validate_conn(conn)
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/urllib3/connectionpool.py", line 978, in _validate_conn
+    conn.connect()
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/urllib3/connection.py", line 309, in connect
+    conn = self._new_conn()
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/urllib3/connection.py", line 171, in _new_conn
+    raise NewConnectionError(
+urllib3.exceptions.NewConnectionError: <urllib3.connection.HTTPSConnection object at 0x7fb693680850>: Failed to establish a new connection: [Errno 101] Network is unreachable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/requests/adapters.py", line 439, in send
+    resp = conn.urlopen(
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/urllib3/connectionpool.py", line 726, in urlopen
+    retries = retries.increment(
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/urllib3/util/retry.py", line 439, in increment
+    raise MaxRetryError(_pool, url, error or ResponseError(cause))
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='translate.google.com', port=443): Max retries exceeded with url: /_/TranslateWebserverUi/data/batchexecute (Caused by NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x7fb693680850>: Failed to establish a new connection: [Errno 101] Network is unreachable'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/gtts/tts.py", line 263, in write_to_fp
+    r = s.send(request=pr,
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/requests/sessions.py", line 643, in send
+    r = adapter.send(request, **kwargs)
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/requests/adapters.py", line 516, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPSConnectionPool(host='translate.google.com', port=443): Max retries exceeded with url: /_/TranslateWebserverUi/data/batchexecute (Caused by NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x7fb693680850>: Failed to establish a new connection: [Errno 101] Network is unreachable'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "nodcast.py", line 6096, in <module>
+    main()
+  File "nodcast.py", line 6088, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "nodcast.py", line 5072, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "nodcast.py", line 5185, in show_files
+    show_files(sfolder, exts, depth + 1)
+  File "nodcast.py", line 5387, in show_files
+    show_article(art)
+  File "nodcast.py", line 2701, in show_article
+    play(sfile, sents, art, bmark, record_all=False)
+  File "nodcast.py", line 1790, in play
+    record(sent["text"], sfile)
+  File "nodcast.py", line 1751, in record
+    tts.save(sound_file)
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/gtts/tts.py", line 312, in save
+    self.write_to_fp(f)
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/gtts/tts.py", line 279, in write_to_fp
+    raise gTTSError(tts=self)
+gtts.tts.gTTSError: Failed to connect. Probable cause: Unknown
+CRITICAL:root:
+Date:2021-06-29 12:50:49.595093
+Traceback (most recent call last):
+  File "/home/ahmad/miniconda3/lib/python3.8/shutil.py", line 788, in move
+    os.rename(src, real_dst)
+FileNotFoundError: [Errno 2] No such file or directory: '/home/ahmad/Documents/Checkideh/Common Sense RC/Files/2021-06-26/Investigating Transfer Learning in Multilingual Pre-trained Language Models through Chinese Natural Language Inference.artid' -> '/home/ahmad/Documents/Checkideh/Common Sense RC/Files/2021-06-26/Investigating Transfer Learning in Multilingual Pre-trained Language Models through Chinese Natural Language Inference.artid'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "nodcast.py", line 6098, in <module>
+    main()
+  File "nodcast.py", line 6090, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "nodcast.py", line 5073, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "nodcast.py", line 5186, in show_files
+    show_files(sfolder, exts, depth + 1)
+  File "nodcast.py", line 5389, in show_files
+    show_article(art)
+  File "nodcast.py", line 3343, in show_article
+    shutil.move(f_ref, _new_name)
+  File "/home/ahmad/miniconda3/lib/python3.8/shutil.py", line 802, in move
+    copy_function(src, real_dst)
+  File "/home/ahmad/miniconda3/lib/python3.8/shutil.py", line 432, in copy2
+    copyfile(src, dst, follow_symlinks=follow_symlinks)
+  File "/home/ahmad/miniconda3/lib/python3.8/shutil.py", line 261, in copyfile
+    with open(src, 'rb') as fsrc, open(dst, 'wb') as fdst:
+FileNotFoundError: [Errno 2] No such file or directory: '/home/ahmad/Documents/Checkideh/Common Sense RC/Files/2021-06-26/Investigating Transfer Learning in Multilingual Pre-trained Language Models through Chinese Natural Language Inference.artid'

@@ -26,8 +26,10 @@ except:
     pass
 try:
     from nodcast.util import *
+    from nodcast.colors import *
 except:
     from util import *
+    from colors import *
 import curses as cur
 from curses import wrapper
 from pathlib import Path,PosixPath
@@ -42,6 +44,16 @@ appname = "Checkideh"
 appauthor = "App"
 user = 'na'
 profile = "---"
+
+DOWN = cur.KEY_DOWN
+UP = cur.KEY_UP
+LEFT = cur.KEY_LEFT
+RIGHT = cur.KEY_RIGHT
+SLEFT = cur.KEY_SLEFT
+SRIGHT = cur.KEY_SRIGHT
+SUP = 337
+SDOWN = 336
+ARROWS = [UP, DOWN, LEFT, RIGHT, SLEFT, SRIGHT, SUP, SDOWN]
 
 hotkey = ""
 old_hotkey = "non-blank"
@@ -86,11 +98,12 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 
 sys.excepthook = handle_exception
 
-newspaper_imported = True
-try:
-    import newspaper
-except ImportError as e:
-    newspaper_imported = False
+newspaper_imported = False
+if newspaper_imported:
+    try:
+        import newspaper
+    except ImportError as e:
+        newspaper_imported = False
 
 pdf2text_imported = True
 #try:
@@ -1333,8 +1346,8 @@ def write_article(article, folder=""):
     Path(_folder).mkdir(parents=True, exist_ok=True)
     if not os.path.exists(_folder):
         os.makedirs(_folder)
-    top = replace_template(template_menu["top"], "{url}", article["pdfUrl"])
-    bottom = replace_template(template_menu["bottom"], "{url}", article["pdfUrl"])
+    top = replace_template(template_menu["top"], "{url}", article["localPdfUrl"])
+    bottom = replace_template(template_menu["bottom"], "{url}", article["localPdfUrl"])
     paper_title = article['title']
     file_name = paper_title #.replace(' ', '_').lower()
     fpath = _folder + '/' + file_name + ext
@@ -1727,6 +1740,7 @@ def get_record_file(sound_folder,  file_index):
   sound_folder = re.sub(r'[\[\]\(\)"\'\?]+', '', sound_folder)
   p = str(Path.home()) + '/rec_files/'+ sound_folder
   Path(p).mkdir(parents=True, exist_ok=True)
+  file_index = "".join(x for x in file_index if x.isalnum())
   sound_file = p + "/" + file_index + ".mp3"
   if not Path(sound_file).is_file() or os.path.getsize(sound_file) == 0:
       return sound_file, False
@@ -2573,7 +2587,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         if not speak_enabled:
                             ch = DOWN 
                         else:
-                            ch = DOWN if not player.is_playing() else ord('b')
+                            ch = DOWN if player is not None and not player.is_playing() else ord('b')
                     else:
                         ch = tmp_ch
                         std.timeout(-1)
@@ -3338,7 +3352,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 for f_ref in art["refs"]:
                     _parent = Path(f_ref).parent
                     _new_name = str(_parent) + "/" + art["title"] + ".artid"
-                    shutil.move(f_ref, _new_name)
+                    if Path(f_ref).is_file():
+                        shutil.move(f_ref, _new_name)
         #oooo
         if ch == ord('o') or ch == ord('/') or ch == ord('O'):
             fname = get_path(art)
@@ -5248,7 +5263,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 pdf_index = 0
                 save_folder = save_pdf_folder
                 ch = "refresh"
-        if Path(save_folder + "/" + ch).is_file() or ch in ["c", "o", "a"]:
+        elif len(ch) > 1 or ch in ["c", "o", "a"]:
             if ch != "a":
                 mval = list(menu.values())[mi]
                 parts = mval.split("@")
@@ -5373,6 +5388,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
 
             elif ext == ".artid":
                 art_id = _file.read()
+                show_info("opening article ...")
                 saved_articles = load_obj("saved_articles", "articles", {})
                 if not art_id in saved_articles:
                     show_err("Article wasn't found")
