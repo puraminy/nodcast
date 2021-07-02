@@ -140,115 +140,6 @@ SUP = 337
 SDOWN = 336
 ARROWS = [UP, DOWN, LEFT, RIGHT, SLEFT, SRIGHT, SUP, SDOWN]
 
-nod_colors = {
-    "yes": 77,
-    "OK": 36,
-    "OK, I get it now": 36,
-    "I agree!": 22,
-    "answer": 41,
-    "idea": 151,
-    "correct": 30,
-    "incorrect": 161,
-    "background": 93,
-    "archive": 145,
-    "okay": 36,
-    "okay, okay!": 25,
-    "okay, go on": 30,
-    "okay?": 240,
-    "not reviewed": 143,
-    "goal": 22,
-    "got an idea!": 32,
-    "skipped": 245,
-    "skip": 245,
-    "I see!": 71,
-    "interesting!": 76,
-    "favorite!": 219,
-    "interesting, so?": 76,
-    "proposed solution": 32,
-    "contribution": 77,
-    "feature": 77,
-    "constraint": 97,
-    "important!": 141,
-    "point!": 142,
-    "main idea!": 142,
-    "has an idea!": 115,
-    "didn't get!": 161,
-    "didn't get": 161,
-    "unclear": 161,
-    "question": 136,
-    "comment": 141,
-    "didn't get the article": 161,
-    "didn't get, needs review": 161,
-    "okay, never mind": 145,
-    "what?!": 161,
-    "what?! needs review": 161,
-    "don't think so": 179,
-    "not sure!": 179,
-    "what?!": 31,
-    "didn't get, so?": 196,
-    "so?": 39,
-    "Let's continue": 39,
-    "continue": 39,
-    "okay, continue": 39,
-    "okay, so?": 39,
-    "almost got the idea?": 32,
-    "explain more": 178,
-    "why?": 59,
-    "needs review": 177,
-    "review later": 177,
-    "to read later": 177,
-    "check later": 186,
-    "problem": 179,
-    "definition": 250,
-    "got it!": 69,
-    "got the idea!": 69,
-}
-
-cW = 7
-cR = 1
-cG = 30
-cY = 5
-cB = 27
-clB = 33
-cPink = 15
-cC = 9
-clC = 16
-clY = 13
-cGray = 10
-clGray = 250
-clG = 12
-cllC = 83
-cO = 94
-back_color = None
-
-TEXT_COLOR = 35 
-ITEM_COLOR = 32 
-TITLE_COLOR = 30
-DIM_COLOR = 233
-COMMENT_COLOR = 39
-
-CUR_ITEM_COLOR = 100
-HL_COLOR = 101
-INPUT_COLOR = 102
-INFO_COLOR = 103
-ERR_COLOR = 104
-MSG_COLOR = 105
-WARNING_COLOR = 106
-TEMP_COLOR = 107
-TEMP_COLOR2 = 108
-SEL_ITEM_COLOR = 109
-
-color_map = {
-    "cur-item-color": CUR_ITEM_COLOR,
-    "sel-item-color": SEL_ITEM_COLOR,
-    "highlight-color": HL_COLOR,
-    "hl-text-color": HL_COLOR,
-    "back-color": TEXT_COLOR,
-    "input-color": INPUT_COLOR,
-}
-
-hl_colors = [(234, 137), (234, 95), (234, 243), (234, 144), (137,52), (137,236), (137,234), (144, 234), (95,233), (95, 17), (245,17), (245,235)]
-
 def extractPdfText(file):
     menu = {}
     menu["sections"] = ""
@@ -1794,8 +1685,11 @@ def play(sound_file, sents, art, si, record_all = False):
     if player is not None:
         player.stop()
     if Path(sound_file).is_file():
-        player = vlc.MediaPlayer("file://" + sound_file)
-        player.play()
+        try:
+            player = vlc.MediaPlayer("file://" + sound_file)
+            player.play()
+        except Exception as e:
+            show_err("ERROR:")
     else:
         show_info("Recording, please wait ... (it's just about the first sentence, the rest will be recorded as you listen previous ones)")
         sent = sents[si]
@@ -2001,6 +1895,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     scroll_page = False
     speak_enabled = False
     merge_sents = True
+    sub_mode1 = "s) speak aloud"
+    sub_mode2 = ""
     while ch != ord('q'):
         # clear_screen(text_win)
         too_big_art = False
@@ -2494,9 +2390,29 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         win_info.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
         win_info.erase()
         win_info.erase()
+        if not speak_enabled:
+            mode = "s) speak"
+            mode_colors[mode] = INFO_COLOR
+        else:
+            mode = "s) speak"
+            mode_colors[mode] = 250
+        if auto_mode:
+            sub_mode1 = "z) auto next"
+            mode_colors[sub_mode1] = 22
+        elif speak_enabled:
+            sub_mode1 = "z) auto next"
+            mode_colors[sub_mode1] = 250
+        else:
+            sub_mode1 = ""
         if mode != "normal":
-            _color = WARNING_COLOR
+            _color = mode_colors[mode]
             mprint(" " + mode, win_info, color = _color, end = " ")
+        if sub_mode1:
+            _color = mode_colors[sub_mode1]
+            mprint(" " + sub_mode1, win_info, color = _color, end = " ")
+        if sub_mode2:
+            _color = mode_colors[sub_mode2]
+            mprint(" " + sub_mode2, win_info, color = _color, end = " ")
         mprint(" " + mode_info, win_info, color = INFO_COLOR, end = "")
         if start_reading:
             #print_there(0, 1, "   ", win_info, color=WARNING_COLOR)
@@ -2577,10 +2493,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     if not speak_enabled:
                         sent_len = len(sents[si]["text"])
                         _timeout = int((sent_len**1.2)*20)
-                        show_info("Auto Mode is on: remaining time:" + str(si) + ":" + str(sent_len) + ":" + str(_timeout))
+                        #show_info("Auto Mode is on: remaining time:" + str(si) + ":" + str(sent_len) + ":" + str(_timeout))
                     else:
                         _timeout = 1000 
-                        show_info("Auto Mode is on, it proceed to next sentence automatically, hitting any key will stop it")
+                        #show_info("Auto Mode is on, it proceed to next sentence automatically, hitting any key will stop it")
                     std.timeout(_timeout)
                     tmp_ch = get_key(std)
                     if tmp_ch == -1:
@@ -2707,13 +2623,14 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             limit = len(sents) - si
             continue_recording(sents, art, si, limit, background=False)
         if ch == ord('s'): 
-            speak_enabled = True
-            ii = 0
-            cc = 0
-            sfile, f_exist = get_record_file(art["title"], f"{bmark:03d}_" + cur_sent["text"][:4])
-            play(sfile, sents, art, bmark, record_all=False)
-            insert_article(saved_articles, art)
-            ch = ord("z")
+            speak_enabled = not speak_enabled
+            if speak_enabled:
+                ii = 0
+                cc = 0
+                sfile, f_exist = get_record_file(art["title"], f"{bmark:03d}_" + cur_sent["text"][:4])
+                play(sfile, sents, art, bmark, record_all=False)
+                insert_article(saved_articles, art)
+                ch = ord("z")
         if ch == ord('b'):
             pass
         if ch == ord('z'):
@@ -3315,7 +3232,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 
         elif ch == ord(']'):
             hl_index +=1
-            hl_index = min(len(hl_colors)-1, hl_index)
+            if hl_index >= len(hl_colors):
+                hl_index = 0
             if theme_menu["preset"] == "default":
                 theme_menu["highlight-color"] = str(int(theme_menu["highlight-color"]) - 1) 
                 theme_menu["hl-text-color"] = str(int(int(theme_menu["hl-text-color"]) - 1)) 
@@ -3328,7 +3246,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             save_obj(theme_menu, theme_menu["preset"], "theme", common=True)
         if ch == ord('['):
             hl_index -=1
-            hl_index = max(0, hl_index)
+            if hl_index < 0:
+                hl_index = len(hl_colors) - 1
             if theme_menu["preset"] == "default":
                 theme_menu["highlight-color"] = str(int(theme_menu["highlight-color"]) + 1) 
                 theme_menu["hl-text-color"] = str(int(int(theme_menu["hl-text-color"]) + 1)) 
@@ -3521,14 +3440,14 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if not player is None:
                 if player.is_playing():
                     player.pause()
-                    mode = "Paused"
+                    sub_mode2 = "paused"
                     is_paused = True
                     player.pause()
                     speak_enabled = False
                     auto_mode = False
                 else:
                     player.play()
-                    mode = "normal"
+                    sub_mode2 = ""
                     is_paused = False
                     speak_enabled = True
 
