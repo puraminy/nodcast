@@ -263,6 +263,8 @@ def extractText(file, sel_sects="", pages=[], params={}, def_size = 9):
             layout = device.get_result()
             short_line = True
             new_page = True
+            if "references" in seen:
+                text += "<REFRENCES>"
             for element in layout:
                 # if isinstance(element, LTFigure):
                 if isinstance(element, LTTextBox):
@@ -1237,8 +1239,8 @@ def write_article(article, folder=""):
     Path(_folder).mkdir(parents=True, exist_ok=True)
     if not os.path.exists(_folder):
         os.makedirs(_folder)
-    top = replace_template(template_menu["top"], "{url}", article["localPdfUrl"])
-    bottom = replace_template(template_menu["bottom"], "{url}", article["localPdfUrl"])
+    top = replace_template(template_menu["top"], "{url}",  article["localPdfUrl"] if "localPdfUrl" in article else "none")
+    bottom = replace_template(template_menu["bottom"], "{url}", article["localPdfUrl"] if "localPdfUrl" in article else "none")
     paper_title = article['title']
     file_name = paper_title #.replace(' ', '_').lower()
     fpath = _folder + '/' + file_name + ext
@@ -1636,16 +1638,27 @@ def get_record_file(sound_folder,  file_index):
   if not Path(sound_file).is_file() or os.path.getsize(sound_file) == 0:
       return sound_file, False
   return sound_file, True
-
+ref_seen = False
 def record(text, sound_file):
+  global ref_seen
   #pat = re.compile("^(\d{1,4}( of \d{1,4})?)$")
   #out = pat.search(text)
   #if out and out.group(1):
   #    rep = out.group(1)
+
+  if "<REFRENCES>" in text:
+      ref_seen = True
+  if ref_seen:
+      return
   if Path(sound_file).exists():
+      return
+  if sum(s.isdigit() for s in text) > len(text)//2:
+      return
+  if sum(s == "=" for s in text) > len(text)//2:
       return
   text = re.sub(r'\(.*?\)', '', text)
   text = re.sub(r'\[[\d\s,]+?\]', '', text)
+  text = re.sub(r'==+', '', text)
   #text = text.replace(r"\([^()]*\)","")
   text = text.replace ('ﬁ', 'fi')
   text = text.replace ('ﬂ', 'fl')
@@ -1658,6 +1671,7 @@ def continue_recording(sents, art, si, to, background=True):
     try:
         t = threading.currentThread()
         ii = si
+        ref_seen = False
         while ii < min(len(sents), si + to) and getattr(t, "do_run", True):
             if sents[ii]['visible']:
                 sent = sents[ii]
@@ -2222,7 +2236,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                 if show_reading_time:
                                     f_color = scale_color((100 - reading_time * 4), 0.1)
                                     mprint(str(reading_time), text_win, f_color)
-
                                      
                                 text = ""
                                 while sent["passable"] and fsn < frag_end:
@@ -2275,9 +2288,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                     b_color = int(theme_menu["highlight-color"]) % cur.COLORS
                                     cur.init_pair(TEMP_COLOR, l_color % cur.COLORS, b_color)
                                     _color = l_color
+                                    if speak_enabled:
+                                        _color = b_color
                                     _attr = True
-                                    if (_color == int(theme_menu["hl-text-color"]) or sent["hidden"]
-                                        or not rc_text):
+                                    if (_color == int(theme_menu["hl-text-color"]) or sent["hidden"] or not rc_text) and not speak_enabled:
                                         _color = HL_COLOR
                                     if theme_menu["bold-highlight"] == "True":
                                         mprint(sent_text, text_win, _color, attr=_attr  | cur.A_BOLD, end=end)
@@ -3082,7 +3096,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         si, bmark = moveon(sents, si)
                         forward = True
         #pp#p
-        if ((rc_mode and ch==RIGHT) or ch == cur.KEY_IC) and not word_level and expand != 0:
+        if False: #((rc_mode and ch==RIGHT) or ch == cur.KEY_IC) and not word_level and expand != 0:
             in_sent = True
             if rc_mode and not word_level:
                 in_sent = False
@@ -3444,7 +3458,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     is_paused = True
                     player.pause()
                     speak_enabled = False
-                    auto_mode = False
                 else:
                     player.play()
                     sub_mode2 = ""
@@ -3487,12 +3500,14 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if chr(ch) in notes_keys:
             default = cur_sent["comment"]
             prompt = "Comment:"
+            _note_title = ""
             note_type = notes_dict[chr(ch)]
             inp_mode = SINGLE_LINE
             _lines = 5
             if note_type != "": #and note_type in cur_sent["noets"]:
                 default = "" #cur_sent["notes"][note_type]["text"]
             if chr(ch) == "-":
+                _note_tile = "check later"
                 prompt = "Check later (you can leave it blank)"
             elif chr(ch) == "!":
                 prompt = "What is your idea?"
@@ -3501,8 +3516,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 prompt = "Answer:"
                 inp_mode = MULTI_LINE
             elif chr(ch) == "?":
+                _note_title = "question"
                 prompt = "What is your question?"
             elif chr(ch) == "+":
+                _note_title = "point"
                 prompt = "You can write down the point or leave it blank"
             elif chr(ch) == "\\":
                 prompt = "Any comment"
@@ -3527,14 +3544,27 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     elif not _comment and chr(ch) in ["+","_"]:
                         del cur_sent["notes"][note_type]
                     cur_sent["block_id"] = si
-                if chr(ch) == "+" and needs_review and False:
                     _text = ""
                     for ii in range(bmark, si +1):
                         _text += sents[ii]["text"]  + " "
-                    _rev = {}
-                    _rev["sents"] = init_frag_sents(_text)
-                    art["sections"][0]["fragments"].append(_rev)
-                insert_article(saved_articles, art)
+                    _frag = {}
+                    _frag["sents"] = init_frag_sents(_text)
+                    for _s in _frag["sents"]:
+                        _s["nod"] = "okay"
+                    review = art["sections"][0]
+                    _frag["title"] = _note_title
+                    review["fragments"].append(_frag)
+                    old_total_sents = total_sents
+                    total_sects, total_frags, total_sents, sents = refresh_offsets(art)
+                    dif = total_sents - old_total_sents
+                    if si > 1:
+                        si += dif
+                        bmark += dif
+                    art_changed = True
+                    if dif > 0:
+                        pos += [0]*dif
+            insert_article(saved_articles, art)
+        #////
 
 
         if ch == ord('t'):
@@ -5079,7 +5109,10 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
     show_folders = False
     mydate = datetime.datetime.now()
     create_date = mydate.strftime("%Y-%m-%d")
-    save_pdf_folder = doc_path + "/" + profile + "/Files/" + create_date
+    if not doc_path in save_folder:
+        save_pdf_folder = doc_path + "/" + profile + "/Files/" + create_date
+    else:
+        save_pdf_folder = save_folder + "/" + create_date
     pdf_index = 0
     art_list = save_folder + "/" + create_date + ".listid"
     if Path(art_list).is_file():
@@ -5221,7 +5254,6 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                         continue
                     #text = convert_pdf_to_txt(filename)
                 pdf_file = filename
-                #if save_folder.endswith("Files"):
                 pdf_file = save_pdf_folder + "/" + name 
                 shutil.move(filename, pdf_file)
                 text = pdf_file + "\n" + pages + "\n" + text

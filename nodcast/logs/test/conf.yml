@@ -1,0 +1,41 @@
+anstemp: '{ph} {response} {end}'
+batch_size: 1
+cont: false
+cpu: false
+cycle: 500
+device: cuda
+do_eval: false
+freez_step: 0
+from_dir: false
+frozen: false
+generation_params:
+  early_stopping: true
+  max_length: 80
+ignore_blanks: false
+inter: false
+is_flax: false
+lang: lang
+learning_rate: 0.0
+load_path: /home/ahmad/pret
+load_prompt_path: ''
+model_id: test
+natural: false
+nli_group: all
+num_generations: 0
+num_samples: 100
+output_name: ''
+overwrite: false
+path: /home/ahmad/recs/nodcast/nodcast
+pred_tresh: 0
+qtemp: '{rel_token}: {event} {gen} {ph}'
+save_path: logs
+shuffle: false
+shuffle_evaluation: false
+underlying_model_name: test
+unfreez_step: 0
+val_set: validation
+validation_num_generation: 20
+validation_size: 200
+verbose: false
+weight_decay: 0.01
+wrap: ''

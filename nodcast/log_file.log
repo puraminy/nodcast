@@ -2244,3 +2244,350 @@ Traceback (most recent call last):
   File "nodcast.py", line 2408, in show_article
     _color = mode_colors[sub_mode2]
 KeyError: 'z) Auto next'
+CRITICAL:root:
+Date:2021-07-14 17:46:17.325877
+Traceback (most recent call last):
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5005, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5290, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 3329, in show_article
+    if chr(ch) in ['1','8','9','0','5','3'] or chr(ch) in ['!','*','(',')','=','?',':']: #@@@
+ValueError: chr() arg not in range(0x110000)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6030, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6022, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 111, in wrapper
+    nocbreak()
+_curses.error: nocbreak() returned ERR
+CRITICAL:root:
+Date:2021-07-14 23:18:16.028226
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6030, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6022, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5005, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5189, in show_files
+    index = int(parts[2])
+IndexError: list index out of range
+CRITICAL:root:
+Date:2021-07-22 11:25:04.036790
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5308, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 2624, in show_article
+    continue_recording(sents, art, si, limit, background=False)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1672, in continue_recording
+    record(sent["text"], sfile)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1654, in record
+    tts = gTTS(text=text, lang="en-uk")
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/gtts/tts.py", line 130, in __init__
+    assert text, 'No text to speak'
+AssertionError: No text to speak
+CRITICAL:root:
+Date:2021-08-05 13:28:14.019166
+Traceback (most recent call last):
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5137, in show_files
+    show_files(sfolder, exts, depth + 1)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5339, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 3329, in show_article
+    if chr(ch) in ['1','8','9','0','5','3'] or chr(ch) in ['!','*','(',')','=','?',':']: #@@@
+ValueError: chr() arg not in range(0x110000)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 111, in wrapper
+    nocbreak()
+_curses.error: nocbreak() returned ERR
+CRITICAL:root:
+Date:2021-08-06 22:25:53.770429
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5308, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1830, in show_article
+    first_frag = art["sections"][0]['fragments'][0]
+IndexError: list index out of range
+CRITICAL:root:
+Date:2021-08-06 22:26:08.932687
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5137, in show_files
+    show_files(sfolder, exts, depth + 1)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5339, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1830, in show_article
+    first_frag = art["sections"][0]['fragments'][0]
+IndexError: list index out of range
+CRITICAL:root:
+Date:2021-08-11 17:18:07.607338
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5017, in start
+    show_files(save_folder, exts=['*.txt','*.artid','*.art',"*.listid", '*.list','*.tag.art'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5320, in show_files
+    list_articles(arts, fid = name, group=group)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1210, in list_articles
+    if filters['task']:
+KeyError: 'task'
+CRITICAL:root:
+Date:2021-08-11 17:18:58.627251
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5017, in start
+    show_files(save_folder, exts=['*.txt','*.artid','*.art',"*.listid", '*.list','*.tag.art'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5320, in show_files
+    list_articles(arts, fid = name, group=group)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1182, in list_articles
+    write_article(art, folder)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1240, in write_article
+    top = replace_template(template_menu["top"], "{url}", article["localPdfUrl"])
+KeyError: 'localPdfUrl'
+CRITICAL:root:
+Date:2021-08-12 22:59:01.403285
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5308, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1830, in show_article
+    first_frag = art["sections"][0]['fragments'][0]
+IndexError: list index out of range
+CRITICAL:root:
+Date:2021-08-12 23:12:10.562706
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5137, in show_files
+    show_files(sfolder, exts, depth + 1)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5339, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1830, in show_article
+    first_frag = art["sections"][0]['fragments'][0]
+IndexError: list index out of range
+CRITICAL:root:
+Date:2021-08-13 00:17:30.063758
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5137, in show_files
+    show_files(sfolder, exts, depth + 1)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5339, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 3329, in show_article
+    if chr(ch) in ['1','8','9','0','5','3'] or chr(ch) in ['!','*','(',')','=','?',':']: #@@@
+ValueError: chr() arg not in range(0x110000)
+CRITICAL:root:
+Date:2021-08-23 19:53:18.357016
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5308, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 2299, in show_article
+    mprint(sent_text, text_win, _color, end=end)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 3931, in mprint
+    m_print(text, win, color, attr, end, refresh)
+  File "/home/ahmad/recs/nodcast/nodcast/util.py", line 198, in m_print
+    win.addstr((text + end).encode(code), c)
+ValueError: embedded null byte
+CRITICAL:root:
+Date:2021-08-23 23:22:45.075654
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5300, in show_files
+    with open(ref_artid, 'w') as outfile:
+FileNotFoundError: [Errno 2] No such file or directory: '/home/ahmad/Documents/Checkideh/Common Sense RC/Files/2021-08-23/Angela Fan FAIR/LORIA Universit´e de Lorraine, Nancy, France.artid'
+CRITICAL:root:
+Date:2021-08-30 16:54:45.324466
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5308, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1830, in show_article
+    first_frag = art["sections"][0]['fragments'][0]
+IndexError: list index out of range
+CRITICAL:root:
+Date:2021-09-09 18:49:20.341921
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5137, in show_files
+    show_files(sfolder, exts, depth + 1)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5339, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 2624, in show_article
+    continue_recording(sents, art, si, limit, background=False)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1672, in continue_recording
+    record(sent["text"], sfile)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1655, in record
+    tts.save(sound_file)
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/gtts/tts.py", line 312, in save
+    self.write_to_fp(f)
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/gtts/tts.py", line 258, in write_to_fp
+    prepared_requests = self._prepare_requests()
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/gtts/tts.py", line 203, in _prepare_requests
+    assert text_parts, 'No text to send to TTS API'
+AssertionError: No text to send to TTS API
+CRITICAL:root:
+Date:2021-09-20 20:20:07.467699
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5227, in show_files
+    text, pages, sel_sects = extractPdfText(filename)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 188, in extractPdfText
+    return extractText(file, sel_sects, pages=pages, params= params, def_size=menu["text-size"]), _from_to, sel_sects
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 231, in extractText
+    doc = PDFDocument(parser)
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/pdfminer/pdfdocument.py", line 578, in __init__
+    xref.load(parser)
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/pdfminer/pdfdocument.py", line 190, in load
+    (_, obj) = parser.nextobject()
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/pdfminer/psparser.py", line 610, in nextobject
+    self.do_keyword(pos, token)
+  File "/home/ahmad/miniconda3/lib/python3.8/site-packages/pdfminer/pdfparser.py", line 73, in do_keyword
+    (objid, genno) = (int(objid), int(genno))
+TypeError: int() argument must be a string, a bytes-like object or a number, not 'NoneType'
+CRITICAL:root:
+Date:2021-09-22 23:21:38.357749
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6048, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6040, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5021, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5308, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 3329, in show_article
+    if chr(ch) in ['1','8','9','0','5','3'] or chr(ch) in ['!','*','(',')','=','?',':']: #@@@
+ValueError: chr() arg not in range(0x110000)
+CRITICAL:root:
+Date:2021-10-24 21:21:41.685903
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6061, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6053, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5023, in start
+    list_artids(last_visited, "Recent Articles", group="last_visited")
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 852, in list_artids
+    arts = list_articles(articles, fid, group=group)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1006, in list_articles
+    show_article(articles[k])
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 2637, in show_article
+    continue_recording(sents, art, si, limit, background=False)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1685, in continue_recording
+    record(sent["text"], sfile)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 1650, in record
+    if ref_seen:
+UnboundLocalError: local variable 'ref_seen' referenced before assignment
+INFO:root:Running version 1
