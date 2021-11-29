@@ -2591,3 +2591,19 @@ Traceback (most recent call last):
     if ref_seen:
 UnboundLocalError: local variable 'ref_seen' referenced before assignment
 INFO:root:Running version 1
+CRITICAL:root:
+Date:2021-11-25 15:51:06.193075
+Traceback (most recent call last):
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6062, in <module>
+    main()
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 6054, in main
+    wrapper(start)
+  File "/home/ahmad/miniconda3/lib/python3.8/curses/__init__.py", line 105, in wrapper
+    return func(stdscr, *args, **kwds)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5035, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 5322, in show_files
+    show_article(art)
+  File "/home/ahmad/recs/nodcast/nodcast/nodcast.py", line 2469, in show_article
+    left_side_win.refresh(start_row, 0, 2, 0, rows - 2, left - 1)
+_curses.error: prefresh() returned ERR
