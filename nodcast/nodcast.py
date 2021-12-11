@@ -25,10 +25,12 @@ try:
 except:
     pass
 try:
-    from nodcast.util import *
+    from nodcast.util.util import *
+    from nodcast.util.nlp_util import *
     from nodcast.colors import *
 except:
-    from util import *
+    from util.util import *
+    from util.nlp_utils import *
     from colors import *
 import curses as cur
 from curses import wrapper
@@ -40,34 +42,7 @@ import traceback
 import subprocess
 #from gtts import gTTS
 
-appname = "Checkideh"
-appauthor = "App"
-user = 'na'
-profile = "---"
 
-DOWN = cur.KEY_DOWN
-UP = cur.KEY_UP
-LEFT = cur.KEY_LEFT
-RIGHT = cur.KEY_RIGHT
-SLEFT = cur.KEY_SLEFT
-SRIGHT = cur.KEY_SRIGHT
-SUP = 337
-SDOWN = 336
-ARROWS = [UP, DOWN, LEFT, RIGHT, SLEFT, SRIGHT, SUP, SDOWN]
-
-hotkey = ""
-old_hotkey = "non-blank"
-def get_key(win = None):
-    global hotkey, old_hotkey
-    #if hotkey == old_hotkey:
-    #   hotkey = ""
-    #   old_hotkey = "non-blank"
-    if hotkey == "":
-        ch = win.getch()
-    else:
-    #    old_hotkey = hotkey
-        ch, hotkey = ord(hotkey[0]), hotkey[1:]
-    return ch
 
 show_instruct = True
 #Windows 
@@ -83,7 +58,7 @@ app_path = user_data_dir(appname, appauthor)
 logFilename = "log_file.log" #app_path + '/log_file.log'
 Path(app_path).mkdir(parents=True, exist_ok=True)
 # log only important messages
-logging.basicConfig(filename=logFilename, level=logging.CRITICAL)
+logging.basicConfig(filename=logFilename, level=logging.INFO)
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     import sys
@@ -357,35 +332,6 @@ def extractText(file, sel_sects="", pages=[], params={}, def_size = 9):
                     #text += "\n"
     return text
 
-def reset_colors(theme, bg=None):
-    global back_color, TEXT_COLOR, ITEM_COLOR, SEL_ITEM_COLOR, TITLE_COLOR, DIM_COLOR, color_map
-    if bg is None:
-        bg = int(theme["back-color"])
-    back_color = bg
-    for each in range(1, min(256, cur.COLORS)):
-        cur.init_pair(each, each, bg)
-    TEXT_COLOR = int(theme["text-color"])
-    ITEM_COLOR = int(theme["item-color"]) 
-    TITLE_COLOR = int(theme["title-color"])
-    DIM_COLOR =  int(theme["dim-color"]) 
-    reset_hl(theme)
-    cur.init_pair(CUR_ITEM_COLOR, bg, int(theme["cur-item-color"]) % cur.COLORS)
-    cur.init_pair(SEL_ITEM_COLOR, bg, int(theme["sel-item-color"]) % cur.COLORS)
-    cur.init_pair(INPUT_COLOR, TEXT_COLOR, int(theme["input-color"]) % cur.COLORS)
-    cur.init_pair(ERR_COLOR, cW, cR % cur.COLORS)
-    cur.init_pair(MSG_COLOR, cW, clB % cur.COLORS)
-    #cur.init_pair(INFO_COLOR, 235, cG % cur.COLORS)
-    cur.init_pair(INFO_COLOR, 243, 235 % cur.COLORS)
-    cur.init_pair(WARNING_COLOR, cW, cO % cur.COLORS)
-
-def reset_hl(theme):
-    global HL_COLOR
-    if theme["inverse-highlight"] == "True":
-        cur.init_pair(HL_COLOR, int(theme["hl-text-color"]) % cur.COLORS,
-                      int(theme["highlight-color"]) % cur.COLORS)
-    else:
-        cur.init_pair(HL_COLOR, int(theme["highlight-color"]) % cur.COLORS,
-                      int(theme["hl-text-color"]) % cur.COLORS)
 def is_enter(ch):
     return ch == cur.KEY_ENTER or ch == 10 or ch == 13
 
@@ -530,74 +476,6 @@ def download_or_open(url, art, fname, open_file =True, download_if_not_found=Tru
     else:
         return False
     return True
-
-def save_obj(obj, name, directory, data_dir=True, common=False):
-    if obj is None or name.strip() == "":
-        logging.info(f"Empty object to save: {name}")
-        return
-    if not data_dir or name.startswith("chk_def_"):
-        folder = directory
-    elif common:
-        folder = user_data_dir(appname, appauthor) + "/" + directory  
-    else:
-        folder = user_data_dir(appname, appauthor) + "/profiles/" + profile + "/" + directory
-    if folder.endswith("/"):
-        folder = folder[:-1]
-    Path(folder).mkdir(parents=True, exist_ok=True)
-    with open(folder + '/' + name + '.pkl', 'wb') as f:
-        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
-
-
-def load_obj(name, directory, default=None, data_dir=True, common =False):
-    if not data_dir:
-        folder = directory
-    elif common:
-        folder = user_data_dir(appname, appauthor) + "/" + directory  
-    else:
-        folder = user_data_dir(appname, appauthor) + "/profiles/" + profile + "/" + directory
-
-    if folder.endswith("/"):
-        folder = folder[:-1]
-    fname = folder + '/' + name + '.pkl'
-    obj_file = Path(fname)
-    if not obj_file.is_file():
-        return default
-    with open(fname, 'rb') as f:
-        return pickle.load(f)
-
-
-def is_obj(name, directory, common = False):
-    if common:
-        folder = user_data_dir(appname, appauthor) + "/" + directory  
-    else:
-        folder = user_data_dir(appname, appauthor) + "/profiles/" + profile + "/" + directory
-    if folder.endswith("/"):
-        folder = folder[:-1]
-    if not name.endswith('.pkl'):
-        name = name + '.pkl'
-    fname = folder + '/' + name
-    obj_file = Path(fname)
-    if not obj_file.is_file():
-        return False
-    else:
-        return True
-
-
-def del_obj(name, directory, common = False):
-    if common:
-        folder = user_data_dir(appname, appauthor) + "/" + directory  
-    else:
-        folder = user_data_dir(appname, appauthor) + "/profiles/" + profile + "/" + directory
-    if folder.endswith("/"):
-        folder = folder[:-1]
-    if not name.endswith('.pkl'):
-        name = name + '.pkl'
-    fname = folder + '/' + name
-    obj_file = Path(fname)
-    if not obj_file.is_file():
-        return None
-    else:
-        obj_file.unlink()
 
 
 def save_doc(doc, docname, folder="", root =False):
@@ -3939,11 +3817,6 @@ def create_figures_file(figures, fname):
     with open(fname, "w", encoding="utf-8") as f:
         f.write(html)
 
-def mprint(text, win, color=None, attr = None, end="\n", refresh = False):
-    if color is None:
-        color = TEXT_COLOR
-    m_print(text, win, color, attr, end, refresh)
-
 # rrr
 def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, horiz=False, active_sel=True, pad=True, title= ""):
     global clG
@@ -4045,140 +3918,6 @@ def get_sel(menu, mi):
     mi = min(mi, len(menu) - 1)
     return list(menu)[mi], mi
 
-
-win_info = None
-
-
-def confirm_all(msg):
-    return confirm(msg, acc=['y', 'n', 'a'])
-
-
-def confirm(msg, acc=['y', 'n'], color=WARNING_COLOR, list_opts=True, bottom = True):
-    mbeep()
-    if list_opts:
-        msg = msg + " (" + "/".join(acc) + ")"
-    if not bottom:
-        ch = show_info(msg, color, bottom, title="Confirm", acc=acc)
-    else:
-        show_info(msg, color)
-        ch = 0
-        while chr(ch).lower() not in acc:
-            ch = std.getch()
-            if not chr(ch).lower() in acc:
-                mbeep()
-            else:
-                break
-        ch = chr(ch).lower()
-    show_info(old_msg)
-    return ch
-
-old_msg = ''
-def show_info(msg, color=INFO_COLOR, bottom=True, title = "Info", acc =[], refresh=True):
-    global win_info, old_msg
-    rows, cols = std.getmaxyx()
-    if bottom:
-        old_msg = msg
-        win_info = cur.newwin(1, cols, rows - 1, 0)
-        win_info.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
-        win_info.erase()
-        msg = msg.replace("\n","")
-        if len(msg) > cols - 15:
-            msg = msg[:(cols - 16)] + "..."
-        print_there(0, 1, " {} ".format(msg), win_info, color)
-        win_info.clrtoeol()
-        if refresh:
-            win_info.refresh()
-        else:
-            win_info.noutrefresh()
-    else:
-        mcols = 2*cols//3 - 2
-        nlines = 0
-        for line in msg.splitlines():
-            wrap = textwrap.wrap(line,mcols, break_long_words=False,replace_whitespace=False)
-            nlines += len(wrap)
-        nlines += 1
-        mrows = nlines + 2
-        footer =  "q: Close "
-        top = (rows - 5 - nlines)//2
-        if nlines > rows - 5:
-            top = 2
-            footer += "; Up/Down: Scroll the message"
-            mrows = rows - 5
-        footer = textwrap.shorten(footer, mcols)
-        mwin = cur.newwin(mrows, mcols, top, cols //6)
-        mwin.bkgd(' ', cur.color_pair(HL_COLOR))  # | cur.A_REVERSE)
-        mwin.border()
-        print_there(0, 1, title, mwin)
-        print_there(mrows-1, 1, footer, mwin)
-        mwin.refresh()
-        win_info = cur.newpad(rows * 2, (2 * cols // 3) - 2)
-        win_info.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
-        win_info.erase()
-        left = cols // 6 + 1
-        start_row = 0
-        ch = 0
-        while ch != ord('q'):
-            win_info.erase()
-            # msg = textwrap.indent(textwrap.fill(msg),'  ')
-            mprint(msg, win_info, color)
-            start_row = max(start_row, 0)
-            start_row = min(start_row, 2 * rows)
-            win_info.refresh(start_row, 0, top + 1, left, top + mrows - 2, left + mcols - 3)
-            ch = get_key(std)
-            if ch == UP:
-                if start_row > 0:
-                    start_row -= 10
-                else:
-                    mbeep()
-            elif ch == DOWN:
-                if start_row < nlines - rows + 5:
-                    start_row += 10
-                else:
-                    mbeep()
-            elif not chr(ch).lower() in acc + [ord('q')]:
-                mbeep()
-            else:
-                return chr(ch).lower()
-
-
-def show_msg(msg, color=MSG_COLOR, delay=2000):
-    temp = old_msg
-    mbeep()
-    show_info(msg, color)
-    if delay > 0:
-        std.timeout(delay)
-        std.getch()
-        std.timeout(-1)
-        show_info(temp)
-    else:
-        std.getch()
-
-
-def show_warn(msg, color=WARNING_COLOR, bottom=True, stop=True, delay=3000):
-    if bottom:
-        msg += "; press any key..."
-        temp = old_msg
-    show_info(msg, color, bottom)
-    ch = ''
-    if bottom and stop:
-        if delay > 0:
-            std.timeout(delay)
-            ch = std.getch()
-            std.timeout(-1)
-            show_info(temp)
-        else:
-            ch = std.getch()
-    return ch
-
-def show_err(msg, color=ERR_COLOR, bottom=True):
-    if bottom:
-        msg += "; press any key..."
-        temp = old_msg
-    show_info(msg, color, bottom)
-    if bottom:
-        std.getch()
-        show_info(temp)
-
 def load_preset(new_preset, options, folder=""):
     global TEXT_COLOR
     menu = load_obj(new_preset, folder, common =True)
@@ -4247,197 +3986,6 @@ def load_preset(new_preset, options, folder=""):
     return menu, options
 
 
-def select_box(in_opts, mwin, list_index = 0, ni=0, in_row=False, title="", border = False, in_colors=[], color = INPUT_COLOR, ret_index = False):
-    ch = 0
-    list_names = in_opts.keys()
-    mrows, mcols = mwin.getmaxyx() 
-    if in_row:
-        footer =  "Enter/number: Insert | q/ESC: Close "
-    else:
-        footer = "Right: Select, Left:Cancel"
-    okay = RIGHT
-    cancel = LEFT
-    footer = textwrap.shorten(footer, mcols)
-    print_there(mrows-1, 1, footer, mwin)
-    mwin.refresh()
-    if not border:
-        win = mwin.derwin(mrows - 2, mcols, 1, 0)
-    else:
-        win = mwin.derwin(mrows - 2, mcols - 2, 1, 1)
-    win.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
-    if not in_opts:
-        show_err("No item to list")
-        return ni, list_index
-    horiz = False
-    row_cap = 3 if in_row else 1
-    col_cap = 5 
-    opt_colors = {}
-    if not horiz:
-       _cap = col_cap
-    while ch != 27 and ch != ord('q'):
-        opts = []
-        list_index = min(max(0, list_index), len(in_opts) -1)
-        for i, k in enumerate(list(in_opts.values())[list_index]):
-            new_k = str(i) + ") " + k
-            opts.append(new_k)
-            if in_colors:
-                opt_colors[new_k] = in_colors[k] if k in in_colors else TEXT_COLOR 
-
-        _size = max([len(s) for s in opts]) + 2
-        ni = max(ni, 0)
-        if ni > len(opts) - 1:
-            ni = 0
-        win.erase()
-        cc = len(in_opts)*8 
-        if len(in_opts) > 1:
-            for i, st in enumerate(list_names):
-                st = " " + st.ljust(8)
-                if i == list_index:
-                    print_there(0, cc, st, mwin, color)
-                else:
-                    print_there(0, cc, st, mwin, INFO_COLOR)
-                cc -= len(st) + 2
-        mwin.refresh()
-        if not in_row:
-            show_submenu(win, opts, ni, in_colors=opt_colors, color=color)
-            win.refresh()
-        else:
-            for i, k in enumerate(opts):
-                if horiz:
-                    row = (i // row_cap) + 2
-                    col = (i % row_cap) * _size + 1
-                else:
-                    row = (i % col_cap) + 1 
-                    col = (i // col_cap) * _size + 1
-                if i == ni:
-                    print_there(row, col, k, win, INFO_COLOR)
-                else:
-                    print_there(row, col, k, win, color)
-            win.refresh()
-        ch = get_key(std)
-        if is_enter(ch) or (ch == cur.KEY_IC):
-            break
-        if chr(ch).isdigit():
-            ni = int(chr(ch))
-            break
-        elif ch == DOWN:
-            ni += _cap if horiz else 1
-        elif ch == ord('q'):
-            ni = -1
-            break
-        elif ch == UP:
-            if ni <= 0 or (horiz and ni < _cap):
-                ni = -1
-                break
-            ni -= _cap if horiz else 1
-        elif ch == RIGHT:
-            if not in_row and len(in_opts) == 1:
-                if RIGHT == cancel:
-                    ni = -1
-                break
-            elif ni + _cap >= len(opts) and list_names:
-                if list_index > 0:
-                    list_index -= 1
-                else:
-                    list_index = len(opts) - 1
-            else:
-                ni += 1 if horiz else _cap
-        elif ch == ord('\t'):
-            if list_names:
-                if list_index < len(in_opts) - 1:
-                    list_index += 1
-                else:
-                    list_index = 0
-            else:
-                ni = -1
-                break
-        elif ch == LEFT:
-            if not in_row and len(in_opts) == 1:
-                if LEFT == cancel:
-                    ni = -1
-                break
-            elif ni - _cap >= 0:
-                ni -= 1 if horiz else _cap
-            else:
-                if not list_names:
-                    ni = -1
-                    break
-                elif list_index < len(in_opts) - 1:
-                    list_index += 1
-                else:
-                    list_index = 0
-        elif ch != 27 and ch != ord('q'):
-            mbeep()
-            show_info("Use left arrow key to select the item, the right key or q to cancel!")
-
-    if ret_index:
-        return ni, list_index
-    opts = list(in_opts.values())[list_index]
-    if ni >= 0:
-        _nod = opts[ni]
-        if _nod == "custom":
-            custom_nod, _ = minput(win_info, 0, 1, "Enter a note or a nod (<Esc> to cancel):")
-            _nod = custom_nod if custom_nod != "<ESC>" else ""
-            if _nod != "":
-                opts.append(_nod)
-                save_obj(opts, "nod_opts", "")
-        win.erase()
-        return _nod, list_index
-    else:
-        win.erase()
-        return 'NULL', -1
-
-def show_submenu(sub_menu_win, opts, si, in_colors={}, color=None, active_sel=True, search=False):
-    if color is None:
-        color = ITEM_COLOR
-    win_rows, win_cols = sub_menu_win.getmaxyx()
-    blank = 3 if search else 2
-    if len(opts) > win_rows - 1:
-        win_rows = min(win_rows - blank, 10)
-    start = si - win_rows // 2
-    start = max(start, 0)
-    if len(opts) > win_rows:
-        start = min(start, len(opts) - win_rows)
-    if search and start > 0:
-        mprint("...", sub_menu_win, color)
-    footer = ""
-    is_color = in_colors or opts == colors
-    c_attr = None
-    for vi, v in enumerate(opts[start:start + win_rows]):
-        v = v.strip().replace("\n","")
-        if is_color:
-            if opts == colors:
-                cc = v
-                c_attr = cur.A_REVERSE
-                item_w = 8
-            else:
-                cc = in_colors[v] if in_colors and v in in_colors else TEXT_COLOR
-                c_attr = cur.A_REVERSE
-                item_w = win_cols - 6
-        if start + vi == si:
-            sel_v = v
-            if len(v) > win_cols:
-                footer = v
-                v = v[:win_cols - 5] + "..."
-            if is_color:
-                mprint(" {:<{}}".format(str(v),item_w + 4), sub_menu_win, int(cc), attr=c_attr)
-            elif active_sel:
-                mprint(" {:<8}".format(str(v)), sub_menu_win, CUR_ITEM_COLOR)
-            else:
-                mprint(" {:<8}".format(str(v)), sub_menu_win, SEL_ITEM_COLOR)
-        else:
-            if len(v) > win_cols:
-                v = v[:win_cols - 5] + "..."
-            if is_color:
-                mprint(" {:<{}}".format(v, item_w), sub_menu_win, int(cc), attr=c_attr)
-            else:
-                #logging.info(f"submenu: {v}")
-                mprint(" {:<8}".format(str(v)), sub_menu_win, color)
-    if start + win_rows < len(opts):
-        mprint("...", sub_menu_win, color)
-    # if footer != "":
-    #   mprint(footer, sub_menu_win, cW)
-    sub_menu_win.refresh()
 # mmm
 def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={}, info="h) help | q) quit", ch = 0):
     global menu_win, common_subwin, hotkey
@@ -4686,127 +4234,15 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
         key_set = False # End_While
     return chr(ch), menu, mi
 
-def open_submenu(sub_menu_win, options, sel, si, title):
-    ch = 0
-    st = ""
-    back_st = ""
-    prev_si = si
-    cancel = False
-    temp_msg = old_msg
-    is_combo = "type" in options[sel] and options[sel]["type"] == "combo-box"
-    sel_range = options[sel]["range"]
-    info = "Enter/Right: select | qq/ESC/Left: cancel "    
-    if sel == "preset" or is_combo:
-        info += " | Del: delete an item"
-
-    show_info(info)
-    while not is_enter(ch) and not ch == RIGHT:
-        if ch == UP:
-            if si == 0:
-                si = prev_si
-                cancel = True
-                break
-            else:
-                si -= 1
-        elif ch == DOWN:
-            si += 1
-        elif ch == cur.KEY_NPAGE:
-            si += 10
-        elif ch == cur.KEY_PPAGE:
-            si -= 10
-        elif ch == cur.KEY_HOME:
-            si = 0
-        elif ch == cur.KEY_END:
-            si = len(sel_range) - 1
-        elif ch == LEFT or ch == 27 or (back_st.lower() == "q" and chr(ch) == "q"):
-            si = prev_si
-            cancel = True
-            break
-        elif ch == cur.KEY_DC:
-            can_delete = True
-            if sel == "preset" and len(sel_range) == 1 or sel_range[si] == "default":
-                show_warn("You can't delete the default " + title)
-                can_delete = False
-            elif is_combo:
-                if "---"  in sel_range:
-                    sep_index = sel_range.index("---")
-                    if si > sep_index:
-                        show_warn("You can't remove predefined profiles which appear below separate line (---)")
-                    can_delete = False
-            if can_delete:
-                item = sel_range[si]
-                _confirm = confirm("Are you sure you want to delete '" + item)
-                if _confirm == "y" or _confirm == "a":
-                    del_obj(item, title, common = True)
-                if item in sel_range:
-                    sel_range.remove(item)
-                    if si > len(sel_range):
-                        si = len(sel_range) 
-                    if is_combo and "list-file" in sel_range:
-                        save_obj(sel_range["range"], sel_range["list-file"], "", common = True)
-        elif ch != 0:
-            if ch == 127 or ch == cur.KEY_BACKSPACE:
-                if st == "":
-                    si = prev_si
-                    cancel = True
-                    break
-                else:
-                    st = st[:-1]
-                    back_st = back_st[:-1]
-                    si, st = find(sel_range, st, "", si)
-            if chr(ch).lower() in string.printable:
-                back_st += chr(ch)
-                si, new_st = find(sel_range, st, chr(ch), si)
-                if not is_combo:
-                    if st == new_st:
-                        mbeep()
-                    else:
-                        st = new_st
-                else:
-                    st += chr(ch)
-        si = min(si, len(sel_range) - 1)
-        si = max(si, 0)
-        sub_menu_win.erase()
-        searchable = is_combo or len(sel_range) > 8
-        show_submenu(sub_menu_win, sel_range, si, search=searchable)
-        if is_combo: 
-            show_cursor()
-            mprint("Search or Add:" + st, sub_menu_win, end ="")
-        elif len(sel_range) > 8:
-            show_cursor()
-            mprint("Search:" + st, sub_menu_win, end ="")
-        sub_menu_win.refresh()
-        ch = get_key(std)
-
-    si = min(si, len(sel_range) - 1)
-    si = max(si, 0)
-    hide_cursor()
-    sub_menu_win.erase()
-    show_info(temp_msg)
-    return si, cancel, st
-
-def find(list, st, ch, default):
-    _find = st + ch
-    _find = _find.lower().strip()
-    for i, item in enumerate(list):
-        if item.lower().startswith(_find): #or _find in item.lower() or item.lower() in _find: 
-            return i, _find
-    for i, item in enumerate(list):
-        if _find in item.lower(): 
-            return i, _find
-    return default, st
-
-
-colors = []
-
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--hotkey", type=str, default='')
 args = parser.parse_args()
 MAX_MENU_PAGES = 20
 
+
 def start(stdscr):
-    global colors, template_menu, template_options, theme_options, theme_menu, std, conf, query, filters, top_win, hotkey, menu_win, list_win, common_subwin, text_win, left_side_win,right_side_win, profile, cur_articles
+    global colors, template_menu, template_options, theme_options, theme_menu, std, conf, query, filters, top_win, hotkey, menu_win, list_win, common_subwin, text_win, left_side_win,right_side_win, profile, cur_articles, _ROWS, _COLS
 
     std = stdscr
     stdscr.refresh()
@@ -4815,6 +4251,8 @@ def start(stdscr):
     # logging.info(f"curses colors: {cur.COLORS}")
 
     rows, cols = std.getmaxyx()
+    _ROWS, _COLS = std.getmaxyx()
+    logging.info(f"========================= Starting program at {_ROWS}, {_COLS}")
     height = rows - 1
     width = cols
     # mouse = cur.mousemask(cur.ALL_MOUSE_EVENTS)

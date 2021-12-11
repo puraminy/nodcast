@@ -1,3 +1,4 @@
+
 import sys
 import os
 import curses as cur
@@ -9,8 +10,13 @@ import subprocess
 import datetime
 try:
     from nodcast.colors import *
+    from nodcast.util.obj_util import *
+    from nodcast.util.common import *
 except:
     from colors import *
+    from obj_util import *
+    from common import *
+
 pyperclip_imported =False
 try:
     import pyperclip 
@@ -19,7 +25,6 @@ except:
     pass
 #locale.setlocale(locale.LC_ALL, '')
 code = "utf-8" #locale.getpreferredencoding()
-
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -30,6 +35,8 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+
+colors = []
 
 if os.name == 'nt':
     import ctypes
@@ -158,6 +165,59 @@ if os.name == 'nt':
         _fields_ = [("size", ctypes.c_int),
                     ("visible", ctypes.c_byte)]
 
+DOWN = cur.KEY_DOWN
+UP = cur.KEY_UP
+LEFT = cur.KEY_LEFT
+RIGHT = cur.KEY_RIGHT
+SLEFT = cur.KEY_SLEFT
+SRIGHT = cur.KEY_SRIGHT
+SUP = 337
+SDOWN = 336
+ARROWS = [UP, DOWN, LEFT, RIGHT, SLEFT, SRIGHT, SUP, SDOWN]
+
+hotkey = ""
+old_hotkey = "non-blank"
+def get_key(win = None):
+    global hotkey, old_hotkey
+    #if hotkey == old_hotkey:
+    #   hotkey = ""
+    #   old_hotkey = "non-blank"
+    if hotkey == "":
+        ch = win.getch()
+    else:
+    #    old_hotkey = hotkey
+        ch, hotkey = ord(hotkey[0]), hotkey[1:]
+    return ch
+
+def reset_colors(theme, bg=None):
+    global back_color, TEXT_COLOR, ITEM_COLOR, SEL_ITEM_COLOR, TITLE_COLOR, DIM_COLOR, color_map
+    if bg is None:
+        bg = int(theme["back-color"])
+    back_color = bg
+    for each in range(1, min(256, cur.COLORS)):
+        cur.init_pair(each, each, bg)
+    TEXT_COLOR = int(theme["text-color"])
+    ITEM_COLOR = int(theme["item-color"]) 
+    TITLE_COLOR = int(theme["title-color"])
+    DIM_COLOR =  int(theme["dim-color"]) 
+    reset_hl(theme)
+    cur.init_pair(CUR_ITEM_COLOR, bg, int(theme["cur-item-color"]) % cur.COLORS)
+    cur.init_pair(SEL_ITEM_COLOR, bg, int(theme["sel-item-color"]) % cur.COLORS)
+    cur.init_pair(INPUT_COLOR, TEXT_COLOR, int(theme["input-color"]) % cur.COLORS)
+    cur.init_pair(ERR_COLOR, cW, cR % cur.COLORS)
+    cur.init_pair(MSG_COLOR, cW, clB % cur.COLORS)
+    #cur.init_pair(INFO_COLOR, 235, cG % cur.COLORS)
+    cur.init_pair(INFO_COLOR, 243, 235 % cur.COLORS)
+    cur.init_pair(WARNING_COLOR, cW, cO % cur.COLORS)
+
+def reset_hl(theme):
+    global HL_COLOR
+    if theme["inverse-highlight"] == "True":
+        cur.init_pair(HL_COLOR, int(theme["hl-text-color"]) % cur.COLORS,
+                      int(theme["highlight-color"]) % cur.COLORS)
+    else:
+        cur.init_pair(HL_COLOR, int(theme["highlight-color"]) % cur.COLORS,
+                      int(theme["hl-text-color"]) % cur.COLORS)
 def hide_cursor(useCur = True):
     if useCur:
         cur.curs_set(0)
@@ -183,6 +243,11 @@ def show_cursor(useCur = True):
     elif os.name == 'posix':
         sys.stdout.write("\033[?25h")
         sys.stdout.flush()
+
+def mprint(text, win, color=None, attr = None, end="\n", refresh = False):
+    if color is None:
+        color = TEXT_COLOR
+    m_print(text, win, color, attr, end, refresh)
 
 def m_print(text, win, color, attr = None, end="\n", refresh = False):
     if win is None:
@@ -249,10 +314,14 @@ def valid_date(datestring):
     except ValueError:
         return False
 
+def m_input(prompt=":", default=""):
+    cmd, _ = minput(win_info, 0, 1, prompt, default=default, all_chars=True)
+    return cmd
+
 PROMPT_LINE = 0
 SINGLE_LINE = 1
 MULTI_LINE = 2
-def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMPT_LINE, footer="", color=HL_COLOR, return_on_char = False):
+def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMPT_LINE, footer="", color=HL_COLOR, return_on_char = False, all_chars=False):
     multi_line = mode == MULTI_LINE
     #subprocess.call('setxkbmap -layout ir', shell=True)
     if mode > 0:
@@ -365,7 +434,7 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
         elif ch == cur.KEY_SDC:
             inp = ""
             pos = 0
-        elif ch == '=' or ch == "|":
+        elif not all_chars and (ch == '=' or ch == "|"):
             mbeep()
             if pyperclip_imported:
                 pyperclip.copy(inp)
@@ -459,78 +528,329 @@ def mbeep(repeat=1):
         cur.beep()
 
 # -*- coding: utf-8 -*-
-import re
-alphabets= "([A-Za-z])"
-prefixes = "(Mr|St|Mrs|Ms|Dr)[.]"
-suffixes = "(Inc|Ltd|Jr|Sr|Co)"
-starters = "(Mr|Mrs|Ms|Dr|He\s|She\s|It\s|They\s|Their\s|Our\s|We\s|But\s|However\s|That\s|This\s|Wherever)"
-acronyms = "([A-Z][.][A-Z][.](?:[A-Z][.])?)"
-websites = "[.](com|net|org|io|gov)"
-digits = "([0-9]+)"
 
-def rplit_into_sentences(text):
-    sents = nltk.sent_tokenize(text)
-    return sents
+win_info = None
+def confirm_all(msg):
+    return confirm(msg, acc=['y', 'n', 'a'])
 
-def qplit_into_sentences(text):
-    try:
-        import nltk
-        try:
-            sents = nltk.sent_tokenize(text)
-            return sents
-        except LookupError:
-            nltk.download('punkt')
-            sents = nltk.sent_tokenize(text)
-            return sents
-    except ImportError as e:
-        return rplit_into_sentences(text)
 
-def split_into_sentences(text, debug = False, limit = 15, split_on = ['.','?','!',':']):
-    text = " " + text + "  "
+def confirm(msg, acc=['y', 'n'], color=WARNING_COLOR, list_opts=True, bottom = True):
+    mbeep()
+    if list_opts:
+        msg = msg + " (" + "/".join(acc) + ")"
+    if not bottom:
+        ch = show_info(msg, color, bottom, title="Confirm", acc=acc)
+    else:
+        win = show_info(msg, color)
+        ch = 0
+        while chr(ch).lower() not in acc:
+            ch = win.getch()
+            if not chr(ch).lower() in acc:
+                mbeep()
+            else:
+                break
+        ch = chr(ch).lower()
+    show_info(old_msg)
+    return ch
 
-    rep = {"Ph.D.": "Ph<prd>D<prd>",
-            "[FRAG]":"<stop>",
-            "et al.":"et al<prd>",
-            " et.":" et<prd>",
-            "e.g.":"e<prd>g<prd>",
-            "e.g":"e<prd>g",
-            "vs.":"vs<prd>",
-            "www.":"www<prd>",
-            "etc.":"etc<prd>",
-            "i.e.":"i<prd>e<prd>",
-            "...":"<prd><prd><prd>",
-            "•":"<stop>•"
-           }
+old_msg = ''
+_ROWS = 21
+_COLS = 92
+def show_info(msg, color=INFO_COLOR, bottom=True, title = "Info", acc =[], refresh=True):
+    global win_info, old_msg 
+    rows, cols = _ROWS, _COLS
+    if bottom:
+        old_msg = msg
+        win_info = cur.newwin(1, cols, rows - 1, 0)
+        win_info.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
+        win_info.erase()
+        msg = msg.replace("\n","")
+        if len(msg) > cols - 15:
+            msg = msg[:(cols - 16)] + "..."
+        print_there(0, 1, " {} ".format(msg), win_info, color)
+        win_info.clrtoeol()
+        if refresh:
+            win_info.refresh()
+        else:
+            win_info.noutrefresh()
+    else:
+        mcols = 2*cols//3 - 2
+        nlines = 0
+        for line in msg.splitlines():
+            wrap = textwrap.wrap(line,mcols, break_long_words=False,replace_whitespace=False)
+            nlines += len(wrap)
+        nlines += 1
+        mrows = nlines + 2
+    return win_info
 
-    # use these three lines to do the replacement
-    rep = dict((re.escape(k), v) for k, v in rep.items())
-    #Python 3 renamed dict.iteritems to dict.items so use rep.items() for latest versions
-    pattern = re.compile("|".join(rep.keys()))
-    text = pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
-    #print(text)
+def show_msg(msg, color=MSG_COLOR, delay=2000):
+    temp = old_msg
+    mbeep()
+    win = show_info(msg, color)
+    if delay > 0:
+        win.timeout(delay)
+        win.getch()
+        win.timeout(-1)
+        show_info(temp)
+    else:
+        win.getch()
 
-    #text = text.replace("\n","<stop>")
-    text = re.sub(prefixes,"\\1<prd>",text)
-    text = re.sub(websites,"<prd>\\1",text)
-    text = re.sub("\s" + alphabets + "[.] "," \\1<prd> ",text)
-    text = re.sub(acronyms+" "+starters,"\\1<stop> \\2",text)
-    text = re.sub(alphabets + "[.]" + alphabets + "[.]" + alphabets + "[.]","\\1<prd>\\2<prd>\\3<prd>",text)
-    text = re.sub(alphabets + "[.]" + alphabets + "[.]","\\1<prd>\\2<prd>",text)
-    text = re.sub(" "+suffixes+"[.] "+starters," \\1<stop> \\2",text)
-    text = re.sub(" (\d+)[.](\d+) "," \\1<prd>\\2 ",text)
-    text = re.sub(" ([abcdefg]\))"," <stop>\\1",text)
-    text = re.sub(";\s+(\(\d{1}\))",";<stop>\\1 ",text)
-    text = re.sub(digits + "[.]" + digits,"\\1<prd>\\2",text)
-    text = re.sub(" "+suffixes+"[.]"," \\1<prd>",text)
-    text = re.sub(" " + alphabets + "[.]"," \\1<prd>",text)
-    if "”" in text: text = text.replace(".”","”.")
-    if "\"" in text: text = text.replace(".\"","\".")
-    if "!" in text: text = text.replace("!\"","\"!")
-    if "?" in text: text = text.replace("?\"","\"?")
-    for ch in split_on:
-        text = text.replace(ch, ch + "<stop>")
-    text = text.replace("<prd>",".")
-    sentences = text.split("<stop>")
-    sentences = list(filter(None, sentences))
-    sentences = [s.strip() for s in sentences if s.strip()  and len(s) >= limit]
-    return sentences
+
+def show_warn(msg, color=WARNING_COLOR, bottom=True, stop=True, delay=3000):
+    if bottom:
+        msg += "; press any key..."
+        temp = old_msg
+    win = show_info(msg, color, bottom)
+    ch = ''
+    if bottom and stop:
+        if delay > 0:
+            win.timeout(delay)
+            ch = win.getch()
+            win.timeout(-1)
+            show_info(temp)
+        else:
+            ch = win.getch()
+    return ch
+
+def show_err(msg, color=ERR_COLOR, bottom=True):
+    if bottom:
+        msg += "; press any key..."
+        temp = old_msg
+    win = show_info(msg, color, bottom)
+    if bottom:
+        win.getch()
+        show_info(temp)
+
+def select_box(in_opts, mwin, list_index = 0, ni=0, in_row=False, title="", border = False, in_colors=[], color = INPUT_COLOR, ret_index = False):
+    ch = 0
+    list_names = in_opts.keys()
+    mrows, mcols = mwin.getmaxyx() 
+    if in_row:
+        footer =  "Enter/number: Insert | q/ESC: Close "
+    else:
+        footer = "Right: Select, Left:Cancel"
+    okay = RIGHT
+    cancel = LEFT
+    footer = textwrap.shorten(footer, mcols)
+    print_there(mrows-1, 1, footer, mwin)
+    mwin.refresh()
+    if not border:
+        win = mwin.derwin(mrows - 2, mcols, 1, 0)
+    else:
+        win = mwin.derwin(mrows - 2, mcols - 2, 1, 1)
+    win.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
+    if not in_opts:
+        show_err("No item to list")
+        return ni, list_index
+    horiz = False
+    row_cap = 3 if in_row else 1
+    col_cap = 5 
+    opt_colors = {}
+    if not horiz:
+       _cap = col_cap
+    while ch != 27 and ch != ord('q'):
+        opts = []
+        list_index = min(max(0, list_index), len(in_opts) -1)
+        for i, k in enumerate(list(in_opts.values())[list_index]):
+            new_k = str(i) + ") " + k
+            opts.append(new_k)
+            if in_colors:
+                opt_colors[new_k] = in_colors[k] if k in in_colors else TEXT_COLOR 
+
+        _size = max([len(s) for s in opts]) + 2
+        ni = max(ni, 0)
+        if ni > len(opts) - 1:
+            ni = 0
+        win.erase()
+        cc = len(in_opts)*8 
+        if len(in_opts) > 1:
+            for i, st in enumerate(list_names):
+                st = " " + st.ljust(8)
+                if i == list_index:
+                    print_there(0, cc, st, mwin, color)
+                else:
+                    print_there(0, cc, st, mwin, INFO_COLOR)
+                cc -= len(st) + 2
+
+
+
+def show_submenu(sub_menu_win, opts, si, in_colors={}, color=None, active_sel=True, search=False, colors=None):
+    if color is None:
+        color = ITEM_COLOR
+    win_rows, win_cols = sub_menu_win.getmaxyx()
+    blank = 3 if search else 2
+    if len(opts) > win_rows - 1:
+        win_rows = min(win_rows - blank, 10)
+    start = si - win_rows // 2
+    start = max(start, 0)
+    if len(opts) > win_rows:
+        start = min(start, len(opts) - win_rows)
+    if search and start > 0:
+        mprint("...", sub_menu_win, color)
+    footer = ""
+    is_color = in_colors or opts == colors
+    c_attr = None
+    for vi, v in enumerate(opts[start:start + win_rows]):
+        v = str(v)
+        v = v.strip().replace("\n","")
+        if is_color:
+            if opts == colors:
+                cc = v
+                c_attr = cur.A_REVERSE
+                item_w = 8
+            else:
+                cc = in_colors[v] if in_colors and v in in_colors else TEXT_COLOR
+                c_attr = cur.A_REVERSE
+                item_w = win_cols - 6
+        if start + vi == si:
+            sel_v = v
+            if len(v) > win_cols:
+                footer = v
+                v = v[:win_cols - 5] + "..."
+            _v = str(v)
+            if colors and v in colors: 
+                _v += " *"
+            if is_color:
+                mprint(" {:<{}}".format(str(v),item_w + 4), sub_menu_win, int(cc), attr=c_attr)
+            elif active_sel:
+                mprint(" {:<8}".format(_v), sub_menu_win, CUR_ITEM_COLOR)
+            else:
+                mprint(" {:<8}".format(_v), sub_menu_win, SEL_ITEM_COLOR)
+        else:
+            if len(v) > win_cols:
+                v = v[:win_cols - 5] + "..."
+            if is_color:
+                mprint(" {:<{}}".format(v, item_w), sub_menu_win, int(cc), attr=c_attr)
+            else:
+                _color = color
+                if colors and v in colors: 
+                    _color = colors[v]
+                mprint(" {:<8}".format(str(v)), sub_menu_win, _color)
+    if start + win_rows < len(opts):
+        mprint("...", sub_menu_win, color)
+    # if footer != "":
+    #   mprint(footer, sub_menu_win, cW)
+
+def is_enter(ch):
+    return ch == cur.KEY_ENTER or ch == 10 or ch == 13
+
+
+def open_submenu(sub_menu_win, options, sel, si, title, std):
+    ch = 0
+    st = ""
+    back_st = ""
+    prev_si = si
+    cancel = False
+    temp_msg = old_msg
+    is_combo = "type" in options[sel] and options[sel]["type"] == "combo-box"
+    sel_range = options[sel]["range"]
+    info = "Enter/Right: select | qq/ESC/Left: cancel "    
+    if sel == "preset" or is_combo:
+        info += " | Del: delete an item"
+
+    show_info(info)
+    while not is_enter(ch) and not ch == RIGHT:
+        if ch == UP:
+            if si == 0:
+                si = prev_si
+                cancel = True
+                break
+            else:
+                si -= 1
+        elif ch == DOWN:
+            si += 1
+        elif ch == cur.KEY_NPAGE:
+            si += 10
+        elif ch == cur.KEY_PPAGE:
+            si -= 10
+        elif ch == cur.KEY_HOME:
+            si = 0
+        elif ch == cur.KEY_END:
+            si = len(sel_range) - 1
+        elif ch == LEFT or ch == 27 or (back_st.lower() == "q" and chr(ch) == "q"):
+            si = prev_si
+            cancel = True
+            break
+        elif ch == cur.KEY_DC:
+            can_delete = False
+            if sel == "preset" and len(sel_range) == 1 or sel_range[si] == "default":
+                show_warn("You can't delete the default " + title)
+                can_delete = False
+            elif is_combo:
+                if "---"  in sel_range:
+                    sep_index = sel_range.index("---")
+                    if si > sep_index:
+                        show_warn("You can't remove predefined profiles which appear below separate line (---)")
+                    can_delete = False
+            if can_delete:
+                item = sel_range[si]
+                _confirm = confirm("Are you sure you want to delete '" + item)
+                if _confirm == "y" or _confirm == "a":
+                    del_obj(item, title, common = True)
+                if item in sel_range:
+                    sel_range.remove(item)
+                    if si > len(sel_range):
+                        si = len(sel_range) 
+                    if is_combo and "list-file" in sel_range:
+                        save_obj(sel_range["range"], sel_range["list-file"], "", common = True)
+        elif ch != 0:
+            if ch == 127 or ch == cur.KEY_BACKSPACE:
+                if st == "":
+                    si = prev_si
+                    cancel = True
+                    break
+                else:
+                    st = st[:-1]
+                    back_st = back_st[:-1]
+                    si, st = find(sel_range, st, "", si)
+            if chr(ch).lower() in string.printable:
+                back_st += chr(ch)
+                si, new_st = find(sel_range, st, chr(ch), si)
+                if not is_combo:
+                    if st == new_st:
+                        mbeep()
+                    else:
+                        st = new_st
+                else:
+                    st += chr(ch)
+        si = min(si, len(sel_range) - 1)
+        si = max(si, 0)
+        sub_menu_win.erase()
+        searchable = is_combo or len(sel_range) > 8
+        colors = None
+        if "colors" in options[sel]:
+            colors = options[sel]["colors"]
+        elif "sels" in options[sel]:
+            sels = options[sel]["sels"]
+            colors = {}
+            for s in sels:
+                colors[s] = SEL_ITEM_COLOR
+        show_submenu(sub_menu_win, sel_range, si, search=searchable, colors=colors)
+        if is_combo: 
+            show_cursor()
+            mprint("Search or Add:" + st, sub_menu_win, end ="")
+        elif len(sel_range) > 8:
+            show_cursor()
+            mprint("Search:" + st, sub_menu_win, end ="")
+        sub_menu_win.refresh()
+        ch = get_key(std)
+
+    si = min(si, len(sel_range) - 1)
+    si = max(si, 0)
+    hide_cursor()
+    sub_menu_win.erase()
+    show_info(temp_msg)
+    return si, cancel, st
+
+def find(list, st, ch, default):
+    _find = st + ch
+    _find = _find.lower().strip()
+    for i, item in enumerate(list):
+        if item.lower().startswith(_find): #or _find in item.lower() or item.lower() in _find: 
+            return i, _find
+    for i, item in enumerate(list):
+        if _find in item.lower(): 
+            return i, _find
+    return default, st
+
+
