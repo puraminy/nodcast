@@ -29,9 +29,9 @@ try:
     from nodcast.util.nlp_util import *
     from nodcast.colors import *
 except:
-    from util.util import *
-    from util.nlp_utils import *
-    from colors import *
+    from .util.util import *
+    from .util.nlp_utils import *
+    from .colors import *
 import curses as cur
 from curses import wrapper
 from pathlib import Path,PosixPath
@@ -5470,7 +5470,7 @@ def show_last_results():
 def main():
     global doc_path, conf, profile, show_instruct
     conf = load_obj("conf", "", common=True)
-    if not conf is None and "profile" in conf:
+    if conf is not None and "profile" in conf:
         profile = conf["profile"]
     nc_settings = load_obj("settings", "", common=True)
     if nc_settings != None:
