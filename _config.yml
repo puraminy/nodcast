@@ -2,5 +2,5 @@ title: Puraminy Projects
 description: Showcase of my projects
 baseurl: ""        # root
 url: "https://puraminy.github.io"
-remote_theme: daattali/beautiful-jekyll@6.0.1
+remote_theme: puraminy/beautiful-jekyll@6.0.1
 
