@@ -8,14 +8,8 @@ import string
 import textwrap
 import subprocess
 import datetime
-try:
-    from nodcast.colors import *
-    from nodcast.util.obj_util import *
-    from nodcast.util.common import *
-except:
-    from colors import *
-    from obj_util import *
-    from common import *
+from .colors import *
+from .obj_util import *
 
 pyperclip_imported =False
 try:
@@ -182,12 +176,35 @@ def get_key(win = None):
     #if hotkey == old_hotkey:
     #   hotkey = ""
     #   old_hotkey = "non-blank"
+    cur.flushinp()
+    cur.flash()
     if hotkey == "":
         ch = win.getch()
     else:
     #    old_hotkey = hotkey
         ch, hotkey = ord(hotkey[0]), hotkey[1:]
     return ch
+
+# Global heatmap constant (color pair numbers)
+HEATMAP = [201, 202, 203, 204, 205]
+
+def init_heatmap_colors():
+    # Choose foreground color for contrast (white on red/orange, black on yellow/white)
+    WHITE = 15 if cur.COLORS >= 16 else cur.COLOR_WHITE
+    BLACK = 0 if cur.COLORS >= 16 else cur.COLOR_BLACK
+
+    # Define background color indexes (standard or 256-color mode)
+    BG_WHITE = 15 if cur.COLORS >= 16 else cur.COLOR_WHITE
+    BG_YELLOW = 11 if cur.COLORS >= 16 else cur.COLOR_YELLOW
+    BG_ORANGE = 208  # xterm-256 color for orange
+    BG_RED = 9 if cur.COLORS >= 16 else cur.COLOR_RED
+
+    # Initialize color pairs with appropriate foreground/background
+    cur.init_pair(HEATMAP[0], WHITE, BG_WHITE)   # white bg, black text
+    cur.init_pair(HEATMAP[1], WHITE, BG_YELLOW)  # yellow bg, black text
+    cur.init_pair(HEATMAP[2], WHITE, cur.COLOR_GREEN)  # orange bg, white text
+    cur.init_pair(HEATMAP[3], WHITE, cur.COLOR_BLUE)     # red bg, white text
+    cur.init_pair(HEATMAP[4], WHITE, cur.COLOR_BLACK)     # red bg, white text
 
 def reset_colors(theme, bg=None):
     global back_color, TEXT_COLOR, ITEM_COLOR, SEL_ITEM_COLOR, TITLE_COLOR, DIM_COLOR, color_map
@@ -200,14 +217,16 @@ def reset_colors(theme, bg=None):
     ITEM_COLOR = int(theme["item-color"]) 
     TITLE_COLOR = int(theme["title-color"])
     DIM_COLOR =  int(theme["dim-color"]) 
+    init_heatmap_colors()
     reset_hl(theme)
     cur.init_pair(CUR_ITEM_COLOR, bg, int(theme["cur-item-color"]) % cur.COLORS)
     cur.init_pair(SEL_ITEM_COLOR, bg, int(theme["sel-item-color"]) % cur.COLORS)
     cur.init_pair(INPUT_COLOR, TEXT_COLOR, int(theme["input-color"]) % cur.COLORS)
     cur.init_pair(ERR_COLOR, cW, cR % cur.COLORS)
-    cur.init_pair(MSG_COLOR, cW, clB % cur.COLORS)
+    cur.init_pair(MSG_COLOR, 232, 30 % cur.COLORS)
     #cur.init_pair(INFO_COLOR, 235, cG % cur.COLORS)
-    cur.init_pair(INFO_COLOR, 243, 235 % cur.COLORS)
+    cur.init_pair(SEL_COLOR, 253, 24 % cur.COLORS)
+    cur.init_pair(INFO_COLOR, 246, 235 % cur.COLORS)
     cur.init_pair(WARNING_COLOR, cW, cO % cur.COLORS)
 
 def reset_hl(theme):
@@ -244,23 +263,33 @@ def show_cursor(useCur = True):
         sys.stdout.write("\033[?25h")
         sys.stdout.flush()
 
-def mprint(text, win, color=None, attr = None, end="\n", refresh = False):
+def mprint(text, win, color=None, attr = None, end="\n", refresh = False, color_start=0):
     if color is None:
         color = TEXT_COLOR
-    m_print(text, win, color, attr, end, refresh)
+    m_print(text, win, color, attr, end, refresh, color_start)
 
-def m_print(text, win, color, attr = None, end="\n", refresh = False):
+def m_print(text, win, color, attr = None, end="\n", refresh = False, color_start=0):
     if win is None:
         print(text, end=end)
     else:
-        color = int(color)
+        try:
+            color = int(color)
+        except:
+            color = ERR_COLOR
         c = cur.color_pair(color)
         if attr is not None:
             c = cur.color_pair(color) | attr
         height, width = win.getmaxyx()
         #win.addnstr(text + end, height*width-1, c)
         #text = textwrap.shorten(text, width=height*width-5)
-        win.addstr((text + end).encode(code), c)
+        text = text + end
+        if color_start == 0:
+            win.addstr((text).encode(code), c)
+        else:
+            p1 = text[:color_start]
+            p2 = text[color_start:]
+            win.addstr((p1).encode(code), c)
+            win.addstr((p2).encode(code), HL_COLOR)
         if not refresh:
             pass #win.refresh(0,0, 0,0, height -5, width)
         else:
@@ -420,7 +449,7 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
         ch = win.get_wch()
         if type(ch) == str and ch == '٫':
             ch = '#'
-        if type(ch) == str and ord(ch) == 127: # ch == 8 or ch == 127 or ch == cur.KEY_BACKSPACE:
+        if (type(ch) == str and ord(ch) == 127) or ch == 8 or ch == 127 or ch == cur.KEY_BACKSPACE:
             if pos > 0:
                 inp = inp[:pos-1] + inp[pos:]
                 pos -= 1
@@ -436,8 +465,8 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
             pos = 0
         elif not all_chars and (ch == '=' or ch == "|"):
             mbeep()
-            if pyperclip_imported:
-                pyperclip.copy(inp)
+            #if pyperclip_imported:
+            #    pyperclip.copy(inp)
             break
         elif ch == cur.KEY_SLEFT:
             if len(inp) > 0:
@@ -504,8 +533,8 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
             cur.noecho()
             return "<ESC>",ch
         elif ch == cur.KEY_IC or ch == "\\":
-            if pyperclip_imported:
-                pyperclip.copy(inp)
+            #if pyperclip_imported:
+            #    pyperclip.copy(inp)
             break
         else:
             letter = ch
@@ -529,7 +558,6 @@ def mbeep(repeat=1):
 
 # -*- coding: utf-8 -*-
 
-win_info = None
 def confirm_all(msg):
     return confirm(msg, acc=['y', 'n', 'a'])
 
@@ -554,39 +582,53 @@ def confirm(msg, acc=['y', 'n'], color=WARNING_COLOR, list_opts=True, bottom = T
     return ch
 
 old_msg = ''
-_ROWS = 21
-_COLS = 92
+STD_ROWS = 21
+STD_COLS = 90
+
+def set_max_rows_cols(rows, cols):
+    global STD_ROWS, STD_COLS
+    STD_ROWS = rows
+    STD_COLS = cols
+
+win_info = None
 def show_info(msg, color=INFO_COLOR, bottom=True, title = "Info", acc =[], refresh=True):
     global win_info, old_msg 
-    rows, cols = _ROWS, _COLS
-    if bottom:
-        old_msg = msg
-        win_info = cur.newwin(1, cols, rows - 1, 0)
-        win_info.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
-        win_info.erase()
-        msg = msg.replace("\n","")
-        if len(msg) > cols - 15:
-            msg = msg[:(cols - 16)] + "..."
-        print_there(0, 1, " {} ".format(msg), win_info, color)
-        win_info.clrtoeol()
-        if refresh:
-            win_info.refresh()
-        else:
-            win_info.noutrefresh()
-    else:
+    rows, cols = STD_ROWS, STD_COLS
+    start_col = 1
+    start_row = rows -1
+    mrows = 1
+    mcols = cols
+    if not bottom:
         mcols = 2*cols//3 - 2
+        start_col = (cols - mcols) // 2 
         nlines = 0
         for line in msg.splitlines():
-            wrap = textwrap.wrap(line,mcols, break_long_words=False,replace_whitespace=False)
+            wrap = textwrap.wrap(line,mcols, 
+                    break_long_words=False,replace_whitespace=False)
             nlines += len(wrap)
         nlines += 1
         mrows = nlines + 2
+        start_row = (rows - mrows) // 2 
+    old_msg = msg
+    win_info = cur.newwin(mrows, mcols, 3, 7)
+    win_info.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
+    win_info.border()
+    win_info.erase()
+    msg = msg.replace("\n","")
+    if len(msg) > cols - 15:
+        msg = msg[:(cols - 16)] + "..."
+    print_there(0, 1, " {} ".format(msg), win_info, color)
+    win_info.clrtoeol()
+    if refresh:
+        win_info.refresh()
+    else:
+        win_info.noutrefresh()
     return win_info
 
-def show_msg(msg, color=MSG_COLOR, delay=2000):
+def show_msg(msg, color=MSG_COLOR, bottom=False, delay=-1):
     temp = old_msg
     mbeep()
-    win = show_info(msg, color)
+    win = show_info(msg, color, bottom)
     if delay > 0:
         win.timeout(delay)
         win.getch()
@@ -833,6 +875,8 @@ def open_submenu(sub_menu_win, options, sel, si, title, std):
             show_cursor()
             mprint("Search:" + st, sub_menu_win, end ="")
         sub_menu_win.refresh()
+        cur.flushinp()
+        cur.flash()
         ch = get_key(std)
 
     si = min(si, len(sel_range) - 1)
@@ -846,9 +890,11 @@ def find(list, st, ch, default):
     _find = st + ch
     _find = _find.lower().strip()
     for i, item in enumerate(list):
+        item = str(item)
         if item.lower().startswith(_find): #or _find in item.lower() or item.lower() in _find: 
             return i, _find
     for i, item in enumerate(list):
+        item = str(item)
         if _find in item.lower(): 
             return i, _find
     return default, st

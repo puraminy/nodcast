@@ -1,0 +1,6 @@
+title: Puraminy Projects
+description: Showcase of my projects
+baseurl: ""        # root
+url: "https://puraminy.github.io"
+theme: minima      # lightweight default Jekyll theme
+

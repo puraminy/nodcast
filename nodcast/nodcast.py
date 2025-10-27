@@ -1231,7 +1231,7 @@ def print_sect(title, prog, left):
 def print_prog(text_win, prog, width):
     w = int(width * prog / 100)
     d_color = scale_color(prog)
-    cur.init_pair(TEMP_COLOR2, back_color, d_color % cur.COLORS)
+    cur.init_pair(TEMP_COLOR2, 0, d_color % cur.COLORS)
     addinfo = ("Progress:" + str(prog) + "%")
     mprint(addinfo, text_win, d_color)
 
@@ -4139,7 +4139,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                 if "preset" in menu:
                     last_preset = menu["preset"]
                 refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, active_sel = False, title=title)
-                si, canceled, st = open_submenu(sub_menu_win, options, sel, si, title)
+                si, canceled, st = open_submenu(sub_menu_win, options, sel, si, title, std)
                 if not canceled:
                     is_combo = sel_type == "combo-box"
                     if is_combo:
