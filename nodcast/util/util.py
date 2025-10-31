@@ -171,6 +171,31 @@ ARROWS = [UP, DOWN, LEFT, RIGHT, SLEFT, SRIGHT, SUP, SDOWN]
 
 hotkey = ""
 old_hotkey = "non-blank"
+def get_key_new(win=None):
+    """Reads one logical keypress, including arrow keys, safely."""
+    cur.flushinp()
+    win.timeout(50)  # wait a bit for escape sequence completion
+    ch = win.getch()
+
+    # Detect multi-byte arrow keys and function keys
+    if ch == 27:  # ESC
+        next1 = win.getch()
+        if next1 == -1:
+            return 27  # plain ESC
+        next2 = win.getch()
+        if next1 == 91:  # '[' introduces arrows
+            if next2 in (65, 66, 67, 68):
+                mapping = {65: cur.KEY_UP, 66: cur.KEY_DOWN, 67: cur.KEY_RIGHT, 68: cur.KEY_LEFT}
+                return mapping[next2]
+        return next2
+    return ch
+
+def safe_chr(ch):
+    try:
+        return chr(ch)
+    except (ValueError, TypeError):
+        return ""
+
 def get_key(win = None):
     global hotkey, old_hotkey
     #if hotkey == old_hotkey:

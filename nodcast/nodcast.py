@@ -42,8 +42,6 @@ import traceback
 import subprocess
 #from gtts import gTTS
 
-
-
 show_instruct = True
 #Windows 
 menu_win = None
@@ -53,7 +51,12 @@ text_win = None
 left_side_win = None
 right_side_win = None
 
-doc_path = os.path.expanduser('~/Documents/Checkideh')
+from pathlib import Path
+import os
+import platform
+from nodcast.startup import *
+
+doc_path = get_documents_path(appname)
 app_path = user_data_dir(appname, appauthor)
 logFilename = "log_file.log" #app_path + '/log_file.log'
 Path(app_path).mkdir(parents=True, exist_ok=True)
@@ -1236,6 +1239,8 @@ def print_prog(text_win, prog, width):
     mprint(addinfo, text_win, d_color)
 
 def print_comment(text_win, comment, width):
+    if not comment:
+        return
     com_sents = split_into_sentences(comment, limit=2)
     for com in com_sents:
         com = textwrap.fill(com,
@@ -1701,7 +1706,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         for _sect in art["sections"]:
             _sect["opened"] = True
     ch = 0
-    main_info = "r) resume reading      h) list commands "
+    main_info = f"r) resume reading      h) list commands "
     show_info(main_info)
     ni, fi = 0, 0
     last_pos = 0
@@ -1720,10 +1725,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     total_sects, total_frags, total_sents, sents = refresh_offsets(art, split_level=split_level)
     pos = [0]*total_sents
     first_frag = art["sections"][0]['fragments'][0]
-    if si == 0:
-        bmark, si = moveon(sents, 0)
-    else:
-        bmrak = si
     if ref_sent != "":
         refs = ref_sent.split("_")
         _sect = int(refs[0])
@@ -1786,11 +1787,14 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     hl_index = 0
     scroll_page = False
     speak_enabled = False
+    sent_by_sent = False
     merge_sents = True
     sub_mode1 = "s) speak aloud"
     sub_mode2 = ""
     while ch != ord('q'):
         # clear_screen(text_win)
+        if si == 0:
+            bmark, si = moveon(sents, 0)
         too_big_art = False
         cur_note = ""
         end_time = time.time()
@@ -1954,6 +1958,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         right_side_win.erase()
         sn = 0
         title = "\n".join(textwrap.wrap(art["title"], width))  # wrap at 60 characters
+        cur_sect_title = cur_sect["title"] if "title" in cur_sect else "" 
         pdfurl = "NA"
         if "pdfUrl" in art: 
             pdfurl = art["pdfUrl"] 
@@ -2025,14 +2030,15 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 else:
                     add_info = " [" + str(prog) + "] "
 
-            if b["title"] != "all" or expand == 0:
-                mprint(b["title"], text_win, title_color, end="", attr=cur.A_BOLD)
-                mprint(add_info, text_win, prog_color, attr=cur.A_BOLD)
-
             pos[fsn], _ = text_win.getyx()
             sent_count = 1
             if pos[fsn] > start_row + rows + rows//2 and not first:
                 break
+
+            if b["title"] != "all" or expand == 0:
+                mprint(b["title"], text_win, title_color, end="", attr=cur.A_BOLD)
+                mprint(add_info, text_win, prog_color, attr=cur.A_BOLD)
+
             ffn += 1
             fsn += 1
             if too_big_art or (expand == 0 and b != cur_sect):
@@ -2159,6 +2165,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                             mprint(_type + " " + str(type_count[_type]) + ":", 
                                                     text_win, theme_menu["bright-color"], end="\n")
                                 #ffff
+                                # TODO fsn >= bmark
                                 if fsn >= bmark and fsn <= si and not sents[fsn]["passable"]:
                                     hl_pos = text_win.getyx()
                                     hlcolor = HL_COLOR
@@ -2282,6 +2289,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         win_info.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
         win_info.erase()
         win_info.erase()
+        mode_info = f" si={si}, section={cur_sect['title'] if 'title' in cur_sect else ''}"
         if not speak_enabled:
             mode = "s) speak"
             mode_colors[mode] = INFO_COLOR
@@ -2348,13 +2356,13 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols -1)
             #cur.doupdate()
             #show_info(main_info)
-        if art["sections"].index(cur_sect) > 1 and expand != 0:
+        if art["sections"].index(cur_sect) >= 0 and expand != 0:
             if pos[cur_sect["offset"]] <= start_row:
                 print_sect(cur_sect["title"], cur_sect["prog"], left)
             else:
                 print_sect("", "", left)
         else:
-            print_sect(art["title"], art["total_prog"], left)
+            print_sect("Title:" + art["title"], art["total_prog"], left)
 
 #III
         if ch == ord('A'):
@@ -2845,7 +2853,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     si = ii 
                 else:
                     prev_nod = sents[si]["nod"]
-                    if prev_nod == "":
+                    if prev_nod == "" and False: #TODO
                         set_nod("okay", cur_sent, sents, bmark, si, -1)
                     if False: #prev_nod == "what?!":
                         show_msg("Press either Right or Left key to move to the next sentence")
@@ -2881,19 +2889,20 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         #kkkr
         if ch == RIGHT and (not rc_mode or word_level): # move next
             show_sel_nod = False
-            if is_paused:
-                player.play()
-                is_paused = False
-                speak_enabled = True
-            elif player is None or not player.is_playing():
-                if "sfile" in cur_sent and Path(cur_sent["sfile"]).is_file():
+            if speak_enabled:
+                if is_paused:
+                    player.play()
+                    is_paused = False
                     speak_enabled = True
-                    auto_mode = True
-                    mode = "normal"
-                    play(cur_sent["sfile"], sents, art, bmark)
-                else:
-                    show_warn(cur_sent["sfile"] if "sfile" in cur_sent else "No recording, press s to record text to speech!")
-                    speak_enabled = False
+                elif player is None or not player.is_playing():
+                    if "sfile" in cur_sent and Path(cur_sent["sfile"]).is_file():
+                        speak_enabled = True
+                        auto_mode = True
+                        mode = "normal"
+                        play(cur_sent["sfile"], sents, art, bmark)
+                    else:
+                        show_warn(cur_sent["sfile"] if "sfile" in cur_sent else "No recording, press s to record text to speech!")
+                        speak_enabled = False
             
             if not rc_text and (bmark != si or sents[bmark]["block"] != "word" 
                                 and sents[si]["block"] != "word"):
@@ -3681,13 +3690,13 @@ def is_passable(sents, si):
     cond = not sents[si]["visible"] or sents[si]["passable"]
     return cond
 
-def can_pass(sents, si, cond = False):
+def can_pass(sents, si, cond = False, sent_by_sent= False):
     pass_words = not word_level
     total_sents = len(sents)
     cond1 = si < total_sents - 1 
     if not cond1:
         return False
-    cond2 = sents[si]["next"] 
+    cond2 = False if sent_by_sent else sents[si]["next"] 
     cond3 = not sents[si]["visible"] or sents[si]["passable"]
     cond4 = pass_words and sents[si]["block"]=="word" and not sents[si]["eob"]
     return cond1 and (cond2 or cond3 or cond4 or cond)
@@ -3714,7 +3723,7 @@ def dec_si(sents, si):
         mbeep()
         return si
     si -= 1
-    while si > 1 and (not sents[si]["visible"] 
+    while si >= 1 and (not sents[si]["visible"] 
            or sents[si]["passable"] 
            or (pass_words and sents[si]["block"]=="word" and not sents[si]["eob"])):
         si -= 1
@@ -4142,9 +4151,13 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                 si, canceled, st = open_submenu(sub_menu_win, options, sel, si, title, std)
                 if not canceled:
                     is_combo = sel_type == "combo-box"
+                    sel_range = options[sel]['range']
                     if is_combo:
-                        if not str(options[sel]['range'][si]).lower().startswith(st.lower()):
-                            options[sel]['range'].insert(0, st)
+                        if not sel_range and st:
+                            sel_range.insert(0, st)
+                            si = 0
+                        elif not str(sel_range[si]).lower().startswith(st.lower()):
+                            sel_range.insert(0, st)
                             si = 0
                         else:
                             if "---" in options:
@@ -4308,23 +4321,17 @@ def start(stdscr):
 
     options = {
         # "recent articles":["None"],
-        "task": {"range":["All", "Reading Comprehension", "Machine Reading Comprehension", "Sentiment Analysis",
-                 "Question Answering", "Transfer Learning", "Natural Language Inference", "Computer Vision",
-                 "Machine Translation", "Text Classification", "Decision Making"]},
-        profile_str: {"range":["---", "Computer Vision", "Image Recognition", "Speech Recognition", "Dialog Systems", "Information Retrieval", "Reinforcement Learning", "Reading Comprehension",
-                 "Question Answering", "Knowledge Graph", "Text Generation", "Transfer Learning", "Natural Language Inference","Machine Translation", "Sentiment Analysis", "Text Classification", "Decision Making"]},
+        "task": {"range":[]},
+        profile_str: {"range":[]}
     }
-
 
     menu[profile_str] = profile
     conf = load_obj("conf", "", common = True)
     options[profile_str]['type'] = 'combo-box'
     options[profile_str]['list-file'] = 'profiles'
-    profiles = load_obj("profiles","", common = True)
+    profiles = get_profiles(doc_path, profile_str) # load_obj("profiles","", common = True)
     if not profiles is None:
        options[profile_str]['range'] = profiles
-    else:
-       save_obj(options[profile_str]['range'], "profiles", "", common = True)
     task_file = Path('tasks.txt')
     if task_file.is_file():
         with open('tasks.txt', 'r') as f:
@@ -4391,11 +4398,10 @@ def start(stdscr):
             mi = 0
         if ch == "advanced search":
             search()
-        elif ch == profile_str:
+        elif ch == profile_str and menu[profile_str] != "---":
             profile = menu[profile_str]
             conf["profile"] = profile
             save_obj(conf, "conf", "", common = True)
-            save_obj(options[profile_str]["range"], "profiles", "", common = True)
         elif ch == "m" or ch == "my articles":
             save_folder = doc_path + '/' + profile
             Path(save_folder).mkdir(parents=True, exist_ok=True)
@@ -5472,6 +5478,10 @@ def main():
     conf = load_obj("conf", "", common=True)
     if conf is not None and "profile" in conf:
         profile = conf["profile"]
+    else:
+        profile = "default"
+    if profile == "default":
+        copy_examples_to_docs(profile, doc_path)
     nc_settings = load_obj("settings", "", common=True)
     if nc_settings != None:
         doc_path = nc_settings["documents folder"]

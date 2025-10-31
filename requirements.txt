@@ -1,5 +1,0 @@
-requests
-appdirs
-pdfminer
-gtts
-python-vlc

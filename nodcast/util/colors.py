@@ -83,7 +83,7 @@ clGray = 250
 clG = 12
 cllC = 83
 cO = 94
-back_color = 0
+back_color = None
 
 TEXT_COLOR = 35 
 ITEM_COLOR = 32 

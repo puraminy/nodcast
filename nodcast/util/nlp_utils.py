@@ -25,27 +25,36 @@ def qplit_into_sentences(text):
     except ImportError as e:
         return rplit_into_sentences(text)
 
-def split_into_sentences(text, debug = False, limit = 15, split_on = ['.','?','!',':']):
+
+def split_into_sentences(text, debug=False, limit=15, split_on=['.', '?', '!', ':']):
+    if not text:
+        return []
     text = " " + text + "  "
+    rep = {
+        "Ph.D.": "Ph<prd>D<prd>",
+        "[FRAG]": "<stop>",
+        "et al.": "et al<prd>",
+        " et.": " et<prd>",
+        "e.g.": "e<prd>g<prd>",
+        "e.g": "e<prd>g",
+        "vs.": "vs<prd>",
+        "www.": "www<prd>",
+        "etc.": "etc<prd>",
+        "i.e.": "i<prd>e<prd>",
+        "...": "<prd><prd><prd>",
+        "•": "<stop>•"
+    }
 
-    rep = {"Ph.D.": "Ph<prd>D<prd>",
-            "[FRAG]":"<stop>",
-            "et al.":"et al<prd>",
-            " et.":" et<prd>",
-            "e.g.":"e<prd>g<prd>",
-            "e.g":"e<prd>g",
-            "vs.":"vs<prd>",
-            "www.":"www<prd>",
-            "etc.":"etc<prd>",
-            "i.e.":"i<prd>e<prd>",
-            "...":"<prd><prd><prd>",
-            "•":"<stop>•"
-           }
-
-    # use these three lines to do the replacement
     rep = dict((re.escape(k), v) for k, v in rep.items())
-    #Python 3 renamed dict.iteritems to dict.items so use rep.items() for latest versions
     pattern = re.compile("|".join(rep.keys()))
     text = pattern.sub(lambda m: rep[re.escape(m.group(0))], text)
-    #print(text)
+
+    # simple sentence split based on stop markers
+    sentences = re.split(r'(?<=[.?!])\s+', text.strip())
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    if debug:
+        print(f"split_into_sentences: {sentences}")
+
+    return sentences
 

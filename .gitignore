@@ -1,4 +1,6 @@
 *.pickle
+*.vscode
+**/.vscode
 .idea
 runs/*
 *.iml
@@ -10,6 +12,7 @@ runs/*
 glue_data/*
 out/*
 venv/*
+env*/*
 output*/*
 # Byte-compiled / optimized / DLL files
 __pycache__/

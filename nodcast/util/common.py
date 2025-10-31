@@ -1,4 +1,4 @@
-appname = "Checkideh"
+appname = "nodcast"
 appauthor = "App"
 user = 'na'
 profile = "---"
