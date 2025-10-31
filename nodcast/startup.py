@@ -4,7 +4,7 @@ import importlib.resources as res
 import os
 import platform
 
-def get_documents_path(appname="nodcast", as_str=False):
+def get_documents_path(appname="nodcast", as_str=True):
     """Return cross-platform Documents/<appname> path and create it."""
     if platform.system() == "Windows":
         doc_base = Path(os.path.join(os.environ.get("USERPROFILE", ""), "Documents"))
@@ -14,7 +14,6 @@ def get_documents_path(appname="nodcast", as_str=False):
     path.mkdir(parents=True, exist_ok=True)
     return str(path) if as_str else path
 
-
 def copy_examples_to_docs(profile = "default", doc_path=None):
     """Copy packaged examples to user's Documents/nodcast/examples/, only if missing."""
     if doc_path is None:
@@ -22,8 +21,7 @@ def copy_examples_to_docs(profile = "default", doc_path=None):
     else:
         doc_path = Path(doc_path)
 
-    dest = doc_path / profile / "examples"
-
+    dest = doc_path / profile 
     try:
         # locate 'docs/examples' within installed package
         examples_pkg_path = res.files("nodcast").parent / "docs" / "examples"

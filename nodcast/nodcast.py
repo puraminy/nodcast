@@ -4398,7 +4398,7 @@ def start(stdscr):
             mi = 0
         if ch == "advanced search":
             search()
-        elif ch == profile_str and menu[profile_str] != "---":
+        elif ch == profile_str:
             profile = menu[profile_str]
             conf["profile"] = profile
             save_obj(conf, "conf", "", common = True)
