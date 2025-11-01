@@ -12,16 +12,14 @@
           "sents": [
             {
               "text": "NodCast is a text-based article reader designed for concentrated study.",
-              "nods": ["I see!"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["I see!", "okay", "interesting!"],
                 "reflective": ["how?", "what makes it different?"]
               }
             },
             {
               "text": "It mimics the natural way people respond to spoken explanations using short affirmations or backchannels such as okay, I see, or didn’t get.",
-              "nods": ["interesting!"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["I see!", "nice!", "clever idea!"],
                 "reflective": ["so it’s interactive?", "how does that work in text?"]
               }
@@ -38,24 +36,21 @@
           "sents": [
             {
               "text": "When you read a sentence in NodCast, you respond with a nod.",
-              "nods": ["okay"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["okay", "I get it"],
                 "reflective": ["how?", "so I must press something?", "what kind of nods?"]
               }
             },
             {
               "text": "Positive nods such as okay, I see!, or important! show understanding.",
-              "nods": ["I see!", "important!"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["I see!", "clear", "makes sense"],
                 "reflective": ["so what about confusion?", "what if I don’t understand?"]
               }
             },
             {
               "text": "Negative nods like didn’t get or okay so? show confusion or expectation.",
-              "nods": ["okay so?", "didn’t get"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["understood", "makes sense"],
                 "reflective": ["so what happens after that?", "how does NodCast use them?"]
               }
@@ -72,24 +67,21 @@
           "sents": [
             {
               "text": "When a sentence is highlighted, NodCast suggests possible nods beneath it.",
-              "nods": ["interesting!"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["interesting!", "I see!"],
                 "reflective": ["what kind of nods?", "based on what?"]
               }
             },
             {
               "text": "These nods represent how a reader might naturally react — either confirming understanding or expressing curiosity.",
-              "nods": ["I see!"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["okay", "I see!", "right"],
                 "reflective": ["so positive and negative?", "is it like talking to the text?"]
               }
             },
             {
               "text": "Use the arrow keys to explore these suggestions.",
-              "nods": ["okay"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["okay", "clear", "got it"],
                 "reflective": ["how exactly?", "which keys?"]
               }
@@ -106,32 +98,28 @@
           "sents": [
             {
               "text": "Use the Right and Left arrow keys to cycle through suggested nods.",
-              "nods": ["I see!"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["I see!", "clear"],
                 "reflective": ["so I can select them?", "how does it remember my choice?"]
               }
             },
             {
               "text": "Press Right for positive nods like okay, I see!, or interesting!. Press Left for reflective or negative nods such as didn’t get, so?, or how?.",
-              "nods": ["important!"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["important!", "helpful!"],
                 "reflective": ["so left for confusion?", "does order matter?"]
               }
             },
             {
               "text": "When you have chosen a nod, press Down to move to the next sentence or Up to return to the previous one.",
-              "nods": ["okay"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["okay", "smooth flow"],
                 "reflective": ["so it’s sequential?", "can I skip?"]
               }
             },
             {
               "text": "This creates a rhythm of reading, responding, and progressing — much like a real conversation.",
-              "nods": ["interesting!"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["interesting!", "true", "natural!"],
                 "reflective": ["so it’s like dialogue?", "is this why it’s called NodCast?"]
               }
@@ -148,24 +136,21 @@
           "sents": [
             {
               "text": "You can study a paper sentence by sentence.",
-              "nods": ["okay"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["okay", "clear", "nice feature"],
                 "reflective": ["why sentence by sentence?", "can I choose paragraphs?"]
               }
             },
             {
               "text": "Use the arrow keys to navigate, nod, and comment.",
-              "nods": ["I see!"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["I see!", "simple", "handy!"],
                 "reflective": ["what keys exactly?", "so keyboard only?"]
               }
             },
             {
               "text": "Your nods help you track comprehension and mark what matters.",
-              "nods": ["important!"],
-              "suggested_nods": {
+              "nods": {
                 "affirmative": ["important!", "smart idea!"],
                 "reflective": ["how does it track?", "so it learns from me?"]
               }

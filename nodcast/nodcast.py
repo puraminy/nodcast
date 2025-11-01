@@ -55,6 +55,7 @@ from pathlib import Path
 import os
 import platform
 from nodcast.startup import *
+from nodcast.article import *
 
 doc_path = get_documents_path(appname)
 app_path = user_data_dir(appname, appauthor)
@@ -1250,118 +1251,6 @@ def print_comment(text_win, comment, width):
                         width=width - 4, replace_whitespace=False)
         mprint(com, text_win, TEXT_COLOR, end="\n")
         
-def new_sent(s):
-    _new_sent = {"text":s,"type":"sentence", "end":'\n','eol':False, 'eob':False, 'eos':False, 'next':False, "block":"sent", "merged":False, "block_id":-1, "nod":"", "countable":False, "visible":True, "hidden":False, 'can_skip':True, "passable":False, "nods":[], "user_nods":[], "rtime":0, "tries":1, "comment":"", "notes":{}}
-    if len(s.split(' ')) <= 1:
-        _new_sent["end"] = " "
-    return _new_sent
-
-split_levels = [['\n'],['.','?','!'], ['.','?','!',';'], ['.','?','!',';', ' ', ',', '-']]
-text_width = 72
-text_width = 62
-text_width = 52
-#iii
-def init_frag_sents(text, cohesive =False, unit_sep = "", word_limit = 20, nod = "", split_level = 1, block_id=-1, merge=False):
-    if word_limit == 20 and split_level == 2: word_limit = 10
-    all_sents = []
-    if split_level == 3:
-        sents = []
-        lines = textwrap.wrap(text, text_width)
-        for line in lines:
-            words = line.split()
-            for w in words:
-                u = new_sent(w)
-                u["next"] = False
-                u["block"] = "word"
-                u["block_id"] = block_id 
-                sents.append(u)
-            sents[-1]["eol"] = True
-            sents[-1]["end"] = "\n"
-        sents[-1]["end"] = "\n"
-        sents[-1]["eob"] = True
-        sents[-1]["eos"] = True
-        all_sents = sents
-    else:
-        if unit_sep != "":
-           units = text.split(unit_sep)
-           units = list(filter(None, units))
-        else:
-           units = [text]
-        all_sents = []
-        uid = 0 if block_id < 0 else block_id
-        for unit in units: 
-            unit = unit.strip()
-            if not unit:
-                continue
-            unit_sents = split_into_sentences(unit, limit = word_limit, split_on=split_levels[split_level])
-            if not unit_sents:
-                continue
-            sents = [new_sent(s) for s in unit_sents]
-            if merge:
-                prev_s = None
-                for i,s in enumerate(sents):
-                    s["nod"] = nod
-                    s["block_id"] = block_id if block_id < 0 else block_id + i
-                    s["eos"] = True 
-                    s["eob"] = block_id >= 0
-                    if (prev_s and not prev_s["merged"] and len(prev_s["text"]) < 160 and ( 
-                        s["text"].lower().startswith(("thus","hense",
-                            "so ", "so,", "therefore","thereby","this ", "they", "however", "instead"))
-                        or any(x in prev_s["text"].lower() for x in ["shows "]))
-                        and not prev_s["text"].startswith(("Figure","Table"))):
-                        s["merged"] = True
-                        prev_s["text"] = prev_s["text"] +  " " + s["text"]
-                    prev_s = s
-                sents = [sent for sent in sents if not sent["merged"]] 
-                prev_s = None
-                for i,s in enumerate(sents):
-                    if prev_s and not prev_s["merged"] and len(s["text"]) < 150:
-                        s["merged"] = True
-                        prev_s["text"] = prev_s["text"] +  " " + s["text"]
-                    prev_s = s
-                sents = [sent for sent in sents if not sent["merged"]] 
-            if False: #cohesive:
-                for s in sents:
-                    s["next"] = True
-                    s["block_id"] = uid
-                    s["eob"] = False 
-                sents[-1]["next"] = False 
-            sents[-1]["eob"] = True 
-            all_sents.extend(sents)
-            uid  += 1
-    return all_sents
-
-def refresh_offsets(art, split_level = 1):
-    ii = 1
-    prev_sect = None
-    fn = 0
-    sents = [new_sent(art["title"])]
-    for sect in art["sections"]:
-        sect["offset"] = ii
-        if not "progs" in sect:
-            sect["progs"] = 0
-        if not prev_sect is None:
-            prev_sect["sents_num"] = ii - prev_sect["offset"]
-        prev_sect = sect
-        _sect = new_sent(sect["title"])
-        _sect["passable"] = True
-        sents.append(_sect)
-        ii += 1
-        for frag in sect["fragments"]:
-            frag["offset"] = ii
-            ofs = 0
-            if not "sents" in frag:
-                frag["sents"] = init_frag_sents(frag["text"], split_level = split_level)
-            for sent in frag["sents"]:
-                # sent["passable"] = False
-                sent["char_offset"] = ofs
-                sents.append(sent)
-                ofs += len(sent["text"])
-                ii += 1
-        sect["fragments"] = [x for x in sect["fragments"] if x["sents"]]
-        fn += len(sect["fragments"])
-    sect["sents_num"] = ii - prev_sect["offset"]
-    return len(art["sections"]),fn, ii, sents
 
 def locate(art, si, sel_first_sent=False):
     ii = 0
@@ -1795,7 +1684,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     merge_sents = True
     sub_mode1 = "s) speak aloud"
     sub_mode2 = ""
-    nod_counter = 0
     while ch != ord('q'):
         # clear_screen(text_win)
         if si == 0:
@@ -1887,7 +1775,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if  prev_si != si:
             cur_nod = ""
             split_level  = 1
-            nod_counter = 0
             prev_si = si
             prev_bmark = bmark
         prev_sect = cur_sect
@@ -2233,18 +2120,15 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                 #ccc
                                 if not sents[fsn]["passable"]:
                                     if fsn >= bmark and fsn <= si:
-                                        for _nc, note in enumerate(sent["nods"]):
-                                            if _nc == nod_counter:
+                                        sent_nods, nod_index = get_nods(cur_sent, cur_nod)
+                                        for _ni, _nod in enumerate(sent_nods):
+                                            if _ni == nod_index:
                                                 color = HL_COLOR
                                             else:
-                                                color = find_nod_color(note)
-                                            if _nc == 0:
-                                                mprint("| ", text_win, color, end="")
-                                            mprint(note, text_win, color, end=" | ")
-                                        if "user_nods" in sent and len(sent["user_nods"]) > 0:
-                                            user_nod = sent["user_nods"][0]
-                                            color = find_nod_color(user_nod)
-                                            mprint("   >" + user_nod, text_win, color, end=" ")
+                                                color = find_nod_color(_nod)
+                                            if _ni == 0:
+                                                mprint("|", text_win, color, end="")
+                                            mprint(_nod, text_win, color, end="|")
 
                                     if sent["comment"] != "":
                                         comment = sent["comment"]
@@ -2728,9 +2612,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     _ind = notes_list.index(cur_note)
                     ch = ord(notes_keys[_ind])
                 art_changed = True
-        if False: #chr(ch).isdigit() and False:
+        if False: #safe_chr(ch).isdigit() and False:
             try:
-                index = int(chr(ch))
+                index = int(safe_chr(ch))
             except:
                 index = 0
             if index < len(nods_list):
@@ -2926,7 +2810,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if not rc_text and (bmark != si or sents[bmark]["block"] != "word" 
                                 and sents[si]["block"] != "word"):
                 prev_nod = sents[si]["nod"] 
-                nod_counter += 1
                 if prev_nod == "": prev_nod = "okay"
                 if prev_nod != "what?!" and prev_nod != "okay, go on":
                     _next_nod = next_nod(prev_nod, key_pos, cur_sent) if not auto_mode else "okay"
@@ -2942,16 +2825,15 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 up_pos = (pos[si-1] + pos[si])//2 - start_row + 2
                 nod_win = cur.newwin(2,10, up_pos, left + width)
                 nod_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
-                print_there(0, 
-                        2, "I see!", nod_win, find_nod_color("I see!"))
+                print_there(0, 2, _next_nod, nod_win, find_nod_color(_next_nod))
                 nod_win.refresh()
                 std.timeout(500)
                 mbeep()
                 t_ch = get_key(std)
                 if t_ch < 0:
-                    print_there(0, 
-                        2, "", nod_win, find_nod_color("I see!"))
-                    nod_win.refresh()
+                    pass
+                    # print_there(0,2, "", nod_win, find_nod_color("I see!"))
+                    # nod_win.refresh()
                 elif t_ch == RIGHT:
                     set_nod("interesting!", cur_sent, sents, bmark, si, elapsed_time)
                     ch = 0
@@ -2984,7 +2866,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         sents[ii]["whats"] = 1
                     else:
                         sents[ii]["whats"] += 1
-                nod_counter -= 1
                 _nod = "what?!"
                 color = find_nod_color(_nod)
                 #print_there((pos[si-1] + pos[si])//2, 
@@ -3236,7 +3117,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         show_article(ext_art)
                 else:
                     show_info(main_info)
-        if type(ch) == str and chr(ch) == '"':
+        if type(ch) == str and safe_chr(ch) == '"':
             win = cur.newwin(10, width, 6, left)
             win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
             new_text, _ = minput(win, 0, 0, "New text", 
@@ -3250,7 +3131,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 pos += [0]*dif
             insert_article(saved_articles, art)
 
-        if chr(ch) in ['1','8','9','0','5','3'] or chr(ch) in ['!','*','(',')','=','?',':']: #@@@
+        if safe_chr(ch) in ['1','8','9','0','5','3'] or safe_chr(ch) in ['!','*','(',')','=','?',':']: #@@@
             bg_color = HL_COLOR
             win_height = 8
             note_art_title = art["title"]
@@ -3339,7 +3220,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         _f_frag["sents"].append(new_sent(_idea))
                     #save_doc(notes_doc, note_file,"Notes", root =True)
                     show_warn("The note file was added to " + note_file, delay=100)
-                with open(doc_path + '/Notes/' + note_file, 'w') as outfile:
+                note_folder = os.path.join(doc_path, profile, 'Notes')
+                Path(note_folder).mkdir(parents=True, exist_ok=True)
+                note_file_path = os.path.join(note_folder, note_file)
+                with open(note_file_path, 'w') as outfile:
                     json.dump(notes_arts, outfile)
                 if add2art and _frag:
                     for _s in _frag["sents"]:
@@ -3393,7 +3277,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if dif > 0:
                 pos += [0]*dif
             insert_article(saved_articles, art)
-        if chr(ch) == "n" or ch == ord("n"):
+        if safe_chr(ch) == "n" or ch == ord("n"):
             if ch == ord("n"):
                 search,_ = minput(win_info, 0, 1, "/")
             _found = False
@@ -3407,38 +3291,38 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 show_msg("Not found", delay=500)
 
         #:::
-        if chr(ch) in notes_keys:
+        if safe_chr(ch) in notes_keys:
             default = cur_sent["comment"]
             prompt = "Comment:"
             _note_title = ""
-            note_type = notes_dict[chr(ch)]
+            note_type = notes_dict[safe_chr(ch)]
             inp_mode = SINGLE_LINE
             _lines = 5
             if note_type != "": #and note_type in cur_sent["noets"]:
                 default = "" #cur_sent["notes"][note_type]["text"]
-            if chr(ch) == "-":
+            if safe_chr(ch) == "-":
                 _note_tile = "check later"
                 prompt = "Check later (you can leave it blank)"
-            elif chr(ch) == "!":
+            elif safe_chr(ch) == "!":
                 prompt = "What is your idea?"
                 inp_mode = MULTI_LINE
-            elif chr(ch) == "&":
+            elif safe_chr(ch) == "&":
                 prompt = "Answer:"
                 inp_mode = MULTI_LINE
-            elif chr(ch) == "?":
+            elif safe_chr(ch) == "?":
                 _note_title = "question"
                 prompt = "What is your question?"
-            elif chr(ch) == "+":
+            elif safe_chr(ch) == "+":
                 _note_title = "point"
                 prompt = "You can write down the point or leave it blank"
-            elif chr(ch) == "\\":
+            elif safe_chr(ch) == "\\":
                 prompt = "Any comment"
                 inp_mode = MULTI_LINE
             _comment = ""
             _y_pos = ypos + 2 if ypos + 2 < rows - 2 else rows - _lines - 5
             win = cur.newwin(_lines, width-1, _y_pos, left)
             win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
-            if chr(ch) not in ["+","-"]:
+            if safe_chr(ch) not in ["+","-"]:
                 _comment, _ = minput(win, 0, 0, prompt, default=default, mode=inp_mode)
             #show_info(main_info)
                 _comment = _comment if _comment != "<ESC>" and _comment != "q" else cur_sent["comment"]
@@ -3446,12 +3330,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if note_type == "":
                 cur_sent["comment"]= _comment
             else:
-                if _comment or (chr(ch) in ["+", "-"]):
+                if _comment or (safe_chr(ch) in ["+", "-"]):
                     if not note_type in cur_sent["notes"]:
                         cur_sent["notes"][note_type] = [{"text":_comment}]
                     elif _comment and not _comment in cur_sent["notes"][note_type]:
                         cur_sent["notes"][note_type].append({"text":_comment})
-                    elif not _comment and chr(ch) in ["+","_"]:
+                    elif not _comment and safe_chr(ch) in ["+","_"]:
                         del cur_sent["notes"][note_type]
                     cur_sent["block_id"] = si
                     _text = ""
@@ -3666,12 +3550,27 @@ def get_nod(cur_nod, ni = -1):
         bottom = " Down) OK, I get it now"
     return top, middle, bottom, cur_nod 
 
-def next_nod(cur_nod, ch, cur_sent): 
-    sent_nods = cur_sent["nods"] if "nods" in cur_sent else pos_nods
-    nods = list(reversed(neg_nods)) + sent_nods 
-    ni = len(neg_nods) -1 if ch == key_pos else len(neg_nods) 
+def get_nods(cur_sent, cur_nod):
+    if "nods" in cur_sent:
+        sent_nods = cur_sent["nods"]
+        if type(sent_nods) == list:
+            p_nods = sent_nods
+            n_nods = neg_nods
+        else:
+            p_nods = sent_nods["affirmative"]
+            n_nods = sent_nods["reflective"] 
+    else:
+        p_nods = pos_nods
+        n_nods = neg_nods
+
+    nods = list(reversed(n_nods)) + p_nods
+    ni = len(n_nods)
     if cur_nod in nods:
         ni = nods.index(cur_nod)
+    return nods, ni
+
+def next_nod(cur_nod, ch, cur_sent): 
+    nods, ni = get_nods(cur_sent, cur_nod)
     ni = ni + 1 if ch == key_pos else ni - 1
     ni = max(0, min(ni, len(nods) - 1))
     cur_nod = nods[ni]
@@ -4153,7 +4052,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, title=title)
         if (is_enter(ch) or 
                 ch == RIGHT or 
-                (chr(ch) in shortkeys and ch == prev_ch) or
+                (safe_chr(ch) in shortkeys and ch == prev_ch) or
                 (ch == DOWN and mi == len(menu) - 1 and sel in subwins) or
                 (sel in subwins and focused)):
             is_button = str(menu[sel]).startswith("button")
@@ -4254,13 +4153,13 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                 refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row, title=title)
         elif ch == ord('h'):
             return "h", menu, mi
-        elif chr(ch) in hotkeys:
-            return chr(ch), menu, mi
-        elif ch != ord('q') and chr(ch) in shortkeys:
-            if not shortkeys[chr(ch)] in menu:  # then it's a hotkey
-                return chr(ch), menu, mi
+        elif safe_chr(ch) in hotkeys:
+            return safe_chr(ch), menu, mi
+        elif ch != ord('q') and safe_chr(ch) in shortkeys:
+            if not shortkeys[safe_chr(ch)] in menu:  # then it's a hotkey
+                return safe_chr(ch), menu, mi
             else:
-                mi = list(menu.keys()).index(shortkeys[chr(ch)])
+                mi = list(menu.keys()).index(shortkeys[safe_chr(ch)])
                 sel, mi = get_sel(menu, mi)
                 if str(menu[sel]).startswith("button"):
                     return sel, menu, mi
@@ -4271,7 +4170,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             #if _confirm != "y":
             #    ch = 0
         key_set = False # End_While
-    return chr(ch), menu, mi
+    return safe_chr(ch), menu, mi
 
 import argparse
 parser = argparse.ArgumentParser()
@@ -4828,6 +4727,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 art = json.load(_file)
                 collect_art = "Notes/" in filename
                 art["save_folder"] = save_folder
+                art = fix_article(art)
                 show_article(art, collect_art=collect_art)
             elif ext == ".prc":
                 show_info("Openning ...  Please wait...")
