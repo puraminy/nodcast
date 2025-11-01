@@ -221,15 +221,16 @@ def extractText(file, sel_sects="", pages=[], params={}, def_size = 9):
 
         device = PDFPageAggregator(rsrcmgr, laparams=laparams)
         interpreter = PDFPageInterpreter(rsrcmgr, device)
-        pat = re.compile("^(\w+[.]\s)?(?:(\d{1,3}\.?(?:\d{1,3}\.?)*)?) ?([\w\s\-\t\?:]{3,50})$")
-        page_numbers = re.compile("^(\d{1,4}( of \d{1,4})?)$")
+        pat = re.compile(r"^(\w+[.]\s)?(?:(\d{1,3}\.?(?:\d{1,3}\.?)*)?) ?([\w\s\-\t\?:]{3,50})$")
+        page_numbers = re.compile(r"^(\d{1,4}( of \d{1,4})?)$")
+        table_pat = re.compile(r"Table \d{1,2}:")
+
         seen = {}
         sections = ["abstract","introduction","references","related work", "summary", "conclusion"]
         cur_sect = ""
         to_prev = 0
         figure = ""
         def_size_set = False
-        table_pat = re.compile("Table \d{1,2}:")
         for pn, page in enumerate(PDFPage.create_pages(doc)):
             if pages and not pn in pages:
                 continue
@@ -701,7 +702,7 @@ def request(p=0):
     item = 'https://dimsum.eu-gb.containers.appdomain.cloud/api/scholar/search'
     # item = ''
     # try:
-    #    response = requests.post('http://checkideh.com/search.php', headers=headers, data=data)
+    #    response = requests.post('http://puraminy.github.io/nodcast/search.php', headers=headers, data=data)
     #    item = response.json()["a"]
     #    show_msg(str(item))
     # except:
@@ -1204,16 +1205,18 @@ def list_nods(win, ypos, cur_nod):
         win.clrtoeol()
         ypos += 1
 
+def print_list(win, items, sep="\n", color = TEXT_COLOR):
+    for item in items:
+        mprint(item, win, color, end=sep)
+
 def print_notes(win, notes, ypos, xpos):
     for note in notes:
-        if note == "okay" or note in nods_list or note in art_status:
-            color = find_nod_color(note)
-            print_there(ypos, xpos, ' ' + note, win, color)
-            ypos += 1
-
+       if note == "okay" or note in nods_list or note in art_status:
+          color = find_nod_color(note)
+          print_there(ypos, xpos, ' ' + note, win, color)
+          ypos += 1
 
 top_win = None
-
 
 def print_sect(title, prog, left):
     l_color = TITLE_COLOR
@@ -1248,7 +1251,7 @@ def print_comment(text_win, comment, width):
         mprint(com, text_win, TEXT_COLOR, end="\n")
         
 def new_sent(s):
-    _new_sent = {"text":s,"type":"sentence", "end":'\n','eol':False, 'eob':False, 'eos':False, 'next':False, "block":"sent", "merged":False, "block_id":-1, "nod":"", "countable":False, "visible":True, "hidden":False, 'can_skip':True, "passable":False, "nods":[], "rtime":0, "tries":1, "comment":"", "notes":{}}
+    _new_sent = {"text":s,"type":"sentence", "end":'\n','eol':False, 'eob':False, 'eos':False, 'next':False, "block":"sent", "merged":False, "block_id":-1, "nod":"", "countable":False, "visible":True, "hidden":False, 'can_skip':True, "passable":False, "nods":[], "user_nods":[], "rtime":0, "tries":1, "comment":"", "notes":{}}
     if len(s.split(' ')) <= 1:
         _new_sent["end"] = " "
     return _new_sent
@@ -1451,6 +1454,7 @@ def unset_sent(sent, ch =0):
         if _c == "o" or _c == "a": 
             sent["nod"] = ""
             sent["nods"] = []
+            sent["user_nods"] = []
             sent["block_id"] = -1 
             sent["next"] = False 
         if _c == "t" or _c == "a": sent["type"] = ""
@@ -1623,7 +1627,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     def_review = """Your summary or review of paper:
     """
     #def_inst = """Press @ anywhere in the article to edit the review, and press # to add a review tag."""
-    def_inst = """For more information about how to read and review a paper using Checkideh please visit: http://checkideh.com/getting_started#review 
+    def_inst = """For more information about how to read and review a paper using NodCast please visit: http://puraminy.github.io/nodcast/
     To hide instructions like this go to the main menu > options > show instructions, and set it to Disabled. """
     if False: #not collect_art and needs_review and art["sections"][0]["title"] != "Review":
         new_sect = {}
@@ -1791,6 +1795,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     merge_sents = True
     sub_mode1 = "s) speak aloud"
     sub_mode2 = ""
+    nod_counter = 0
     while ch != ord('q'):
         # clear_screen(text_win)
         if si == 0:
@@ -1882,6 +1887,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if  prev_si != si:
             cur_nod = ""
             split_level  = 1
+            nod_counter = 0
             prev_si = si
             prev_bmark = bmark
         prev_sect = cur_sect
@@ -2190,7 +2196,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                         _color = TEXT_COLOR
                                     else:
                                         _color = DIM_COLOR
-                                    if sent["nod"] != "" and start_reading:
+                                    #TODO 
+                                    if False and sent["nod"] != "" and start_reading:
                                         _color = find_color(sents, fsn)
                                     if theme_menu["bold-text"] == "True":
                                         mprint(sent_text, text_win, _color, attr=cur.A_BOLD, end=end)
@@ -2204,9 +2211,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                 _y, _x = text_win.getyx()
                                 nn = [mark]
                                 if True: #start_reading:
-                                    for note in sent["nods"]:
-                                        nn.append(note)
-                                    #print_notes(text_win, nn, ypos, width + 1)
                                     color = find_nod_color(sent["nod"])
                                     if (count_sents and sent["eob"]):
                                         print_there(_y - (lines_count // 2 + 1), 
@@ -2228,6 +2232,20 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                 text_win.move(_y, _x)
                                 #ccc
                                 if not sents[fsn]["passable"]:
+                                    if fsn >= bmark and fsn <= si:
+                                        for _nc, note in enumerate(sent["nods"]):
+                                            if _nc == nod_counter:
+                                                color = HL_COLOR
+                                            else:
+                                                color = find_nod_color(note)
+                                            if _nc == 0:
+                                                mprint("| ", text_win, color, end="")
+                                            mprint(note, text_win, color, end=" | ")
+                                        if "user_nods" in sent and len(sent["user_nods"]) > 0:
+                                            user_nod = sent["user_nods"][0]
+                                            color = find_nod_color(user_nod)
+                                            mprint("   >" + user_nod, text_win, color, end=" ")
+
                                     if sent["comment"] != "":
                                         comment = sent["comment"]
                                         print_comment(text_win, comment, width)
@@ -2289,7 +2307,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         win_info.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
         win_info.erase()
         win_info.erase()
-        mode_info = f" si={si}, section={cur_sect['title'] if 'title' in cur_sect else ''}"
+        mode_info = main_info 
+        # f" si={si}, section={cur_sect['title'] if 'title' in cur_sect else ''}"
         if not speak_enabled:
             mode = "s) speak"
             mode_colors[mode] = INFO_COLOR
@@ -2840,7 +2859,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 start_row += scroll
             elif show_sel_nod: 
                 cur_nod = sents[si]["nod"]
-                cur_nod = next_nod(cur_nod, ch)
+                cur_nod = next_nod(cur_nod, ch, cur_sent)
                 set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
             else:
                 nf = cur_frag["offset"] + len(cur_frag["sents"])
@@ -2870,7 +2889,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             is_paused = False
             if show_sel_nod: 
                 cur_nod = sents[si]["nod"]
-                cur_nod = next_nod(cur_nod, ch)
+                cur_nod = next_nod(cur_nod, ch, cur_sent)
                 set_nod(cur_nod, cur_sent, sents, bmark, si, -1)
             else:
                 bf = cur_frag["offset"]
@@ -2907,9 +2926,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if not rc_text and (bmark != si or sents[bmark]["block"] != "word" 
                                 and sents[si]["block"] != "word"):
                 prev_nod = sents[si]["nod"] 
+                nod_counter += 1
                 if prev_nod == "": prev_nod = "okay"
                 if prev_nod != "what?!" and prev_nod != "okay, go on":
-                    _next_nod = next_nod(prev_nod, key_pos) if not auto_mode else "okay"
+                    _next_nod = next_nod(prev_nod, key_pos, cur_sent) if not auto_mode else "okay"
                 else:
                     _next_nod = "okay, go on"
                 set_nod(_next_nod, cur_sent, sents, bmark, si, elapsed_time)
@@ -2952,8 +2972,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 if True: #not show_sel_nod:
                     #show_sel_nod = True
                     prev_nod = sents[si]["nod"] 
-                    if prev_nod == "": prev_nod = "okay"
-                    _next_nod = next_nod(prev_nod, key_neg) 
+                    # if prev_nod == "": prev_nod = "okay"
+                    _next_nod = next_nod(prev_nod, key_neg, cur_sent) 
                     set_nod(_next_nod, cur_sent, sents, bmark, si, elapsed_time)
                 #else:
                     #show_sel_nod = False
@@ -2964,9 +2984,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         sents[ii]["whats"] = 1
                     else:
                         sents[ii]["whats"] += 1
-                print_there((pos[si-1] + pos[si])//2, 
-                    2, "what?!", right_side_win, color)
-                right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols -1)
+                nod_counter -= 1
+                _nod = "what?!"
+                color = find_nod_color(_nod)
+                #print_there((pos[si-1] + pos[si])//2, 
+                #    2, _nod, right_side_win, color)
+                #right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols -1)
                 std.timeout(500)
                 t_ch = get_key(std)
                 if t_ch < 0:
@@ -3047,12 +3070,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if sents[si]["nod"] in neg_nods:
                 cur_nod = "OK, I get it now"
             else:
-                cur_nod = next_nod(cur_nod, key_pos)
+                cur_nod = next_nod(cur_nod, key_pos, sents[si])
             sents[si]["nod"] = cur_nod
             sents[si]["block_id"] = si
         if ch == ord('_'):
             pass
-            #cur_nod = next_nod(cur_nod, key_neg)
+            #cur_nod = next_nod(cur_nod, key_neg, sents[si])
             #sents[si]["nod"] = cur_nod
             #sents[si]["block_id"] = si
         art_changed = art_changed or nod_set
@@ -3643,8 +3666,9 @@ def get_nod(cur_nod, ni = -1):
         bottom = " Down) OK, I get it now"
     return top, middle, bottom, cur_nod 
 
-def next_nod(cur_nod, ch): 
-    nods = list(reversed(neg_nods)) + pos_nods
+def next_nod(cur_nod, ch, cur_sent): 
+    sent_nods = cur_sent["nods"] if "nods" in cur_sent else pos_nods
+    nods = list(reversed(neg_nods)) + sent_nods 
     ni = len(neg_nods) -1 if ch == key_pos else len(neg_nods) 
     if cur_nod in nods:
         ni = nods.index(cur_nod)
@@ -3680,11 +3704,13 @@ def set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time):
     sents[si]["block_id"] = si
     if sents[si]["visible"]:  # and (sents[si]["nod"] == "" or nod_set):
         cur_sent["nod"] = cur_nod
-        if not cur_nod in cur_sent["nods"]:
-            cur_sent["nods"].insert(0, cur_nod)
+        if not "user_nods" in cur_sent:
+            cur_sent["user_nods"] = [cur_nod]
+        elif not cur_nod in cur_sent["user_nods"]:
+            cur_sent["user_nods"].insert(0, cur_nod)
         else:
-            #cur_sent["nods"].remove(cur_nod)
-            cur_sent["nods"].insert(0, cur_nod)
+            cur_sent["user_nods"].remove(cur_nod)
+            cur_sent["user_nods"].insert(0, cur_nod)
 
 def is_passable(sents, si):
     cond = not sents[si]["visible"] or sents[si]["passable"]
@@ -4115,7 +4141,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             sub_menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
         if (not passable_item and not key_set) or hotkey != "":
             prev_ch = ch
-            if title.startswith("Checkideh") and hotkey == "q":
+            if title.startswith("NodCast") and hotkey == "q":
                 hotkey = ""
             ch = get_key(std)
         elif passable_item and mi == 0:
@@ -4192,7 +4218,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
         elif ch == cur.KEY_PPAGE:
             mi -= 10
         elif ch == LEFT or ch == 27 or ch == 127 or ch == cur.KEY_BACKSPACE:
-            if not title.startswith("Checkideh"):
+            if not title.startswith("NodCast"):
                 ch = ord('q')
         if cmd == "save and quit":
             ch = ord('q')
@@ -4238,7 +4264,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
                 sel, mi = get_sel(menu, mi)
                 if str(menu[sel]).startswith("button"):
                     return sel, menu, mi
-        elif ch == ord('q') and title.startswith("Checkideh"):
+        elif ch == ord('q') and title.startswith("NodCast"):
             pass
             #show_info("Hit q again to exit the program.")
             #_confirm = confirm("you want to exit the program")
@@ -4373,7 +4399,7 @@ def start(stdscr):
         with open("version.txt", 'r') as f:
             version = f.readline()
 
-    main_title = "Checkideh " + version
+    main_title = "NodCast " + version
     reset_colors(theme_menu)
     # os.environ.setdefault('ESCDELAY', '25')
     # ESCDELAY = 25
@@ -4436,22 +4462,25 @@ def start(stdscr):
         elif ch == 's' or ch == "settings":
             settings()
         if ch == 'h' or ch == "help":
-            # webbrowser.open("https://github.com/puraminy/nodcast")
-            show_info(('\n'
-                       '        _   __          ________           __ \n'
-                       '       / | / /___  ____/ / ____/___ ______/ /_\n'
-                       '      /  |/ / __ \/ __  / /   / __ `/ ___/ __/\n'
-                       '     / /|  / /_/ / /_/ / /___/ /_/ (__  ) /_  \n'
-                       '    /_/ |_/\____/\__,_/\____/\__,_/____/\__/  \n'
-                       '                                              \n'
-                       f'  Checkideh  {version}                       \n'
-                       '  Please visit the following link to get an overview of Checkideh:\n'
-                       '\thttps://checkideh.com\n\n'
-                       '\tArrow keys)   Next, previous item\n'
-                       '\tEnter)        Open/Run the selected item\n'
-                       '\tPageUp/Down)  First/Last item\n'
-                       '\n  Further help was provided in each section.\n'),
-                      bottom=False)
+            webbrowser.open("https://puraminy.github.io/nodcast")
+            ## show_msg(f"""
+            #        _   __          ________           __ 
+            #       / | / /___  ____/ / ____/___ ______/ /_
+            #      /  |/ / __ \\/ __  / /   / __ `/ ___/ __/
+            #     / /|  / /_/ / /_/ / /___/ /_/ (__  ) /_  
+            #    /_/ |_/\\____/\\__,_/\\____/\\__,_/____/\\__/  
+            #                                              
+            #  nodcast  {version}                       
+            #  Please visit the following link to get an overview of nodcast:
+            #      https://puraminy.github.io/nodcast
+
+            #      Arrow keys)   Next, previous item
+            #      Enter)        Open/Run the selected item
+            #      PageUp/Down)  First/Last item
+
+            #  Further help was provided in each section.
+            #""", bottom=False)
+
             # name = '../README.md'
             # with open(name, "r") as f:
             #    data = f.read()
@@ -4997,7 +5026,7 @@ def settings():
     choice = ''
     menu = load_obj("settings", "")
     font_size = 24
-    path = '~/Documents/Checkideh'
+    path = get_documents_path(doc_path)
     path.replace('/', os.sep)
     doc_path = os.path.expanduser(path)
     if menu is None:

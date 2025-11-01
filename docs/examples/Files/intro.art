@@ -115,7 +115,7 @@
               "nods": ["I see!", "important!"],
               "rtime": 0.26,
               "tries": 1,
-              "comment": "clear definition of positive nods",
+              "comment": "",
               "notes": {},
               "char_offset": 57,
               "last": false
@@ -140,7 +140,7 @@
               "nods": ["okay so?", "didn’t get"],
               "rtime": 0.34,
               "tries": 2,
-              "comment": "nice clarification between positive/negative",
+              "comment": "",
               "notes": {},
               "char_offset": 120,
               "last": true
@@ -200,7 +200,7 @@
               "nods": ["I see!"],
               "rtime": 0.22,
               "tries": 1,
-              "comment": "matches program instruction",
+              "comment": "",
               "notes": {},
               "char_offset": 43,
               "last": false
@@ -225,7 +225,7 @@
               "nods": ["important!"],
               "rtime": 0.30,
               "tries": 1,
-              "comment": "core idea of NodCast",
+              "comment": "",
               "notes": {},
               "char_offset": 82,
               "last": true
