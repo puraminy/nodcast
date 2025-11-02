@@ -805,10 +805,10 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
                     "sents" in a["sections"][0]["fragments"][0] and
                      len(a["sections"][0]["fragments"][0]["sents"]) > 0):
                 review = a["sections"][0]["fragments"][0]["sents"][0]
-                if "nods" in review:
-                    note_indx = min(max(0, note_index), len(review["nods"]))
-                    if note_index < len(review["nods"]):
-                        note = review["nods"][note_index]
+                if "user_nods" in review:
+                    note_indx = min(max(0, note_index), len(review["user_nods"]))
+                    if note_index < len(review["user_nods"]):
+                        note = review["user_nods"][note_index]
             art_note_color = find_nod_color(note)
             art_note = " [" + note.ljust(12) + "]"
 
@@ -1152,7 +1152,7 @@ notes_list = list(notes_dict.values())
 notes_keys = list(notes_dict.keys())
 nods_show = ["correct", "incorrect"]
 pos_nods = ["okay", "I see!"]
-neg_nods = ["what?!","okay, never mind"]
+neg_nods = ["didn't get", "okay, never mind", "what!?"]
 nods_list = ["didn't get", continue_nod, "OK, I get it now", "okay", "I see!", "interesting!"]
 art_sent_types = ["problem statement", "research question", "definition", "description", "classification","claim", "background", "proposed solution", "finding", "goal", "feature", "contribution", "comparison", "usage", "example"]
 sent_types = ["main idea", "example", "support"]
@@ -2111,25 +2111,26 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                             pass
                                             #print_there(_y + (lines_count //2 + 1), 
                                             #    2, sent["nod"], right_side_win, color)
-                                        if False: #not rc_text and show_sel_nod and fsn >= bmark and fsn <= si:
+                                            #not rc_text and show_sel_nod and fsn >= bmark and fsn <= si:
+                                        if False: 
                                             cur_nod = sents[fsn]["nod"]
                                             list_nods(right_side_win, _y - lines_count, cur_nod)
                                         lines_count = 0 
+                                cur_nod = get_cur_nod(cur_sent) 
                                 prev_sent = sent
                                 text_win.move(_y, _x)
+                                sect_middle = _y - 0 # (lines_count // 2 + 2)
                                 #ccc
                                 if not sents[fsn]["passable"]:
                                     if fsn >= bmark and fsn <= si:
                                         sent_nods, nod_index = get_nods(cur_sent, cur_nod)
-                                        for _ni, _nod in enumerate(sent_nods):
-                                            if _ni == nod_index:
-                                                color = HL_COLOR
-                                            else:
-                                                color = find_nod_color(_nod)
-                                            if _ni == 0:
-                                                mprint("|", text_win, color, end="")
-                                            mprint(_nod, text_win, color, end="|")
-
+                                        print_visible_nods(sent_nods, nod_index, 
+                                                           width, text_win, 
+                                                           mprint, HL_COLOR)
+                                        print_adjusted(sect_middle, 4, cur_nod, 
+                                                    right_side_win, TEXT_COLOR)
+                                        # right_side_win.addstr(sect_middle, 4, "test")
+                                        # list_nods(right_side_win, _y - lines_count, sent_nods)
                                     if sent["comment"] != "":
                                         comment = sent["comment"]
                                         print_comment(text_win, comment, width)
@@ -2144,7 +2145,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                                 empty.append((_note_type,""))
                                     note_count = 0
                                     for _note, _note_text in empty:
-                                        print_there(_y - (lines_count // 2 + 2), 
+                                        print_there(sect_middle, 
                                                 4+note_count, notes_keys[notes_list.index(_note)],
                                                 left_side_win, TEXT_COLOR)
                                         note_count += 1
@@ -2825,25 +2826,25 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 up_pos = (pos[si-1] + pos[si])//2 - start_row + 2
                 nod_win = cur.newwin(2,10, up_pos, left + width)
                 nod_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
-                print_there(0, 2, _next_nod, nod_win, find_nod_color(_next_nod))
+                print_there(0, 2, _next_nod, left_side_win, find_nod_color(_next_nod))
                 nod_win.refresh()
-                std.timeout(500)
-                mbeep()
-                t_ch = get_key(std)
-                if t_ch < 0:
-                    pass
+                #std.timeout(500)
+                #mbeep()
+                #t_ch = get_key(std)
+                #if t_ch < 0:
+                #    pass
                     # print_there(0,2, "", nod_win, find_nod_color("I see!"))
                     # nod_win.refresh()
-                elif t_ch == RIGHT:
-                    set_nod("interesting!", cur_sent, sents, bmark, si, elapsed_time)
-                    ch = 0
-                    if False:
-                        set_nod(_next_nod, cur_sent, sents, bmark, si, elapsed_time)
-                        si, bmark = moveon(sents, si)
-                        forward = True
-                else:
-                    jump_key = t_ch
-                std.timeout(-1)
+                #elif t_ch == RIGHT:
+                #    set_nod("interesting!", cur_sent, sents, bmark, si, elapsed_time)
+                #    ch = 0
+                #    if False:
+                #        set_nod(_next_nod, cur_sent, sents, bmark, si, elapsed_time)
+                #        si, bmark = moveon(sents, si)
+                #        forward = True
+                #else:
+                #    jump_key = t_ch
+                # std.timeout(-1)
         #kkkl
         if ch == LEFT and (not rc_text or word_level): # move previous
             if not word_level:
@@ -2861,31 +2862,31 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     #show_sel_nod = False
                     #si, bmark = moveon(sents, si)
                     #forward = True
-                for ii in range(bmark, si+1):
-                    if not "whats" in sents[ii]:
-                        sents[ii]["whats"] = 1
-                    else:
-                        sents[ii]["whats"] += 1
-                _nod = "what?!"
-                color = find_nod_color(_nod)
+                #for ii in range(bmark, si+1):
+                #    if not "whats" in sents[ii]:
+                #        sents[ii]["whats"] = 1
+                #    else:
+                #        sents[ii]["whats"] += 1
+                #_nod = "what?!"
+                #color = find_nod_color(_nod)
                 #print_there((pos[si-1] + pos[si])//2, 
                 #    2, _nod, right_side_win, color)
                 #right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols -1)
-                std.timeout(500)
-                t_ch = get_key(std)
-                if t_ch < 0:
-                    std.timeout(-1)
-                    set_nod("", cur_sent, sents, bmark, si, elapsed_time)
-                    print_there((pos[si-1] + pos[si])//2, 
-                        2, cur_sent["nod"], right_side_win, color)
-                    right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols -1)
-                elif t_ch == LEFT:
-                    std.timeout(-1)
-                    set_nod("okay, never mind", cur_sent, sents, bmark, si, elapsed_time)
-                    if False:
-                        set_nod(_next_nod, cur_sent, sents, bmark, si, elapsed_time)
-                        si, bmark = moveon(sents, si)
-                        forward = True
+                #std.timeout(500)
+                #t_ch = get_key(std)
+                #if t_ch < 0:
+                #    std.timeout(-1)
+                #    set_nod("", cur_sent, sents, bmark, si, elapsed_time)
+                #    print_there((pos[si-1] + pos[si])//2, 
+                #        2, cur_sent["nod"], right_side_win, color)
+                #    right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols -1)
+                #elif t_ch == LEFT:
+                #    std.timeout(-1)
+                #    set_nod("okay, never mind", cur_sent, sents, bmark, si, elapsed_time)
+                #    if False:
+                #        set_nod(_next_nod, cur_sent, sents, bmark, si, elapsed_time)
+                #        si, bmark = moveon(sents, si)
+                #        forward = True
         #pp#p
         if False: #((rc_mode and ch==RIGHT) or ch == cur.KEY_IC) and not word_level and expand != 0:
             in_sent = True
@@ -3553,26 +3554,118 @@ def get_nod(cur_nod, ni = -1):
 def get_nods(cur_sent, cur_nod):
     if "nods" in cur_sent:
         sent_nods = cur_sent["nods"]
-        if type(sent_nods) == list:
+        if isinstance(sent_nods, list):
             p_nods = sent_nods
             n_nods = neg_nods
         else:
-            p_nods = sent_nods["affirmative"]
-            n_nods = sent_nods["reflective"] 
+            p_nods = sent_nods.get("affirmative", [])
+            n_nods = sent_nods.get("reflective", [])
     else:
         p_nods = pos_nods
         n_nods = neg_nods
 
-    nods = list(reversed(n_nods)) + p_nods
+    # Combine and strip '@' from all nods
+    nods = [n.lstrip('@') for n in (n_nods + p_nods)]
+
+    # Default ni is len of n_nods (boundary between neg and pos)
     ni = len(n_nods)
-    if cur_nod in nods:
-        ni = nods.index(cur_nod)
+
+    if cur_nod:
+        # If current nod is specified, find its index if exists
+        if cur_nod in nods:
+            ni = nods.index(cur_nod)
+    else:
+        # If cur_nod is empty, find first nod starting with '@'
+        raw_nods = n_nods + p_nods
+        for i, n in enumerate(raw_nods):
+            if n.startswith('@'):
+                ni = i
+                break
+
     return nods, ni
+
+def print_adjusted(y, x, text, win, color_pair, max_lines=3, align="center"):
+    """
+    Print text at position (y, x) inside the curses window 'win'.
+    If the text is longer than the available width, it wraps to multiple lines
+    and centers vertically around 'y'. The output is clipped to 'max_lines'.
+    """
+    try:
+        h, w = win.getmaxyx()
+        available = max(w - x - 1, 1)
+
+        # Wrap text into lines if too long
+        lines = textwrap.wrap(text, width=available)
+        if len(lines) > max_lines:
+            # Truncate and mark ellipsis
+            lines = lines[:max_lines - 1] + ["… " + lines[-1][-available + 2:]]
+
+        # Compute starting y to vertically center if needed
+        start_y = y - len(lines) // 2
+        for i, line in enumerate(lines):
+            if align == "center":
+                x_pos = max((w - len(line)) // 2, 0)
+            else:
+                x_pos = x
+            if 0 <= start_y + i < h:
+                win.addstr(start_y + i, x_pos, line, cur.color_pair(color_pair))
+        win.refresh()
+    except cur.error:
+        pass  # Silent ignore if window too small or offscreen
+
+
+def print_visible_nods(nods, nod_index, width, text_win, mprint, hl_color, sep="|"):
+    segments = []
+    pos = len(sep)
+    for n in nods:
+        start = pos
+        end = start + len(n)
+        segments.append((n, start, end))
+        pos = end + len(sep)
+    total_len = pos
+
+    if total_len <= width:
+        visible_start, visible_end = 0, total_len
+    else:
+        start, end = segments[nod_index][1:3]
+        mid = (start + end) // 2
+        half = width // 2
+        visible_start = max(0, mid - half)
+        visible_end = min(total_len, visible_start + width)
+
+    for i, (n, start, end) in enumerate(segments):
+        if end < visible_start or start > visible_end:
+            continue
+        color = hl_color if i == nod_index else find_nod_color(n)
+        # Left/right ellipsis
+        if i == 0 and visible_start > 0 and start <= visible_start < end:
+            n = "…" + n[-(end - visible_start - 1):]
+        elif i == len(segments) - 1 and end > visible_end and start < visible_end:
+            n = n[:visible_end - start - 1] + "…"
+        mprint("|", text_win, color, end="")
+        mprint(n, text_win, color, end="")
+    mprint("|", text_win, TEXT_COLOR)
+
+def get_cur_nod(cur_sent): 
+    nod_index = None
+    if "nod" in cur_sent and cur_sent["nod"]:
+        nod = cur_sent["nod"]
+        if nod.isdigit():
+            nod_index = int(nod)
+        else:
+            return nod
+    nods, ni = get_nods(cur_sent, "")
+    cur_nod = nods[nod_index] if nod_index else nods[ni]
+    return cur_nod
 
 def next_nod(cur_nod, ch, cur_sent): 
     nods, ni = get_nods(cur_sent, cur_nod)
     ni = ni + 1 if ch == key_pos else ni - 1
-    ni = max(0, min(ni, len(nods) - 1))
+    if ni > len(nods) - 1:
+        ni = 0
+    if ni < 0:
+        ni = len(nods) - 1
+    # ni = max(0, min(ni, len(nods) - 1))
     cur_nod = nods[ni]
     return cur_nod
 
