@@ -11,10 +11,9 @@
           "sents": [
             {
               "text": "NodCast is a text-based article reader designed for concentrated study.",
-	      "nod":"how?",
               "nods": {
                 "affirmative": ["I see!", "interesting!"],
-                "reflective": ["how?", "what makes it different?"]
+                "reflective": ["@how?", "what makes it different?"]
               }
             },
             {
@@ -55,11 +54,12 @@
               }
             },
             {
-              "text": "Fix This: The above nods are general ones, there are nods in shape of phrases showing possible vague points ... ",
+              "text": "Beyond general nods, there are also phrase-shaped responses that hint at subtle misunderstandings or nuances in meaning. These help NodCast identify where a reader’s attention or uncertainty lies.",
               "nods": {
                 "affirmative": ["understood", "makes sense"],
-                "reflective": ["so what happens after that?", "@okay, how does NodCast use them?"]
+                "reflective": ["so what happens after that?", "@how does NodCast interpret them?"]
               }
+            }
           ]
         }
       ]
@@ -73,21 +73,21 @@
               "text": "When a sentence is highlighted, NodCast suggests possible nods beneath it.",
               "nods": {
                 "affirmative": ["interesting!", "I see!"],
-                "reflective": ["what kind of nods?", "based on what?"]
+                "reflective": ["@what kind of nods?", "based on what?"]
               }
             },
             {
               "text": "These nods represent how a reader might naturally react — either confirming understanding or expressing curiosity.",
               "nods": {
                 "affirmative": ["okay", "I see!", "right"],
-                "reflective": ["so positive and negative?", "is it like talking to the text?"]
+                "reflective": ["so positive and negative?", "@is it like talking to the text?"]
               }
             },
             {
               "text": "Use the arrow keys to explore these suggestions.",
               "nods": {
                 "affirmative": ["okay", "clear", "got it"],
-                "reflective": ["how exactly?", "which keys?"]
+                "reflective": ["@how exactly?", "which keys?"]
               }
             }
           ]
@@ -103,27 +103,27 @@
               "text": "Use the Right and Left arrow keys to cycle through suggested nods.",
               "nods": {
                 "affirmative": ["I see!", "clear"],
-                "reflective": ["so I can select them?", "how does it remember my choice?"]
+                "reflective": ["so I can select them?", "@how does it remember my choice?"]
               }
             },
             {
               "text": "Press Right for positive nods like okay, I see!, or interesting!. Press Left for reflective or negative nods such as didn’t get, so?, or how?.",
               "nods": {
-                "affirmative": ["important!", "helpful!"],
+                "affirmative": ["important!", "@helpful!"],
                 "reflective": ["so left for confusion?", "does order matter?"]
               }
             },
             {
               "text": "When you have chosen a nod, press Down to move to the next sentence or Up to return to the previous one.",
               "nods": {
-                "affirmative": ["okay", "smooth flow"],
+                "affirmative": ["okay", "@smooth flow"],
                 "reflective": ["so it’s sequential?", "can I skip?"]
               }
             },
             {
               "text": "This creates a rhythm of reading, responding, and progressing — much like a real conversation.",
               "nods": {
-                "affirmative": ["interesting!", "true", "natural!"],
+                "affirmative": ["interesting!", "true", "@natural!"],
                 "reflective": ["so it’s like dialogue?", "is this why it’s called NodCast?"]
               }
             }
@@ -135,26 +135,25 @@
       "title": "Studying an Article",
       "fragments": [
         {
-          "text": "You can study a paper sentence by sentence.\nUse the arrow keys to navigate, nod, and comment.\nYour nods help you track comprehension and mark what matters.",
           "sents": [
             {
               "text": "You can study a paper sentence by sentence.",
               "nods": {
-                "affirmative": ["okay", "clear", "nice feature"],
+                "affirmative": ["okay", "clear", "@nice feature"],
                 "reflective": ["why sentence by sentence?", "can I choose paragraphs?"]
               }
             },
             {
               "text": "Use the arrow keys to navigate, nod, and comment.",
               "nods": {
-                "affirmative": ["I see!", "simple", "handy!"],
+                "affirmative": ["I see!", "simple", "@handy!"],
                 "reflective": ["what keys exactly?", "so keyboard only?"]
               }
             },
             {
               "text": "Your nods help you track comprehension and mark what matters.",
               "nods": {
-                "affirmative": ["important!", "smart idea!"],
+                "affirmative": ["important!", "@smart idea!"],
                 "reflective": ["how does it track?", "so it learns from me?"]
               }
             }

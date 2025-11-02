@@ -7,7 +7,7 @@ def new_sent(s):
     return _new_sent
 
 split_levels = [['\n'],['.','?','!'], ['.','?','!',';'], ['.','?','!',';', ' ', ',', '-']]
-text_width = 52
+text_width = 60
 #iii
 def init_frag_sents(text, cohesive =False, unit_sep = "", word_limit = 20, nod = "", split_level = 1, block_id=-1, merge=False):
     if word_limit == 20 and split_level == 2: word_limit = 10
@@ -115,6 +115,7 @@ def fix_article(art, split_level=1):
     """
     Restore and normalize the article dictionary using the old schema.
     Compatible with existing init_frag_sents(), refresh_offsets(), and new_sent().
+    Also cleans '@' from nods and sets default nods + meta info for each sentence.
     """
     # --- root-level defaults ---
     art.setdefault("title", "Untitled")
@@ -142,7 +143,7 @@ def fix_article(art, split_level=1):
 
         # --- ensure each fragment is well-formed ---
         for fi, frag in enumerate(sect["fragments"]):
-            frag.setdefault("title", f"Fragment {fi+1}")
+            # frag.setdefault("title", f"Fragment {fi+1}")
             frag.setdefault("offset", 0)
             frag.setdefault("text", "")
             frag.setdefault("notes", {})
@@ -156,21 +157,69 @@ def fix_article(art, split_level=1):
 
             # rebuild sents if missing or inconsistent
             if "sents" not in frag or not frag["sents"]:
-                frag["sents"] = init_frag_sents(frag["text"], split_level=split_level, block_id=frag["block_id"])
+                frag["sents"] = init_frag_sents(
+                    frag["text"],
+                    split_level=split_level,
+                    block_id=frag["block_id"],
+                )
             else:
                 # ensure each sentence follows current schema
                 new_sents = []
                 for s in frag["sents"]:
                     if isinstance(s, str):
-                        new_sents.append(new_sent(s))
+                        s = new_sent(s)
                     else:
                         for k, v in new_sent("").items():
                             if k not in s:
                                 s[k] = v
                         if len(s.get("text", "").split(" ")) <= 1:
                             s["end"] = " "
-                        new_sents.append(s)
+                    new_sents.append(s)
                 frag["sents"] = new_sents
+
+            # --- NEW BLOCK: Normalize nods and add meta info ---
+            for sent in frag["sents"]:
+                # Detect and clean '@' from nods
+                if "nods" in sent:
+                    default_nod = None
+                    sent_nods = sent["nods"]
+
+                    if isinstance(sent_nods, dict):
+                        for key in ("affirmative", "reflective"):
+                            if key in sent_nods:
+                                cleaned = []
+                                for n in sent_nods[key]:
+                                    if isinstance(n, str) and n.startswith("@"):
+                                        default_nod = n.lstrip("@")
+                                        cleaned.append(default_nod)
+                                    else:
+                                        cleaned.append(n)
+                                sent_nods[key] = cleaned
+                    elif isinstance(sent_nods, list):
+                        cleaned = []
+                        for n in sent_nods:
+                            if isinstance(n, str) and n.startswith("@"):
+                                default_nod = n.lstrip("@")
+                                cleaned.append(default_nod)
+                            else:
+                                cleaned.append(n)
+                        sent["nods"] = cleaned
+
+                    # If '@' was found, mark it as default nod
+                    if default_nod:
+                        sent["nod"] = default_nod
+
+                # Attach per-sentence metadata
+                if "meta" not in sent:
+                    sent["meta"] = {}
+
+                sent["meta"].update({
+                    "word_count": len(sent["text"].split()),
+                    "char_count": len(sent["text"]),
+                    "section": sect["title"],
+                    "fragment": frag.get("title", f"Fragment {fi+1}"),
+                })
+            # --- END NEW BLOCK ---
 
     # --- update offsets for navigation compatibility ---
     try:

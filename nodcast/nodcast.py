@@ -1176,8 +1176,9 @@ def find_color(sents, fsn, check_next = False, okays = False):
     else:
         return find_nod_color(nod)
 
-def find_nod_color(nod):
+def find_nod_color(nod, fixed=False):
     ret = int(theme_menu["text-color"])
+    if fixed: return ret
     colors = theme_menu
     find = False
     for key, val in colors.items():
@@ -2123,12 +2124,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                 #ccc
                                 if not sents[fsn]["passable"]:
                                     if fsn >= bmark and fsn <= si:
-                                        sent_nods, nod_index = get_nods(cur_sent, cur_nod)
-                                        print_visible_nods(sent_nods, nod_index, 
-                                                           width, text_win, 
-                                                           mprint, HL_COLOR)
-                                        print_adjusted(sect_middle, 4, cur_nod, 
-                                                    right_side_win, TEXT_COLOR)
+                                        print_visible_nods(cur_sent, width - 4, text_win) 
+                                        #print_adjusted(sect_middle, 4, cur_nod, 
+                                        #            right_side_win, TEXT_COLOR)
                                         # right_side_win.addstr(sect_middle, 4, "test")
                                         # list_nods(right_side_win, _y - lines_count, sent_nods)
                                     if sent["comment"] != "":
@@ -2743,7 +2741,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if scroll_page:
                 start_row += scroll
             elif show_sel_nod: 
-                cur_nod = sents[si]["nod"]
+                cur_nod = get_cur_nod(cur_sent)
                 cur_nod = next_nod(cur_nod, ch, cur_sent)
                 set_nod(cur_nod, cur_sent, sents, bmark, si, elapsed_time)
             else:
@@ -2756,7 +2754,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 elif (sents[si]["block_id"] < 0) and ii < nf and si < bmark:
                     si = ii 
                 else:
-                    prev_nod = sents[si]["nod"]
+                    prev_nod = get_cur_nod(cur_sent) or "okay"
                     if prev_nod == "" and False: #TODO
                         set_nod("okay", cur_sent, sents, bmark, si, -1)
                     if False: #prev_nod == "what?!":
@@ -2773,7 +2771,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             scroll_page = False
             is_paused = False
             if show_sel_nod: 
-                cur_nod = sents[si]["nod"]
+                cur_nod = get_cur_nod(cur_sent)
                 cur_nod = next_nod(cur_nod, ch, cur_sent)
                 set_nod(cur_nod, cur_sent, sents, bmark, si, -1)
             else:
@@ -2810,12 +2808,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             
             if not rc_text and (bmark != si or sents[bmark]["block"] != "word" 
                                 and sents[si]["block"] != "word"):
-                prev_nod = sents[si]["nod"] 
-                if prev_nod == "": prev_nod = "okay"
-                if prev_nod != "what?!" and prev_nod != "okay, go on":
-                    _next_nod = next_nod(prev_nod, key_pos, cur_sent) if not auto_mode else "okay"
-                else:
-                    _next_nod = "okay, go on"
+                prev_nod = get_cur_nod(cur_sent) or "okay"
+                # if prev_nod == "": prev_nod = "okay"
+                # if prev_nod != "what?!" and prev_nod != "okay, go on":
+                _next_nod = next_nod(prev_nod, key_pos, cur_sent) if not auto_mode else "okay"
+                #else:
+                #    _next_nod = "okay, go on"
                 set_nod(_next_nod, cur_sent, sents, bmark, si, elapsed_time)
                 for ii in range(bmark, si+1):
                     if not "okays" in sents[ii]:
@@ -2854,7 +2852,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     play(cur_sent["sfile"], sents, art, bmark)
                 if True: #not show_sel_nod:
                     #show_sel_nod = True
-                    prev_nod = sents[si]["nod"] 
+                    # prev_nod = sents[si]["nod"] 
+                    prev_nod = get_cur_nod(cur_sent) or "okay"
                     # if prev_nod == "": prev_nod = "okay"
                     _next_nod = next_nod(prev_nod, key_neg, cur_sent) 
                     set_nod(_next_nod, cur_sent, sents, bmark, si, elapsed_time)
@@ -3536,7 +3535,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 key_neg = DOWN 
 key_pos = UP
 def get_nod(cur_nod, ni = -1):
-    nods = list(reversed(neg_nods)) + pos_nods
+    nods = neg_nods + pos_nods
     top = middle = bottom = ""
     if ni < 0:
         ni = nods.index(cur_nod) if cur_nod in nods else len(neg_nods) + 1
@@ -3551,38 +3550,6 @@ def get_nod(cur_nod, ni = -1):
         bottom = " Down) OK, I get it now"
     return top, middle, bottom, cur_nod 
 
-def get_nods(cur_sent, cur_nod):
-    if "nods" in cur_sent:
-        sent_nods = cur_sent["nods"]
-        if isinstance(sent_nods, list):
-            p_nods = sent_nods
-            n_nods = neg_nods
-        else:
-            p_nods = sent_nods.get("affirmative", [])
-            n_nods = sent_nods.get("reflective", [])
-    else:
-        p_nods = pos_nods
-        n_nods = neg_nods
-
-    # Combine and strip '@' from all nods
-    nods = [n.lstrip('@') for n in (n_nods + p_nods)]
-
-    # Default ni is len of n_nods (boundary between neg and pos)
-    ni = len(n_nods)
-
-    if cur_nod:
-        # If current nod is specified, find its index if exists
-        if cur_nod in nods:
-            ni = nods.index(cur_nod)
-    else:
-        # If cur_nod is empty, find first nod starting with '@'
-        raw_nods = n_nods + p_nods
-        for i, n in enumerate(raw_nods):
-            if n.startswith('@'):
-                ni = i
-                break
-
-    return nods, ni
 
 def print_adjusted(y, x, text, win, color_pair, max_lines=3, align="center"):
     """
@@ -3613,49 +3580,126 @@ def print_adjusted(y, x, text, win, color_pair, max_lines=3, align="center"):
     except cur.error:
         pass  # Silent ignore if window too small or offscreen
 
-
-def print_visible_nods(nods, nod_index, width, text_win, mprint, hl_color, sep="|"):
-    segments = []
-    pos = len(sep)
-    for n in nods:
-        start = pos
-        end = start + len(n)
-        segments.append((n, start, end))
-        pos = end + len(sep)
-    total_len = pos
-
-    if total_len <= width:
-        visible_start, visible_end = 0, total_len
+def get_pos_neg_nods(cur_sent):
+    if "nods" in cur_sent:
+        sent_nods = cur_sent["nods"]
+        if isinstance(sent_nods, list):
+            p_nods = sent_nods
+            n_nods = neg_nods
+        else:
+            p_nods = sent_nods.get("affirmative", [])
+            n_nods = sent_nods.get("reflective", [])
     else:
-        start, end = segments[nod_index][1:3]
-        mid = (start + end) // 2
-        half = width // 2
-        visible_start = max(0, mid - half)
-        visible_end = min(total_len, visible_start + width)
+        p_nods = pos_nods
+        n_nods = neg_nods
+    return p_nods, n_nods
 
-    for i, (n, start, end) in enumerate(segments):
+def get_nods(cur_sent, cur_nod):
+    p_nods, n_nods = get_pos_neg_nods(cur_sent)
+    # Combined nod list (already normalized; no '@' remains)
+    nods = n_nods + p_nods
+    ni = len(n_nods)
+
+    if cur_nod:
+        if cur_nod in nods:
+            ni = nods.index(cur_nod)
+    else:
+        # If cur_nod is empty, fall back to default nod if set
+        if "nod" in cur_sent and cur_sent["nod"]:
+            default_nod = cur_sent["nod"]
+            if default_nod in nods:
+                ni = nods.index(default_nod)
+
+    return nods, ni
+
+def print_visible_nods(cur_sent, width, text_win, sep=" ",
+                       pos_color=SEL_COLOR, neg_color=WARNING_COLOR):
+    """
+    Prints nods horizontally, ensuring the current nod is visible.
+    Adds leading/trailing ellipses (…) when parts of the nod list are clipped.
+    """
+    cur_nod = get_cur_nod(cur_sent)
+    p_nods, n_nods = get_pos_neg_nods(cur_sent)
+    nods = n_nods + p_nods
+    neg_count = len(n_nods)
+
+    if not nods:
+        return
+
+    full_text = sep.join(nods)
+    total_len = len(full_text)
+
+    # Find current nod position
+    try:
+        nod_index = nods.index(cur_nod)
+    except ValueError:
+        nod_index = 0
+        cur_nod = nods[0]
+
+    # Compute character spans of nods
+    offsets, pos = [], 0
+    for n in nods:
+        start, end = pos, pos + len(n)
+        offsets.append((n, start, end))
+        pos = end + len(sep)
+
+    cur_start, cur_end = offsets[nod_index][1:3]
+
+    # --- Determine visible window ---
+    ellipsis_len = 1  # one '…' character
+    inner_width = max(5, width - 2 * ellipsis_len)  # reserve room for ellipses
+
+    if total_len <= inner_width:
+        visible_start, visible_end = 0, total_len
+        show_left, show_right = False, False
+    elif cur_end > inner_width:
+        visible_start = cur_end - inner_width
+        visible_end = cur_end
+        show_left = visible_start > 0
+        show_right = visible_end < total_len
+    else:
+        visible_start, visible_end = 0, inner_width
+        show_left, show_right = False, True
+
+    visible_start = max(0, min(visible_start, total_len - inner_width))
+    visible_end = min(total_len, visible_start + inner_width)
+
+    # --- Rendering ---
+    if show_left:
+        mprint("…", text_win, TEXT_COLOR, end="")
+
+    for i, (n, start, end) in enumerate(offsets):
         if end < visible_start or start > visible_end:
             continue
-        color = hl_color if i == nod_index else find_nod_color(n)
-        # Left/right ellipsis
-        if i == 0 and visible_start > 0 and start <= visible_start < end:
-            n = "…" + n[-(end - visible_start - 1):]
-        elif i == len(segments) - 1 and end > visible_end and start < visible_end:
-            n = n[:visible_end - start - 1] + "…"
-        mprint("|", text_win, color, end="")
-        mprint(n, text_win, color, end="")
-    mprint("|", text_win, TEXT_COLOR)
+
+        # Portion of nod visible inside the window
+        vis_start = max(0, visible_start - start)
+        vis_end = len(n) - max(0, end - visible_end)
+        visible_part = n[vis_start:vis_end]
+
+        # Highlight color
+        if n == cur_nod:
+            color = pos_color if i >= neg_count else neg_color
+        else:
+            color = find_nod_color(n, fixed=True)
+
+        mprint(visible_part, text_win, color, end="")
+
+        # Separator (only if not clipped and not last nod)
+        if i < len(offsets) - 1 and end + len(sep) < visible_end:
+            mprint(sep, text_win, TEXT_COLOR, end="")
+
+    if show_right:
+        mprint("…", text_win, TEXT_COLOR, end="")
+
+    mprint("", text_win, TEXT_COLOR)
 
 def get_cur_nod(cur_sent): 
-    nod_index = None
     if "nod" in cur_sent and cur_sent["nod"]:
-        nod = cur_sent["nod"]
-        if nod.isdigit():
-            nod_index = int(nod)
-        else:
-            return nod
+        return cur_sent["nod"]
+
     nods, ni = get_nods(cur_sent, "")
-    cur_nod = nods[nod_index] if nod_index else nods[ni]
+    cur_nod = nods[ni]
     return cur_nod
 
 def next_nod(cur_nod, ch, cur_sent): 
@@ -3665,7 +3709,6 @@ def next_nod(cur_nod, ch, cur_sent):
         ni = 0
     if ni < 0:
         ni = len(nods) - 1
-    # ni = max(0, min(ni, len(nods) - 1))
     cur_nod = nods[ni]
     return cur_nod
 
@@ -4267,7 +4310,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument("--hotkey", type=str, default='')
+parser.add_argument("-hk","--hotkey", type=str, default='')
 args = parser.parse_args()
 MAX_MENU_PAGES = 20
 
