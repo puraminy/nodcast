@@ -3693,6 +3693,7 @@ def get_nods(cur_sent, cur_nod):
             if default_nod in nods:
                 ni = nods.index(default_nod)
 
+    ni = max(0, min(ni, len(nods) - 1))
     return nods, ni
 
 def print_visible_nods(cur_sent, width, text_win, sep=" ",
@@ -4439,13 +4440,13 @@ def start(stdscr):
     if True: #menu is None or (newspaper_imported and not "webpage" in menu):
         menu = {}
         menu[profile_str] = ""
-        if last_visited:
-            menu["recent articles"] = "button"
-        else:
-            menu["recent articles"] = "button-hidden"
-        menu["notes"] = "button"
+        #if last_visited:
+        #    menu["recent articles"] = "button"
+        #else:
+        #    menu["recent articles"] = "button-hidden"
+        # menu["notes"] = "button"
         menu["open file"] = "button"
-        menu["my articles"] = "button"
+        # menu["my articles"] = "button"
         menu["sepb1"] = ""
 #        menu["sep1"] = "Search AI-related papers"
 #        if is_obj("last_results", ""):
@@ -4625,16 +4626,17 @@ def start(stdscr):
             Path(save_folder).mkdir(parents=True, exist_ok=True)
             show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
         last_visited = load_obj("last_visited", "articles", [])
-        if len(last_visited) > 0:
-            menu["recent articles"] = "button"
-        elif len(last_visited) == 0:
-            menu["recent articles"] = "button-hidden"
-        if is_obj("last_results", ""):
-            menu["last results"] = "button"
-        else:
-            menu["last results"] = "button-hidden"
-        if ch in menu and menu[ch] == "button-hidden":
-            mi = 0
+        if False: #TODO
+            if len(last_visited) > 0:
+                menu["recent articles"] = "button"
+            elif len(last_visited) == 0:
+                menu["recent articles"] = "button-hidden"
+            if is_obj("last_results", ""):
+                menu["last results"] = "button"
+            else:
+                menu["last results"] = "button-hidden"
+            if ch in menu and menu[ch] == "button-hidden":
+                mi = 0
 
 
 
@@ -4653,10 +4655,11 @@ def rev_articles(sel_art=None):
 def refresh_files(save_folder, subfolders, files, depth=1, show_folders =False):
     menu = {}
     menu[".."] = "button"
-    menu["back home"] = "button"
-    menu["explore"] = "button"
-    menu["tags"] = "button"
+    # menu["back home"] = "button"
+    menu["open folder"] = "button"
+    #menu["tags"] = "button"
     menu["new article"] = "button"
+    menu["browse articles (NodCast Hub)"] = "button" 
     menu["refresh"] = "button-hidden"
     _folder = save_folder
     if len(_folder) > 80 or depth > 1:
@@ -4674,7 +4677,10 @@ def refresh_files(save_folder, subfolders, files, depth=1, show_folders =False):
         if (show_folders or sf.endswith(today) or sf.endswith(yesterday)) or (show_folders and not valid_date(sf)) and len(os.listdir(save_folder + "/" + sf)) > 0:
             menu["[>] " + sf] = "button@folder@" + str(ind)
     count = 1
-    sk = {'q':"..", 'e':"explore", 'h':'back home', 'n':'new article', 't':'tags'}
+    sk = {'q':"..", 'e':"open folder", 
+          'h':'back home', 
+          'b':'browse articles (NodCast Hub)', 
+          'n':'new article', 't':'tags'}
     rows, cols = std.getmaxyx()
     for ind, f in enumerate(files):
         name = Path(f).name
@@ -4753,9 +4759,12 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
         elif ch == 'f':
             show_folders = not show_folders
             ch = "refresh"
-        elif ch == "new article" or ch == "explore":
+        elif ch == "new article":
             filepath = save_folder 
             if ch == "new article":
+                show_warn("This feature is not yet available.")
+                ch = ""
+            if False: #TODO
                 name = "new article"
                 filepath = save_folder + "/"+ name + ".txt"
                 count = 1
@@ -4765,6 +4774,12 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                     count += 1
                 with open(filepath, "w") as f:
                     print("Write your text file here, rename it and save, then refresh", file = f)
+                platform_open(filepath)
+                ch = "refresh"
+        elif ch == "browse articles (NodCast Hub)":
+            show_warn("This feature is not yet available.")
+        elif ch == "open folder":
+            filepath = save_folder 
             platform_open(filepath)
             ch = "refresh"
         elif "del@" in ch:
@@ -4810,15 +4825,19 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             if ch != "a":
                 mval = list(menu.values())[mi]
                 parts = mval.split("@")
-                index = int(parts[2]) 
-                filename = files[index]
-            ext = os.path.splitext(filename)[1]
-            name = os.path.basename(filename)
-            name_without_ext = name.split('.')[0]
-            _file = open(filename, "r")
-            data = ""
-            #sqq
-            extract = ch == "c" or not Path(filename + ".txt").is_file()
+                filename = ""
+                ext = ""
+                if len(parts) > 2:
+                    index = int(parts[2]) 
+                    filename = files[index]
+            if Path(filename).is_file():
+                ext = os.path.splitext(filename)[1]
+                name = os.path.basename(filename)
+                name_without_ext = name.split('.')[0]
+                _file = open(filename, "r")
+                data = ""
+                #sqq
+                extract = ch == "c" or not Path(filename + ".txt").is_file()
             if ch == "o" or (ext == ".pdf" and not extract):
                 openFile(filename)
             elif ext == ".pdf" and extract:
