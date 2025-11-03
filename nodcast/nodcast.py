@@ -867,7 +867,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
         left = ((cols - width) // 2)
         rows, cols = std.getmaxyx()
         if hotkey == "":
-            # print_sect(cur_title, cur_prog, left)
+            # print_sect(cur_title, cur_prog, left, text_win)
             mprint(cur_title, list_win)
             list_win.refresh(0, 0, 1, 2, rows - 2, cols - 2)
             std.refresh()
@@ -1220,21 +1220,42 @@ def print_notes(win, notes, ypos, xpos):
 
 top_win = None
 
-def print_sect(title, prog, left):
+def print_sect(title, prog, left, text_win):
+    """
+    Draws the section title/progress bar in top_win.
+    Uses overwrite(text_win) to blend the title area over text_win content
+    without clearing the screen, eliminating flicker.
+    Redraws only when title/prog actually change.
+    """
     l_color = TITLE_COLOR
-    top_win.clear()
-    if title != "":
-        prog = int(prog)
-        title = textwrap.shorten(title, 2*text_width - 20)
-        title = textwrap.fill(title,text_width)
-        title = textwrap.indent(title," "*left)
-        mprint(title, top_win, l_color, attr=cur.A_BOLD, end="")
-        prog_color = TEXT_COLOR  # scale_color(prog)
-        #add_info = " [" + str(prog) + "%] "  # + f"({sect_fc+1}/{fnum})"
-        #y, x = top_win.getyx()
-        #print_there(y, x + 1, add_info, top_win, prog_color, attr=cur.A_BOLD)
-    top_win.refresh()
+    prog_color = TEXT_COLOR
 
+    # --- track previous draw state (static variable) ---
+    state = (title, int(prog) if str(prog).isdigit() else prog)
+    last_state = getattr(print_sect, "_last_state", None)
+    if state == last_state:
+        return  # nothing changed, skip
+    print_sect._last_state = state
+
+    # --- refresh the background from text_win instead of clearing ---
+    top_win.erase()
+
+    # --- redraw the title content ---
+    if title:
+        # shorten and format nicely
+        prog = int(prog) if str(prog).isdigit() else 0
+        short_title = textwrap.shorten(title, 2 * text_width - 20)
+        wrapped = textwrap.fill(short_title, text_width)
+        indented = textwrap.indent(wrapped, " " * left)
+
+        mprint(indented, top_win, l_color, attr=cur.A_BOLD, end="")
+
+        # optional: add progress info to the right
+        # y, x = top_win.getyx()
+        # add_info = f" [{prog}%]"
+        # print_there(y, x + 1, add_info, top_win, prog_color, attr=cur.A_BOLD)
+
+    top_win.noutrefresh()  # mark for unified update
 
 def print_prog(text_win, prog, width):
     w = int(width * prog / 100)
@@ -1471,31 +1492,86 @@ def continue_recording(sents, art, si, to, background=True):
 import vlc
 player = None
 recorder = None
-def play(sound_file, sents, art, si, record_all = False):
+from urllib.parse import quote
+
+def play(sound_file, sents, art, si, record_all=False):
     global player, recorder
     if player is not None:
         player.stop()
-    if Path(sound_file).is_file():
+
+    path = Path(sound_file)
+    if path.is_file():
         try:
-            player = vlc.MediaPlayer("file://" + sound_file)
+            uri = "file://" + quote(str(path))
+            instance = vlc.Instance("--quiet", "--no-xlib", "--logmode", "none", "--intf", "dummy")
+            player = instance.media_player_new()
+            media = instance.media_new(uri)
+            player.set_media(media)
             player.play()
         except Exception as e:
-            show_err("ERROR:")
+            show_err(f"VLC error: {e}")
+
     else:
-        show_info("Recording, please wait ... (it's just about the first sentence, the rest will be recorded as you listen previous ones)")
+        show_warn("Sound wasn't recorded, playing and recording ... please wait.")
+
         sent = sents[si]
-        sfile, f_exist = get_record_file(art["title"], f"{si:03d}" + sent["text"][:4])
+        # get a record file path for this sentence
+        sfile, f_exist = get_record_file(art["title"], f"{si:03d}_" + sent["text"][:4])
+
+        # record the text (using gTTS or whatever your record() function does)
         record(sent["text"], sfile)
+
+        # wait briefly for the recording to complete (up to ~5s)
+        for _ in range(50):
+            time.sleep(0.1)
+            if Path(sfile).is_file():
+                break
+
+        # now play the recorded sound if it exists
         if Path(sfile).is_file():
-            player = vlc.MediaPlayer("file://" + sfile)
-            player.play()
+            try:
+                uri = "file://" + quote(str(Path(sfile)))
+                instance = vlc.Instance("--quiet", "--no-xlib", "--logmode", "none", "--intf", "dummy")
+                player = instance.media_player_new()
+                media = instance.media_new(uri)
+                player.set_media(media)
+                player.play()
+            except Exception as e:
+                show_err(f"Playback failed after recording: {e}")
+        else:
+            show_err("Recording failed: no audio file created.")
+
+    # start background recording of next sentences if not already active
     if recorder is None or not recorder.is_alive():
         limit = 10 if not record_all else len(sents) - si
         if not record_all:
-            recorder = threading.Thread(target=continue_recording, args=(sents, art, si, limit), daemon=True)
+            recorder = threading.Thread(
+                target=continue_recording, args=(sents, art, si, limit), daemon=True
+            )
             recorder.start()
         else:
             continue_recording(sents, art, si, limit, background=False)
+
+def play2(sound_file, sents, art, si, record_all=False):
+    global player, recorder
+    if player is not None:
+        player.stop()
+
+    path = Path(sound_file)
+    if path.is_file():
+        try:
+            uri = "file://" + quote(str(path))
+            # create a VLC instance with verbosity=0
+            instance = vlc.Instance("--quiet", "--no-xlib", "--logmode", "none", "--intf", "dummy")
+            player = instance.media_player_new()
+            media = instance.media_new(uri)
+            player.set_media(media)
+            player.play()
+        except Exception as e:
+            show_err(f"VLC error: {e}")
+    else:
+        show_warn("Sound wasn't recorded, playing and recording ... please wait.")
+        # complete this
 
 def speak2(text):
     os.system(f'echo "{text}" | festival --tts')
@@ -1685,6 +1761,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     merge_sents = True
     sub_mode1 = "s) speak aloud"
     sub_mode2 = ""
+    show_mode = ["inplace","stack"][0]
     while ch != ord('q'):
         # clear_screen(text_win)
         if si == 0:
@@ -1897,8 +1974,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 is_section = True
                 title_color = HL_COLOR
                 # si = si + 1
-            if (b == cur_sect and expand == 0 and cur_sect["opened"]): 
-                text_win.erase()
+            #if (b == cur_sect and expand == 0 and cur_sect["opened"]): 
+            #    text_win.erase()
             sents_num = b["sents_num"] - 1
             prog = 0
             if sents_num > 0:
@@ -1926,8 +2003,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 
             pos[fsn], _ = text_win.getyx()
             sent_count = 1
-            if pos[fsn] > start_row + rows + rows//2 and not first:
-                break
+            if show_mode == "stack":
+                if pos[fsn] > start_row + rows + rows//2 and not first:
+                    break
 
             if b["title"] != "all" or expand == 0:
                 mprint(b["title"], text_win, title_color, end="", attr=cur.A_BOLD)
@@ -2087,10 +2165,11 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                     #TODO 
                                     if False and sent["nod"] != "" and start_reading:
                                         _color = find_color(sents, fsn)
-                                    if theme_menu["bold-text"] == "True":
-                                        mprint(sent_text, text_win, _color, attr=cur.A_BOLD, end=end)
-                                    else:
-                                        mprint(sent_text, text_win, _color, end=end)
+                                    if show_mode == "stack":
+                                        if theme_menu["bold-text"] == "True":
+                                            mprint(sent_text, text_win, _color, attr=cur.A_BOLD, end=end)
+                                        else:
+                                            mprint(sent_text, text_win, _color, end=end)
                                 mark = ""
                                 if "url" in frag and new_frag:
                                     mark = "f"
@@ -2124,7 +2203,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                 #ccc
                                 if not sents[fsn]["passable"]:
                                     if fsn >= bmark and fsn <= si:
-                                        print_visible_nods(cur_sent, width - 4, text_win) 
+                                        print_visible_nods(cur_sent, width, text_win) 
                                         #print_adjusted(sect_middle, 4, cur_nod, 
                                         #            right_side_win, TEXT_COLOR)
                                         # right_side_win.addstr(sect_middle, 4, "test")
@@ -2171,7 +2250,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                 new_frag = False
 
                         #fffe
-                        if has_sents:
+                        if has_sents and show_mode == "stack":
                             if "end_mark" in frag:  # fsn >= bmark and fsn <= si:
                                 w =  width - 5
                                 mprint("-" * (w), text_win, DIM_COLOR)
@@ -2186,11 +2265,14 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 #bbe
 
         first = False
+        end_y, curx = text_win.getyx()
         win_info = cur.newwin(1, cols, rows - 1, 0)
         win_info.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
         win_info.erase()
         win_info.erase()
         mode_info = main_info 
+        mode_info = f"start_row={start_row}, end_y={end_y}, max(pos)={max(pos)}"
+
         # f" si={si}, section={cur_sect['title'] if 'title' in cur_sect else ''}"
         if not speak_enabled:
             mode = "s) speak"
@@ -2231,14 +2313,13 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             else:
                 print_there(0, cols - 25, "l) list instructions", win_info, color=INFO_COLOR)
         win_info.refresh()
-        end_y, curx = text_win.getyx()
         # mark get_key
 
         # if ch != LEFT:
         rows, cols = std.getmaxyx()
         # width = 2*cols // 3
         left = ((cols - width) // 2) - 10
-        begin_dist = pos[bmark - 1] - start_row
+        begin_dist = pos[bmark - 1] - start_row if bmark > 0 else 0
         end_dist =  pos[si] - start_row 
         limit_row = rows - 2 
         _len = end_dist - begin_dist
@@ -2246,6 +2327,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             start_row = pos[bmark - 1] - 2
 
         #show_info("sr:" + str(start_row) + " bd:" + str(begin_dist) + " ed:" + str(end_dist)  + " lr:" + str(limit_row) + " si:" + str(si) +  "bmark:" + str(bmark) + "len:" + str(_len))
+        start_row = max(0, min(start_row, end_y - rows))
+
         if not scroll_page and not word_level and end_dist > limit_row and begin_dist < limit_row:
             start_row -= end_dist - limit_row
             scroll_page = True
@@ -2253,19 +2336,22 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if end_dist < limit_row:
                 scroll_page = False
         if hotkey == "":
-            text_win.refresh(start_row, 0, 2, left, rows - 2, left + width)
-            left_side_win.refresh(start_row, 0, 2, 0, rows - 2, left - 1)
-            right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols -1)
-            #cur.doupdate()
-            #show_info(main_info)
-        if art["sections"].index(cur_sect) >= 0 and expand != 0:
-            if pos[cur_sect["offset"]] <= start_row:
-                print_sect(cur_sect["title"], cur_sect["prog"], left)
-            else:
-                print_sect("", "", left)
-        else:
-            print_sect("Title:" + art["title"], art["total_prog"], left)
+            text_win.noutrefresh(start_row, 0, 2, left, rows - 2, left + width)
+            left_side_win.noutrefresh(start_row, 0, 2, 0, rows - 2, left - 1)
+            right_side_win.noutrefresh(start_row, 0, 2, left + width, rows - 2, cols - 1)
+            # Instead of text_win.refresh() and friends
 
+        if show_mode == "stack":
+            if art["sections"].index(cur_sect) >= 0 and expand != 0:
+                if pos[cur_sect["offset"]] <= start_row:
+                    print_sect(cur_sect["title"], cur_sect["prog"], left, text_win)
+                else:
+                    print_sect("", "", left, text_win)
+            else:
+                print_sect("Title:" + art["title"], art["total_prog"], left, text_win)
+
+        # At the very end of the drawing cycle:
+        cur.doupdate()
 #III
         if ch == ord('A'):
             pyperclip.copy(art["title"])
@@ -2761,11 +2847,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         show_msg("Press either Right or Left key to move to the next sentence")
                     else:
                         si, bmark = moveon(sents, si)
-            if speak_enabled and "sfile" in sents[bmark] and Path(sents[bmark]["sfile"]).is_file():
+            if speak_enabled and "sfile" in sents[bmark]:
                 play(sents[bmark]["sfile"], sents, art, bmark)
-            elif speak_enabled:
-                show_msg("Sound wasn't recorded, press s to record it")
-                speak_enabled = False
         # kkku
         if ch == UP:
             scroll_page = False
