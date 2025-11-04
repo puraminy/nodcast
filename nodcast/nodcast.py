@@ -5649,9 +5649,9 @@ def main():
         profile = "default"
     if profile == "default":
         copy_examples_to_docs(profile, doc_path)
-    nc_settings = load_obj("settings", "", common=True)
+    nc_settings = load_obj("settings", "", {}, common=True)
     if nc_settings != None:
-        doc_path = nc_settings["documents folder"]
+        doc_path = nc_settings.get("documents folder", doc_path)
         if "show instructions" in nc_settings:
             show_instruct = nc_settings["show instructions"] == "Enabled"
         Path(doc_path).mkdir(parents=True, exist_ok=True)
@@ -5660,7 +5660,7 @@ def main():
         orig_size = resize_font_on_windows(20, True)
         orig_size = int(orig_size) if str(orig_size).isdigit() else 20
         if nc_settings != None:
-            fsize = int(nc_settings["font size"]) if "font size" in nc_settings else 24
+            fsize = int(nc_settings.get("font size", 24)) 
             if fsize > 24:
                 fsize = 24
             ret = resize_font_on_windows(fsize)
