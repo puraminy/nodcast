@@ -1586,7 +1586,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         return
     sel_sects = {}
     fast_read = False
-    start_row = 0
+    prev_start_row = start_row = 0
     rows, cols = std.getmaxyx()
     width = text_width
     needs_review = not "needs_review" in art or art["needs_review"]
@@ -1770,6 +1770,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     sub_mode1 = "s) speak aloud"
     sub_mode2 = ""
     show_mode = ["inplace","stack"][1]
+    # wwww
+    scroll_steps = [0,0, 0, 0, 10, 14, 20]
     while ch != ord('q'):
         # clear_screen(text_win)
         if si == 0:
@@ -1912,21 +1914,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             sents[ii-1]["next"] = False
 
         bmark = min(bmark, si)
-        if not scroll_page and not word_level:
-            if not do_scroll:
-                scroll_page = False
-            top_margin = rows//2 if cur_sect == art["sections"][0] else rows // 2
-            if len(cur_sent["text"]) > 450:
-                top_margin = rows // 2
-            bmark = max(0, bmark)
-            cur_pos = bmark if expand == 1 else cur_sect['offset']
-            if cur_pos < len(pos) and pos[cur_pos] > top_margin:
-                start_row = pos[cur_pos - 1] - 1#+ top_margin
-            else:
-                start_row = 0
         sel_first_sent = False
         start_row = max(0, start_row)
-        start_row = min(end_y - 1, start_row)
+        #start_row = min(end_y - 1, start_row)
+        prev_start_row = start_row
         if bg != theme_menu["back-color"]:
             bg = theme_menu["back-color"]
             clear_screen(std)
@@ -2012,7 +2003,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             pos[fsn], _ = text_win.getyx()
             sent_count = 1
             if show_mode == "stack":
-                if pos[fsn] > start_row + rows + rows//2 and not first:
+                if pos[fsn] > start_row + 3*rows: 
+                    mprint("..." + (b["title"] or "sect"), text_win, 
+                           ITEM_COLOR, attr=cur.A_BOLD)
                     break
 
             if b["title"] != "all" or expand == 0:
@@ -2034,7 +2027,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     if frag != cur_frag and expand == 3:
                         fsn += frag['sents_num']
                         ffn += 1
-                    elif (not first and pos[fsn] > start_row + rows + rows//2):
+                    elif not first and pos[fsn] > start_row + 3*rows:
+                        mprint("..." + frag.get("title","frag"), text_win, 
+                               ITEM_COLOR, attr=cur.A_BOLD)
                         break
                     else:
                         new_frag = True
@@ -2146,6 +2141,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                                     text_win, theme_menu["bright-color"], end="\n")
                                 #ffff
                                 # TODO fsn >= bmark
+                                pos[fsn], _ = text_win.getyx()
                                 if fsn >= bmark and fsn <= si and not sents[fsn]["passable"]:
                                     hl_pos = text_win.getyx()
                                     hlcolor = HL_COLOR
@@ -2248,7 +2244,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                         mprint("", text_win)
                                 else:
                                     pass  # mprint("", text_win, f_color)
-                                pos[fsn], _ = text_win.getyx()
                                 if pos[fsn] > rows*490:
                                     too_big_art = True
                                     if not too_big_warn:
@@ -2271,6 +2266,20 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             sn += 1
         # end for sections
 #bbe
+        if not scroll_page and not word_level:
+            if not do_scroll:
+                scroll_page = False
+            top_margin = 2 * rows//3 #if cur_sect == art["sections"][0] else rows // 2
+            #if len(cur_sent["text"]) > 450:
+            #    top_margin = rows // 2
+            bmark = max(0, bmark)
+            cur_pos = bmark # if expand == 1 else cur_sect['offset']
+            # start_row = scroll[bmark]
+            cur_y = pos[cur_pos]
+            page_height = rows - 5
+            start_row = (cur_y // page_height)*page_height 
+            start_row = max(0, start_row)
+
 
         first = False
         end_y, curx = text_win.getyx()
@@ -2279,6 +2288,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         win_info.erase()
         mode_info = main_info 
         mode_info = f"start_row={start_row}, end_y={end_y}, max(pos)={max(pos)}"
+
+        for uu in range(end_y):
+            mprint(str(uu), left_side_win, INFO_COLOR)
 
         # f" si={si}, section={cur_sect['title'] if 'title' in cur_sect else ''}"
         if not speak_enabled:
@@ -2304,7 +2316,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if sub_mode2:
             _color = mode_colors[sub_mode2]
             mprint(" " + sub_mode2, win_info, color = _color, end = " ")
-        mprint(" " + mode_info, win_info, color = INFO_COLOR, end = "")
         if start_reading:
             #print_there(0, 1, "   ", win_info, color=WARNING_COLOR)
             #print_there(0, 5, "s) stop reading", win_info, color=INFO_COLOR)
@@ -2319,7 +2330,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 print_there(0, cols - 25, "l) hide instructions", win_info, color=INFO_COLOR)
             else:
                 print_there(0, cols - 25, "l) list instructions", win_info, color=INFO_COLOR)
-        win_info.refresh()
         # mark get_key
 
         # if ch != LEFT:
@@ -2342,6 +2352,11 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         elif scroll_page:
             if end_dist < limit_row:
                 scroll_page = False
+        
+        mode_info = f"start_row={start_row}, cur_y={cur_y}, top_margin={top_margin}"
+        win_info.erase()
+        mprint(" " + mode_info, win_info, color = INFO_COLOR, end = "")
+        win_info.refresh()
         if hotkey == "":
             text_win.overwrite(text_win)
             text_win.noutrefresh(start_row, 0, 2, left, rows - 2, left + width)
@@ -2379,7 +2394,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 instruct = textwrap.fill(instruct, 30)    
                 mprint(" " + instruct, s_win, color=INPUT_COLOR)
             _y, x = s_win.getyx()
-            s_win.noutrefresh(0, 0, 3, left + width +1, rows - 2, cols -2)
+            s_win.noutrefresh(0, 0, 3, left, rows - 2, cols -2)
             #right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols - 1)
             #s_win.refresh(0, 0, rows - len(instructs) - 3, cols - 35, rows - 1, cols -1)
         cur.doupdate()
