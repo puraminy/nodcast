@@ -1769,7 +1769,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     merge_sents = True
     sub_mode1 = "s) speak aloud"
     sub_mode2 = ""
-    show_mode = ["inplace","stack"][1]
+    show_mode = ["inplace","stack"][0]
     # wwww
     scroll_steps = [0,0, 0, 0, 10, 14, 20]
     while ch != ord('q'):
@@ -2175,6 +2175,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                             mprint(sent_text, text_win, _color, attr=cur.A_BOLD, end=end)
                                         else:
                                             mprint(sent_text, text_win, _color, end=end)
+                                    elif b == cur_sect:
+                                        mprint(" " * width, text_win, DIM_COLOR)
                                 mark = ""
                                 if "url" in frag and new_frag:
                                     mark = "f"
@@ -2277,7 +2279,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             cur_pos = bmark # if expand == 1 else cur_sect['offset']
             # start_row = scroll[bmark]
             cur_y = pos[cur_pos]
-            page_height = rows - 5
+            page_height = 2 * rows // 3
             start_row = (cur_y // page_height)*page_height 
             start_row = max(0, start_row)
 
