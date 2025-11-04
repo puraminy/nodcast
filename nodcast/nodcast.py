@@ -1705,7 +1705,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         si = art["sections"][_sect]["fragments"][_frag]["offset"] + _end 
 
     logging.info("Article:" + art["title"])
-    nr_opts = load_obj("settings", "", common = True)
+    nr_opts = load_obj("settings", "", default={}, common = True)
     sel_first_sent = False
     total_pr = int(art["total_prog"]) if "total_prog" in art else 0
     start_time = 0
@@ -1761,7 +1761,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     merge_sents = True
     sub_mode1 = "s) speak aloud"
     sub_mode2 = ""
-    show_mode = ["inplace","stack"][0]
+    show_mode = ["inplace","stack"][1]
     while ch != ord('q'):
         # clear_screen(text_win)
         if si == 0:
@@ -2269,7 +2269,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         win_info = cur.newwin(1, cols, rows - 1, 0)
         win_info.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
         win_info.erase()
-        win_info.erase()
         mode_info = main_info 
         mode_info = f"start_row={start_row}, end_y={end_y}, max(pos)={max(pos)}"
 
@@ -2336,6 +2335,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if end_dist < limit_row:
                 scroll_page = False
         if hotkey == "":
+            text_win.overwrite(text_win)
             text_win.noutrefresh(start_row, 0, 2, left, rows - 2, left + width)
             left_side_win.noutrefresh(start_row, 0, 2, 0, rows - 2, left - 1)
             right_side_win.noutrefresh(start_row, 0, 2, left + width, rows - 2, cols - 1)
@@ -2755,8 +2755,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     if ref_id in saved_articles:
                         show_article(saved_articles[ref_id], ref_sent = ref_sent)
 
-            else:
-                ch = ord('o')
+            # else:
+            #    ch = ord('o')
 
         ## kkk (bookmark)
         if visual_mode:
@@ -4528,7 +4528,7 @@ def start(stdscr):
     top_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     ch = ''
     shortkeys = {"m": "my articles", "l": "last results", "k": "keywords", "n": "notes", "r": "recent articles", "g":"Go!", "t": "tags", "s": "settings", "p": "webpage", "a": "advanced search", "w": "website articles", 'o': "open file"}
-    mi = 0
+    mi = 1
     hotkey = args.hotkey 
     while ch != 'q':
         info = "h) help         q) quit"

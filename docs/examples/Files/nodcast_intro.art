@@ -17,10 +17,17 @@
               }
             },
             {
-              "text": "It mimics the natural way people respond to spoken explanations using short affirmations or backchannels such as okay, I see, or didn’t get.",
+              "text": "It mimics the natural way people respond to spoken explanations using short affirmations or backchannels such as I see, so, or nice!.",
               "nods": {
                 "affirmative": ["@nice!", "clever idea!"],
-                "reflective": ["so it’s interactive?", "how does that work in text?"]
+                "reflective": ["so?"]
+              }
+            },
+            {
+              "text": "Your nods help you track comprehension and mark what matters.",
+              "nods": {
+                "affirmative": ["important!", "@smart idea!"],
+                "reflective": ["how does it track?", "so it learns from me?"]
               }
             }
           ]
@@ -47,10 +54,10 @@
               }
             },
             {
-              "text": "And Negative nods like 'didn’t get' or 'okay so?' show confusion or expectation.",
+              "text": "Negative or reflective nods like 'didn’t get' or 'okay so?' show confusion or expectation.",
               "nods": {
                 "affirmative": ["understood", "makes sense"],
-                "reflective": ["so what happens after that?", "@okay, how does NodCast use them?"]
+                "reflective": ["so what happens after that?", "@are there other types of nods?"]
               }
             },
             {
@@ -70,10 +77,10 @@
         {
           "sents": [
             {
-              "text": "When a sentence is highlighted, NodCast suggests possible nods beneath it.",
+              "text": "When a sentence is highlighted, NodCast suggests possible nods beneath it.>>> like what you already see below this fragment.",
               "nods": {
                 "affirmative": ["interesting!", "I see!"],
-                "reflective": ["@what kind of nods?", "based on what?"]
+                "reflective": ["@based on what?"]
               }
             },
             {
@@ -148,13 +155,6 @@
               "nods": {
                 "affirmative": ["I see!", "simple", "@handy!"],
                 "reflective": ["what keys exactly?", "so keyboard only?"]
-              }
-            },
-            {
-              "text": "Your nods help you track comprehension and mark what matters.",
-              "nods": {
-                "affirmative": ["important!", "@smart idea!"],
-                "reflective": ["how does it track?", "so it learns from me?"]
               }
             }
           ]
