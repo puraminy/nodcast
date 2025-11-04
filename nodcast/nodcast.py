@@ -1724,7 +1724,15 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     ref_q = si
     ref_rc_sent = -1
     rc_text = "rc_text" in art and art["rc_text"]
-    instructs = {"Right":"Press Right to start reading"}
+    instructs = {}
+    instructs = {
+        "Down": "Go to next sentence",
+        "Up": "Go to previous sentence",
+        "Right": "Skip forward to next paragraph",
+        "Left": "Back to previous paragraph",
+        "Enter": "Play or expand current fragment",
+        "q": "Quit viewer",
+    }
     show_instruct = rc_text
     rc_mode = False
     start_rc = False
@@ -2204,8 +2212,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                 if not sents[fsn]["passable"]:
                                     if fsn >= bmark and fsn <= si:
                                         print_visible_nods(cur_sent, width, text_win) 
-                                        #print_adjusted(sect_middle, 4, cur_nod, 
-                                        #            right_side_win, TEXT_COLOR)
+                                        print_adjusted(sect_middle, 4, cur_nod, 
+                                                    right_side_win, TEXT_COLOR)
                                         # right_side_win.addstr(sect_middle, 4, "test")
                                         # list_nods(right_side_win, _y - lines_count, sent_nods)
                                     if sent["comment"] != "":
@@ -2351,7 +2359,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 print_sect("Title:" + art["title"], art["total_prog"], left, text_win)
 
         # At the very end of the drawing cycle:
-        cur.doupdate()
 #III
         if ch == ord('A'):
             pyperclip.copy(art["title"])
@@ -2365,15 +2372,17 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             cur.init_pair(TEMP_COLOR, 35, int(theme_menu["input-color"]) % cur.COLORS)
             s_win = cur.newpad(rows, cols)
             s_win.bkgd(' ', cur.color_pair(INPUT_COLOR))  # | cur.A_REVERSE)
-            mprint("Instructions: l) hide".ljust(35),s_win, color=INFO_COLOR)
+            mprint("Instructions:", s_win, color=INFO_COLOR)
             for key,instruct in instructs.items():
                 if not key == "intro":
                     mprint(" " + key, s_win, color=TEMP_COLOR, end = ")")
                 instruct = textwrap.fill(instruct, 30)    
                 mprint(" " + instruct, s_win, color=INPUT_COLOR)
             _y, x = s_win.getyx()
-            s_win.refresh(0, 0, 3, cols - 35, _y + 3, cols -1)
+            s_win.noutrefresh(0, 0, 3, left + width +1, rows - 2, cols -2)
+            #right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols - 1)
             #s_win.refresh(0, 0, rows - len(instructs) - 3, cols - 35, rows - 1, cols -1)
+        cur.doupdate()
         # jjj
         if jump_key == 0:
             if auto_mode:
