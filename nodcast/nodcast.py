@@ -2000,7 +2000,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 else:
                     add_info = " [" + str(prog) + "] "
 
-            pos[fsn], _ = text_win.getyx()
+            y_pos, _ = text_win.getyx()
+            b["pos"] = y_pos
             sent_count = 1
             if show_mode == "stack":
                 if pos[fsn] > start_row + 3*rows: 
@@ -2336,12 +2337,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         rows, cols = std.getmaxyx()
         # width = 2*cols // 3
         left = ((cols - width) // 2) - 10
-        begin_dist = pos[bmark - 1] - start_row if bmark > 0 else 0
+        begin_dist = pos[bmark] - start_row 
         end_dist =  pos[si] - start_row 
         limit_row = rows - 2 
         _len = end_dist - begin_dist
         if end_dist > limit_row and begin_dist > limit_row:
-            start_row = pos[bmark - 1] - 2
+            start_row = pos[bmark] - 2
 
         #show_info("sr:" + str(start_row) + " bd:" + str(begin_dist) + " ed:" + str(end_dist)  + " lr:" + str(limit_row) + " si:" + str(si) +  "bmark:" + str(bmark) + "len:" + str(_len))
         start_row = max(0, min(start_row, end_y - rows))
@@ -2366,7 +2367,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 
         if show_mode == "stack":
             if art["sections"].index(cur_sect) >= 0 and expand != 0:
-                if pos[cur_sect["offset"]] <= start_row:
+                if cur_sect["pos"] < start_row:
                     print_sect(cur_sect["title"], cur_sect["prog"], left, text_win)
                 else:
                     print_sect("", "", left, text_win)

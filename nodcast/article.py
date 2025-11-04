@@ -226,6 +226,49 @@ def fix_article(art, split_level=1):
         refresh_offsets(art, split_level=split_level)
     except Exception as e:
         print("Warning: refresh_offsets failed during fix_article:", e)
+    # --- ensure dummy "end" fragment exists ---
+    end_frag = {
+        "title": "End",
+        "offset": 0,
+        "text": "end",
+        "notes": {},
+        "visible": True,
+        "hidden": False,
+        "merged": False,
+        "nod": "",
+        "block_id": 99999,
+        "countable": False,
+        "passable": False,
+        "sents": [new_sent("end")]
+    }
+
+    if not art["sections"]:
+        # create a minimal dummy section if no sections exist
+        art["sections"].append({
+            "title": "End",
+            "offset": 0,
+            "sents_num": 1,
+            "fragments": [end_frag],
+            "notes": {},
+            "progs": 0,
+            "visible": True,
+            "hidden": False,
+            "expanded": True
+        })
+    else:
+        last_sect = art["sections"][-1]
+        # avoid duplication if a dummy end already exists
+        last_texts = [f["text"].strip().lower() for f in last_sect.get("fragments", [])]
+        if "end" not in last_texts:
+            last_sect["fragments"].append(end_frag)
+            last_sect["sents_num"] += 1
+
+    # --- update offsets again to include the dummy end ---
+    try:
+        refresh_offsets(art, split_level=split_level)
+    except Exception as e:
+        print("Warning: refresh_offsets failed after adding end fragment:", e)
 
     return art
+
 
