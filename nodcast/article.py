@@ -228,7 +228,6 @@ def fix_article(art, split_level=1):
         print("Warning: refresh_offsets failed during fix_article:", e)
     # --- ensure dummy "end" fragment exists ---
     end_frag = {
-        "title": "End",
         "offset": 0,
         "text": "end",
         "notes": {},
