@@ -2301,10 +2301,10 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         win_info.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
         win_info.erase()
         mode_info = main_info 
-        mode_info = f"start_row={start_row}, end_y={end_y}, max(pos)={max(pos)}"
+        #mode_info = f"start_row={start_row}, end_y={end_y}, max(pos)={max(pos)}"
 
-        for uu in range(end_y):
-            mprint(str(uu), left_side_win, INFO_COLOR)
+        #for uu in range(end_y):
+        #    mprint(str(uu), left_side_win, INFO_COLOR)
 
         # f" si={si}, section={cur_sect['title'] if 'title' in cur_sect else ''}"
         if not speak_enabled:
@@ -2352,7 +2352,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if end_dist < limit_row:
                 scroll_page = False
             
-        mode_info = f"start_row={start_row}, cur_y={cur_y}, top_margin={top_margin}"
+        # mode_info = f"start_row={start_row}, cur_y={cur_y}, top_margin={top_margin}"
         win_info.erase()
         mprint(" " + mode_info, win_info, color = INFO_COLOR, end = "")
         if hotkey == "":

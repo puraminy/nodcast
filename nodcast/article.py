@@ -84,7 +84,8 @@ def refresh_offsets(art, split_level = 1):
     prev_sect = None
     fn = 0
     sents = [new_sent(art["title"])]
-    for sect in art["sections"]:
+    for idx, sect in enumerate(art["sections"]):
+        sect["index"] = idx
         sect["offset"] = ii
         if not "progs" in sect:
             sect["progs"] = 0
@@ -181,7 +182,7 @@ def fix_article(art, split_level=1):
             for sent in frag["sents"]:
                 # Detect and clean '@' from nods
                 if "nods" in sent:
-                    default_nod = None
+                    default_nod = ""
                     sent_nods = sent["nods"]
 
                     if isinstance(sent_nods, dict):
@@ -189,23 +190,29 @@ def fix_article(art, split_level=1):
                             if key in sent_nods:
                                 cleaned = []
                                 for n in sent_nods[key]:
-                                    if isinstance(n, str) and n.startswith("@"):
+                                    # TODO
+                                    if isinstance(n, str) and n.startswith("@") and False:
                                         default_nod = n.lstrip("@")
                                         cleaned.append(default_nod)
                                     else:
+                                        n = n.lstrip("@")
                                         cleaned.append(n)
                                 sent_nods[key] = cleaned
                     elif isinstance(sent_nods, list):
                         cleaned = []
                         for n in sent_nods:
-                            if isinstance(n, str) and n.startswith("@"):
+                            if isinstance(n, str) and n.startswith("@") and False:
                                 default_nod = n.lstrip("@")
                                 cleaned.append(default_nod)
                             else:
+                                n = n.lstrip("@")
                                 cleaned.append(n)
                         sent["nods"] = cleaned
 
                     # If '@' was found, mark it as default nod
+                    if not default_nod:
+                        sent["nods"]["affirmative"].insert(0," ")
+                        sent["nod"] = " "
                     if default_nod:
                         sent["nod"] = default_nod
 

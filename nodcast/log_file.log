@@ -1688,3 +1688,99 @@ INFO:root:Refreshing ...
 INFO:root:Article:Introducing NodCast: A Text-Based Reading Experience
 INFO:root:Refreshing ...
 INFO:root:Refreshing ...
+INFO:root:========================= Starting program at 2025-11-05 21:55:48.011866
+INFO:root:========================= Starting program at 24, 98
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:Article:Introducing NodCast: A Text-Based Reading Experience
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:========================= Starting program at 2025-11-05 21:56:37.592638
+INFO:root:========================= Starting program at 24, 98
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:Article:Introducing NodCast: A Text-Based Reading Experience
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:========================= Starting program at 2025-11-05 21:58:01.022927
+INFO:root:========================= Starting program at 24, 98
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:Article:Introducing NodCast: A Text-Based Reading Experience
+CRITICAL:root:
+Date:2025-11-05 21:58:02.917676
+Traceback (most recent call last):
+  File "/home/ahmad/.local/bin/nodcast", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/ahmad/nodcast/nodcast/nodcast.py", line 5695, in main
+    wrapper(start)
+  File "/usr/lib/python3.12/curses/__init__.py", line 94, in wrapper
+    return func(stdscr, *args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ahmad/nodcast/nodcast/nodcast.py", line 4653, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/nodcast/nodcast/nodcast.py", line 4995, in show_files
+    show_article(art, collect_art=collect_art)
+  File "/home/ahmad/nodcast/nodcast/nodcast.py", line 2221, in show_article
+    print_adjusted(sect_middle, 4, cur_nod,
+  File "/home/ahmad/nodcast/nodcast/nodcast.py", line 3674, in print_adjusted
+    lines = textwrap.wrap(text, width=available)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/textwrap.py", line 384, in wrap
+    return w.wrap(text)
+           ^^^^^^^^^^^^
+  File "/usr/lib/python3.12/textwrap.py", line 356, in wrap
+    chunks = self._split_chunks(text)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/textwrap.py", line 342, in _split_chunks
+    text = self._munge_whitespace(text)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/textwrap.py", line 151, in _munge_whitespace
+    text = text.expandtabs(self.tabsize)
+           ^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'expandtabs'
+INFO:root:========================= Starting program at 2025-11-05 21:58:23.942786
+INFO:root:========================= Starting program at 24, 98
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:Article:Introducing NodCast: A Text-Based Reading Experience
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:========================= Starting program at 2025-11-05 22:01:51.452928
+INFO:root:========================= Starting program at 24, 98
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+CRITICAL:root:
+Date:2025-11-05 22:01:53.486956
+Traceback (most recent call last):
+  File "/home/ahmad/.local/bin/nodcast", line 8, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/ahmad/nodcast/nodcast/nodcast.py", line 5695, in main
+    wrapper(start)
+  File "/usr/lib/python3.12/curses/__init__.py", line 94, in wrapper
+    return func(stdscr, *args, **kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ahmad/nodcast/nodcast/nodcast.py", line 4653, in start
+    show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+  File "/home/ahmad/nodcast/nodcast/nodcast.py", line 4994, in show_files
+    art = fix_article(art)
+          ^^^^^^^^^^^^^^^^
+  File "/home/ahmad/nodcast/nodcast/article.py", line 214, in fix_article
+    sent["nods"].insert(0," ")
+    ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'dict' object has no attribute 'insert'
+INFO:root:========================= Starting program at 2025-11-05 22:04:11.840133
+INFO:root:========================= Starting program at 24, 98
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
+INFO:root:Article:Introducing NodCast: A Text-Based Reading Experience
+INFO:root:Refreshing ...
+INFO:root:Refreshing ...
