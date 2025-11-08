@@ -1,7 +1,8 @@
 from nodcast.util.nlp_utils import *
+import json
 
 def new_sent(s):
-    _new_sent = {"text":s,"type":"sentence", "end":'\n','eol':False, 'eob':False, 'eos':False, 'next':False, "block":"sent", "merged":False, "block_id":-1, "nod":"", "countable":False, "visible":True, "hidden":False, 'can_skip':True, "passable":False, "nods":[], "user_nods":[], "rtime":0, "tries":1, "comment":"", "notes":{}}
+    _new_sent = {"text":s,"type":"sentence", "end":'\n','eol':False, 'eob':False, 'eos':False, 'next':False, "block":"sent", "merged":False, "questions":[], "q_index":0, "block_id":-1, "nod":"", "countable":False, "visible":True, "hidden":False, 'can_skip':True, "passable":False, "nods":[], "user_nods":[], "rtime":0, "tries":1, "comment":"", "notes":{}}
     if len(s.split(' ')) <= 1:
         _new_sent["end"] = " "
     return _new_sent
@@ -104,6 +105,7 @@ def refresh_offsets(art, split_level = 1):
             for sent in frag["sents"]:
                 # sent["passable"] = False
                 sent["char_offset"] = ofs
+                sent["index"] = ii
                 sents.append(sent)
                 ofs += len(sent["text"])
                 ii += 1
@@ -112,7 +114,7 @@ def refresh_offsets(art, split_level = 1):
     sect["sents_num"] = ii - prev_sect["offset"]
     return len(art["sections"]),fn, ii, sents
 
-def fix_article(art, split_level=1):
+def fix_article(art, split_level=1, use_default_nod = False):
     """
     Restore and normalize the article dictionary using the old schema.
     Compatible with existing init_frag_sents(), refresh_offsets(), and new_sent().
@@ -120,6 +122,7 @@ def fix_article(art, split_level=1):
     """
     # --- root-level defaults ---
     art.setdefault("title", "Untitled")
+    art.setdefault("id", "")
     art.setdefault("author", "")
     art.setdefault("created", "")
     art.setdefault("modified", "")
@@ -181,17 +184,38 @@ def fix_article(art, split_level=1):
             # --- NEW BLOCK: Normalize nods and add meta info ---
             for sent in frag["sents"]:
                 # Detect and clean '@' from nods
+                if not "questions" in sent:
+                    sent["questions"] = []
+                if sent["questions"]:
+                    default_question = sent["questions"][0]
+                    cleaned = []
+                    q_index = 0
+                    for i, q in enumerate(sent["questions"]):
+                        if q.startswith("@"):
+                            q_index = i
+                            default_question = q.lstrip("@")
+                            cleaned.append(default_question)
+                        else:
+                            cleaned.append(q)
+                    sent["default_question"] = default_question
+                    sent["q_index"] = q_index
+                    sent["questions"] = cleaned
+
                 if "nods" in sent:
                     default_nod = ""
                     sent_nods = sent["nods"]
+                    if not sent["nods"]:
+                        sent["nods"] = {
+                            "affirmative":["I see!"],
+                            "reflective": ["didn't get"]
+                        }
 
                     if isinstance(sent_nods, dict):
                         for key in ("affirmative", "reflective"):
                             if key in sent_nods:
                                 cleaned = []
                                 for n in sent_nods[key]:
-                                    # TODO
-                                    if isinstance(n, str) and n.startswith("@") and False:
+                                    if isinstance(n, str) and n.startswith("@"):
                                         default_nod = n.lstrip("@")
                                         cleaned.append(default_nod)
                                     else:
@@ -201,7 +225,7 @@ def fix_article(art, split_level=1):
                     elif isinstance(sent_nods, list):
                         cleaned = []
                         for n in sent_nods:
-                            if isinstance(n, str) and n.startswith("@") and False:
+                            if isinstance(n, str) and n.startswith("@"):
                                 default_nod = n.lstrip("@")
                                 cleaned.append(default_nod)
                             else:
@@ -210,10 +234,10 @@ def fix_article(art, split_level=1):
                         sent["nods"] = cleaned
 
                     # If '@' was found, mark it as default nod
-                    if not default_nod:
-                        sent["nods"]["affirmative"].insert(0," ")
-                        sent["nod"] = " "
-                    if default_nod:
+                    # sent["nods"]["affirmative"].insert(0,"okay")
+                    # sent["nod"] = "okay"
+                    sent["default_nod"] = default_nod
+                    if default_nod: # and use_default_nod:
                         sent["nod"] = default_nod
 
                 # Attach per-sentence metadata
@@ -234,6 +258,23 @@ def fix_article(art, split_level=1):
     except Exception as e:
         print("Warning: refresh_offsets failed during fix_article:", e)
     # --- ensure dummy "end" fragment exists ---
+    end_sent = new_sent("end")
+    end_sent["nods"] = { 
+    "reflective": [
+        "gave me something to think about", 
+        "thought-provoking piece",
+        "a bit complex but worth it",
+    ],
+    "affirmative": [
+        "interesting article",
+        "learned something new",
+        "gave me something to think about",
+        "clear and well explained",
+        "nice conclusion",
+        "makes sense overall",
+        "left me curious",
+        "good summary",
+    ]}
     end_frag = {
         "offset": 0,
         "text": "end",
@@ -245,7 +286,7 @@ def fix_article(art, split_level=1):
         "block_id": 99999,
         "countable": False,
         "passable": False,
-        "sents": [new_sent("end")]
+        "sents": [end_sent]
     }
 
     if not art["sections"]:
@@ -277,4 +318,89 @@ def fix_article(art, split_level=1):
 
     return art
 
+def save_article(art, artid=False, minimal=False):
+    """
+    Save an article JSON file.
+    If minimal=True, only essential content fields are saved (id, text, nods, questions),
+    with '@' prefixes marking the currently selected nod or question.
+    """
+    fname = art.get("path")
+
+    # Optional: write ID file
+    if artid and Path(fname + ".nctid").is_file():
+        with open(fname + ".nctid", 'w', encoding='utf-8') as outfile:
+            outfile.write(art["id"])
+
+    # --- Minimal (compact) version ---
+    if minimal:
+        minimal_art = {
+            "title": art.get("title", ""),
+            "sections": [],
+        }
+
+        for section in art.get("sections", []):
+            min_section = {"title": section.get("title", ""), "fragments": []}
+
+            for frag in section.get("fragments", []):
+                min_frag = {"id": frag.get("id", ""), "sents": []}
+
+                for s in frag.get("sents", []):
+                    text = s.get("text", "")
+                    nods = s.get("nods", {})
+                    questions = s.get("questions", [])
+                    q_index = s.get("q_index", 0)
+                    selected_nod = s.get("nod", "")
+
+                    # ---- encode questions with '@' marker ----
+                    q_encoded = []
+                    for i, q in enumerate(questions):
+                        if i == q_index:
+                            q_encoded.append(f"@{q}")
+                        else:
+                            q_encoded.append(q)
+
+                    # ---- encode nods with '@' marker ----
+                    encoded_nods = {}
+                    if isinstance(nods, dict):
+                        for key in ("affirmative", "reflective"):
+                            vals = nods.get(key, [])
+                            encoded_list = []
+                            for n in vals:
+                                if isinstance(n, str):
+                                    if n == selected_nod:
+                                        encoded_list.append(f"@{n}")
+                                    else:
+                                        encoded_list.append(n)
+                            encoded_nods[key] = encoded_list
+                    elif isinstance(nods, list):
+                        encoded_nods = [
+                            f"@{n}" if n == selected_nod else n
+                            for n in nods
+                            if isinstance(n, str)
+                        ]
+                    else:
+                        encoded_nods = nods
+
+                    min_sent = {
+                        "id": s.get("id", ""),
+                        "text": text,
+                        "nods": encoded_nods,
+                        "questions": q_encoded,
+                    }
+
+                    min_frag["sents"].append(min_sent)
+
+                min_section["fragments"].append(min_frag)
+            minimal_art["sections"].append(min_section)
+
+        # Save to disk
+        if "path" in art:
+            with open(art["path"], 'w', encoding='utf-8') as outfile:
+                json.dump(minimal_art, outfile, indent=2, ensure_ascii=False)
+
+    # --- Full version ---
+    else:
+        if "path" in art:
+            with open(art["path"], 'w', encoding='utf-8') as outfile:
+                json.dump(art, outfile, indent=2, ensure_ascii=False)
 

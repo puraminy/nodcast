@@ -393,7 +393,7 @@ def delete_file(art):
 
         fname = folder + "/" + file_name
     pdf_file = Path(fname + ".pdf")
-    art_file = Path(fname + ".art")
+    art_file = Path(fname + ".nct")
     if pdf_file.is_file():
         pdf_file.unlink()
         art-file.unlink()
@@ -402,7 +402,11 @@ def delete_file(art):
         show_info("File wasn't found on computer")
 
 def move_pdf(art,fname, full_path=True):
-    url = art["localPdfUrl"] if "localPdfUrl" in art else art["pdfUrl"]
+    url = art.get("localPdfUrl", "") 
+    if not url: 
+        url = art.get("pdfUrl","")
+    if not url:
+        return False
     src_file = Path(url[7:])
     if src_file.is_file() and not Path(fname).is_file():
         if src_file.parent == Path(fname).parent or not full_path:
@@ -1207,10 +1211,6 @@ def list_nods(win, ypos, cur_nod):
         win.clrtoeol()
         ypos += 1
 
-def print_list(win, items, sep="\n", color = TEXT_COLOR):
-    for item in items:
-        mprint(item, win, color, end=sep)
-
 def print_notes(win, notes, ypos, xpos):
     for note in notes:
        if note == "okay" or note in nods_list or note in art_status:
@@ -1414,21 +1414,15 @@ def move_article(art, move_or_copy="move"):
     move_date = mydate.strftime("%Y-%m-%d")
     art["move_date"] = move_date 
     if fname2:
-        if Path(fname1 + ".artid").is_file():
+        if Path(fname1 + ".nctid").is_file():
             if move_or_copy == "move":
-                shutil.move(fname1 + ".artid", fname2 +".artid")
+                shutil.move(fname1 + ".nctid", fname2 +".nctid")
             else:
-                shutil.copy(fname1 + ".artid", fname2 +".artid")
+                shutil.copy(fname1 + ".nctid", fname2 +".nctid")
         return True
     else:
         art["save_folder"] = temp
         return False
-
-def save_article(art):
-    fname = get_path(art)
-    if Path(fname + ".artid").is_file():
-        with open(fname + ".artid", 'w') as outfile:
-            outfile.write(art["id"])
 
 def get_record_file(sound_folder,  file_index):
   sound_folder = re.sub(r'[\[\]\(\)"\'\?]+', '', sound_folder)
@@ -1439,7 +1433,9 @@ def get_record_file(sound_folder,  file_index):
   if not Path(sound_file).is_file() or os.path.getsize(sound_file) == 0:
       return sound_file, False
   return sound_file, True
+
 ref_seen = False
+
 def record(text, sound_file):
   global ref_seen
   #pat = re.compile("^(\d{1,4}( of \d{1,4})?)$")
@@ -1468,7 +1464,7 @@ def record(text, sound_file):
   tts = gTTS(text=text, lang="en-uk")
   tts.save(sound_file)
 
-def continue_recording(sents, art, si, to, background=True):
+def continue_recording(sents, art, si, to, part="text", background=True):
     try:
         t = threading.currentThread()
         ii = si
@@ -1479,13 +1475,15 @@ def continue_recording(sents, art, si, to, background=True):
                 #show_info("Recording ... sentence " + ("#"*(ii//5)) + str(ii))
                 if not background:
                     show_info("Recording (Ctrl + C to cancel):" + "#"* (ii // 5) + str(ii))
-                if "sfile" in sent and Path(sent["sfile"]).is_file():
+                if "sfile" in sent and Path(sent["sfile"][part]).is_file():
                     ii += 1
                     continue
-                sfile, f_exist = get_record_file(art["title"], f"{ii:03d}" + sent["text"][:4])
+                sfile, f_exist = get_record_file(art["title"], f"{ii:03d}_{part}_" + sent[part][:4])
                 if not f_exist:
-                    record(sent["text"], sfile)
-                sent["sfile"] = sfile
+                    record(sent[part], sfile)
+                if not "sfile" in sent:
+                    sent["sfile"] = {}
+                sent["sfile"][part] = sfile
             ii += 1
     except gtts.tts.gTTSError: 
         show_err("Failed to connect. Probable cause: Unknown")
@@ -1497,7 +1495,7 @@ player = None
 recorder = None
 from urllib.parse import quote
 
-def play(sound_file, sents, art, si, record_all=False):
+def play(sound_file, sents, art, si, part="text", record_all=False):
     global player, recorder
     if player is not None:
         player.stop()
@@ -1519,10 +1517,10 @@ def play(sound_file, sents, art, si, record_all=False):
 
         sent = sents[si]
         # get a record file path for this sentence
-        sfile, f_exist = get_record_file(art["title"], f"{si:03d}_" + sent["text"][:4])
+        sfile, f_exist = get_record_file(art["title"], f"{si:03d}_{part}_" + sent[part][:4])
 
         # record the text (using gTTS or whatever your record() function does)
-        record(sent["text"], sfile)
+        record(sent[part], sfile)
 
         # wait briefly for the recording to complete (up to ~5s)
         for _ in range(50):
@@ -1679,7 +1677,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         for _sect in art["sections"]:
             _sect["opened"] = True
     ch = 0
-    main_info = f"r) resume reading      h) list commands "
+    main_info = f"s) read aloud    q) quit "
     show_info(main_info)
     ni, fi = 0, 0
     last_pos = 0
@@ -1773,10 +1771,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     sub_mode1 = "s) speak aloud"
     sub_mode2 = ""
     show_mode = ["inplace","stack"][0]
+    q_index = -1
+    si = 0 #TODO
     # wwww
     frag_page = prev_frag_page = 0
     scroll_steps = [0,0, 0, 0, 10, 14, 20]
-    while ch != ord('q'):
+    while ch != ord('q') and ch != ord('Q'):
         # clear_screen(text_win)
         if si == 0:
             bmark, si = moveon(sents, 0)
@@ -2175,15 +2175,23 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                     else:
                                         _color = DIM_COLOR
                                     #TODO 
-                                    if sent["nod"] != "" and start_reading:
+                                    if sent["nod"] != "": # and start_reading:
                                         _color = find_color(sents, fsn)
                                     if show_mode == "stack" and b == cur_sect:
                                         if theme_menu["bold-text"] == "True":
                                             mprint(sent_text, text_win, _color, attr=cur.A_BOLD, end=end)
                                         else:
                                             mprint(sent_text, text_win, _color, end=end)
-                                    elif b == cur_sect:
-                                        mprint(" " * width, text_win, DIM_COLOR)
+                                    else:
+                                        show_cond = (cur_sent["index"] - sent["index"] < 3 
+                                              and cur_sent["index"] - sent["index"] > 0)
+                                        if b == cur_sect:
+                                            if sent["index"] < cur_sent["index"] and show_cond:
+                                                _color = get_nod_color(sent)
+                                                mprint(sent.get("default_question", ""), text_win, _color)
+                                        elif show_cond:
+                                            _color = get_nod_color(sent)
+                                            mprint(sent.get("default_question",""), text_win, _color)
                                 mark = ""
                                 if "url" in frag and new_frag:
                                     mark = "f"
@@ -2217,9 +2225,11 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                 #ccc
                                 if not sents[fsn]["passable"]:
                                     if fsn >= bmark and fsn <= si:
-                                        print_visible_nods(cur_sent, width, text_win) 
-                                        print_adjusted(sect_middle, 4, cur_nod, 
-                                                    right_side_win, TEXT_COLOR)
+                                        print_visible_nods(cur_sent, width, text_win, sep=":") 
+                                        print_visible_questions(cur_sent, q_index, 
+                                                                width, text_win, sep=" ") 
+                                        # print_adjusted(sect_middle, 4, cur_sent, 
+                                        #            right_side_win, TEXT_COLOR)
                                         # right_side_win.addstr(sect_middle, 4, "test")
                                         # list_nods(right_side_win, _y - lines_count, sent_nods)
                                     if sent["comment"] != "":
@@ -2382,7 +2392,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             show_instruct = not show_instruct 
             nr_opts["show instructions"] = "Enabled" if show_instruct else "Disabled"
         if show_instruct:
-            print_there(0, cols - 25, "l) hide insturctions", win_info, color=INFO_COLOR)
+            print_there(0, cols -30, "l) hide insturctions", win_info, color=INFO_COLOR)
             cur.init_pair(TEMP_COLOR, 35, int(theme_menu["input-color"]) % cur.COLORS)
             s_win = cur.newpad(rows, cols)
             s_win.bkgd(' ', cur.color_pair(INPUT_COLOR))  # | cur.A_REVERSE)
@@ -2397,7 +2407,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             #right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols - 1)
             #s_win.refresh(0, 0, rows - len(instructs) - 3, cols - 35, rows - 1, cols -1)
         else:
-            print_there(0, cols - 25, "l) list instructions", win_info, color=INFO_COLOR)
+            print_there(0, cols - 30, "l) list instructions", win_info, color=INFO_COLOR)
         win_info.refresh()
         cur.doupdate()
         # jjj
@@ -2648,7 +2658,22 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 sents[ii]["passable"] = True
             bmark, si = moveon(sents, si)
         #ddd
-        if ch == ord('u') or ch == cur.KEY_DC:
+        if ch == cur.KEY_DC:
+            removed = False
+
+            if q_index < 0:
+                if cur_nod in cur_sent["nods"].get("affirmative", []):
+                    cur_sent["nods"]["affirmative"].remove(cur_nod)
+                    removed = True
+            else:
+                questions = cur_sent.get("questions", [])
+                if 0 <= q_index < len(questions):
+                    questions.pop(q_index)
+                    removed = True
+
+            if removed:
+                art_changed = True
+        if ch == ord('u'): 
             if ch == cur.KEY_DC and not cur_sent["notes"]: 
                 for ii in range(bmark, si + 1):
                     if not sents[ii]["notes"]:
@@ -2846,7 +2871,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     si = inc_si(sents, si)
                     forward = True
         #kkkd
-        if ch == DOWN: 
+        if ch == DOWN or is_enter(ch): 
             is_paused = False
             if player is not None:
                 player.stop()
@@ -2866,15 +2891,24 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 elif (sents[si]["block_id"] < 0) and ii < nf and si < bmark:
                     si = ii 
                 else:
-                    prev_nod = get_cur_nod(cur_sent) or "okay"
-                    if prev_nod == "" and False: #TODO
-                        set_nod("okay", cur_sent, sents, bmark, si, -1)
-                    if False: #prev_nod == "what?!":
-                        show_msg("Press either Right or Left key to move to the next sentence")
+                    prev_nod = get_cur_nod(cur_sent)
+                    #if prev_nod == "" and False: #TODO
+                    #    set_nod("okay", cur_sent, sents, bmark, si, -1)
+                    sfile_data = sents[bmark].get("sfile", {})
+                    if prev_nod == " ":
+                        show_warn("Please select or enter a nod to proceed to next sentence")
+                    elif q_index == -1:
+                        q_index = cur_sent["q_index"]
+                        if speak_enabled:
+                            default_q = sfile_data.get("default_question", "")
+                            play(default_q, sents, art, bmark, part="default_question")
                     else:
+                        q_index = -1
                         si, bmark = moveon(sents, si)
-            if speak_enabled and "sfile" in sents[bmark]:
-                play(sents[bmark]["sfile"], sents, art, bmark)
+                        if speak_enabled:
+                            text = sfile_data.get("text", "")
+                            play(text, sents, art, bmark, part="text")
+
         # kkku
         if ch == UP:
             scroll_page = False
@@ -2892,6 +2926,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     si = bmark
                 elif ii >= bf and ii >= bmark and (sents[si]["block_id"] < 0):
                     si = ii 
+                elif q_index >= 0:
+                    q_index = -1
                 else:
                     si, bmark = backoff(sents,  bmark)
             if speak_enabled and "sfile" in sents[bmark] and Path(sents[bmark]["sfile"]).is_file():
@@ -2917,24 +2953,28 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             
             if not rc_text and (bmark != si or sents[bmark]["block"] != "word" 
                                 and sents[si]["block"] != "word"):
-                prev_nod = get_cur_nod(cur_sent) or "okay"
-                # if prev_nod == "": prev_nod = "okay"
-                # if prev_nod != "what?!" and prev_nod != "okay, go on":
-                _next_nod = next_nod(prev_nod, key_pos, cur_sent) if not auto_mode else "okay"
-                #else:
-                #    _next_nod = "okay, go on"
-                set_nod(_next_nod, cur_sent, sents, bmark, si, elapsed_time)
-                for ii in range(bmark, si+1):
-                    if not "okays" in sents[ii]:
-                        sents[ii]["okays"] = 1
-                    else:
-                        sents[ii]["okays"] += 1
+                if q_index < 0:
+                    prev_nod = get_cur_nod(cur_sent) or "okay"
+                    # if prev_nod == "": prev_nod = "okay"
+                    # if prev_nod != "what?!" and prev_nod != "okay, go on":
+                    _next_nod = next_nod(prev_nod, key_pos, cur_sent) if not auto_mode else "okay"
+                    set_nod(_next_nod, cur_sent, sents, bmark, si, elapsed_time)
+                else:
+                    q_index += 1
+                    q_index = q_index % max(len(cur_sent["questions"]),1)
+                    #else:
+                    #    _next_nod = "okay, go on"
+                    #for ii in range(bmark, si+1):
+                    #    if not "okays" in sents[ii]:
+                    #        sents[ii]["okays"] = 1
+                    #    else:
+                    #        sents[ii]["okays"] += 1
 
-                up_pos = (pos[si-1] + pos[si])//2 - start_row + 2
-                nod_win = cur.newwin(2,10, up_pos, left + width)
-                nod_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
-                print_there(0, 2, _next_nod, left_side_win, find_nod_color(_next_nod))
-                nod_win.refresh()
+                    #up_pos = (pos[si-1] + pos[si])//2 - start_row + 2
+                    #nod_win = cur.newwin(2,10, up_pos, left + width)
+                    #nod_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
+                    #print_there(0, 2, _next_nod, left_side_win, find_nod_color(_next_nod))
+                    #nod_win.refresh()
                 #std.timeout(500)
                 #mbeep()
                 #t_ch = get_key(std)
@@ -2959,13 +2999,17 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     speak_enabled = True
                     auto_mode = False
                     play(cur_sent["sfile"], sents, art, bmark)
-                if True: #not show_sel_nod:
+                if q_index < 0: #not show_sel_nod:
                     #show_sel_nod = True
                     # prev_nod = sents[si]["nod"] 
                     prev_nod = get_cur_nod(cur_sent) or "okay"
                     # if prev_nod == "": prev_nod = "okay"
                     _next_nod = next_nod(prev_nod, key_neg, cur_sent) 
                     set_nod(_next_nod, cur_sent, sents, bmark, si, elapsed_time)
+                else:
+                    q_index -= 1 
+                    q_index = abs(q_index) % max(len(cur_sent["questions"]),1)
+
                 #else:
                     #show_sel_nod = False
                     #si, bmark = moveon(sents, si)
@@ -3063,11 +3107,26 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 cur_nod = next_nod(cur_nod, key_pos, sents[si])
             sents[si]["nod"] = cur_nod
             sents[si]["block_id"] = si
-        if ch == ord('_'):
-            pass
-            #cur_nod = next_nod(cur_nod, key_neg, sents[si])
-            #sents[si]["nod"] = cur_nod
-            #sents[si]["block_id"] = si
+        if ch == ord(':'):
+            gg = 1 if q_index < 0 else 2
+            win = cur.newwin(1, width - 1, pos[bmark+1] + gg, left)
+            win.bkgd(' ', cur.color_pair(INPUT_COLOR))  # | cur.A_REVERSE)
+            title = "new nod:" if q_index < 0 else "new question:"
+            _input, ret_ch = minput(win, 0, 0, title, default="", 
+                                     mode =PROMPT_LINE, color=TEXT_COLOR)
+            _nod_or_q = ""
+            if _input != "<ESC>":
+                if ret_ch != "|":
+                    _nod_or_q = _input
+            if _nod_or_q != "":
+                if q_index < 0:
+                    cur_sent["nods"]["affirmative"].append(_nod_or_q)
+                    cur_sent["nod"] = _nod_or_q
+                else:
+                    cur_sent["questions"].append(_nod_or_q)
+                    cur_sent["default_question"] = _nod_or_q
+                    q_index = cur_sent["questions"].index(_nod_or_q)
+            nod_set = True
         art_changed = art_changed or nod_set
         if si > 0 and (expand == 0 and ch == UP and not cur_sect["opened"]) or ch == cur.KEY_PPAGE:
             sel_first_sent = True
@@ -3184,7 +3243,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if "refs" in art:
                 for f_ref in art["refs"]:
                     _parent = Path(f_ref).parent
-                    _new_name = str(_parent) + "/" + art["title"] + ".artid"
+                    _new_name = str(_parent) + "/" + art["title"] + ".nctid"
                     if Path(f_ref).is_file():
                         shutil.move(f_ref, _new_name)
         #oooo
@@ -3240,7 +3299,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 pos += [0]*dif
             insert_article(saved_articles, art)
 
-        if safe_chr(ch) in ['1','8','9','0','5','3'] or safe_chr(ch) in ['!','*','(',')','=','?',':']: #@@@
+        if safe_chr(ch) in ['1','8','9','0','5','3'] or safe_chr(ch) in ['*','(',')','=']: #@@@
             bg_color = HL_COLOR
             win_height = 8
             note_art_title = art["title"]
@@ -3580,11 +3639,12 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         else:
             insert_article(saved_articles, art)
         if "save_folder" in art:
-            save_article(art)
+            save_article(art, minimal=True)
         if ch == ord('q'):  # before exiting artilce
+            win_info.erase()
+            win_info.refresh()
             save_obj(nr_opts, "settings", "", common = True)
-            art_changed = True
-            if art_changed and not collect_art:
+            if art_changed: # and not collect_art:
                 ii = 1
                 begin = 1
                 sect_counter = 0
@@ -3627,9 +3687,11 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                         append_notes(note, article_notes[note])
 
             sents[si]["last"] = True
-            if not collect_art and needs_review:
+            if "save_folder" in art:
+                save_article(art, minimal=True)
+            if False: # not collect_art and needs_review:
                 if "save_folder" in art:
-                    save_article(art)
+                    save_article(art, minimal=True)
                 else:
                     _conf = confirm("You didn't add the article to your library, press w to add it and q to quit?", acc=['w','q'])
                     if _conf == "w":
@@ -3660,34 +3722,35 @@ def get_nod(cur_nod, ni = -1):
     return top, middle, bottom, cur_nod 
 
 
-def print_adjusted(y, x, text, win, color_pair, max_lines=3, align="center"):
+def print_adjusted(y, x, cur_sent, win, color_pair, max_lines=3, align="center"):
     """
     Print text at position (y, x) inside the curses window 'win'.
     If the text is longer than the available width, it wraps to multiple lines
     and centers vertically around 'y'. The output is clipped to 'max_lines'.
     """
-    try:
-        h, w = win.getmaxyx()
-        available = max(w - x - 1, 1)
+    for text in cur_sent.get("questions", []):
+        try:
+            h, w = win.getmaxyx()
+            available = max(w - x - 1, 1)
 
-        # Wrap text into lines if too long
-        lines = textwrap.wrap(text, width=available)
-        if len(lines) > max_lines:
-            # Truncate and mark ellipsis
-            lines = lines[:max_lines - 1] + ["… " + lines[-1][-available + 2:]]
+            # Wrap text into lines if too long
+            lines = textwrap.wrap(text, width=available)
+            if len(lines) > max_lines:
+                # Truncate and mark ellipsis
+                lines = lines[:max_lines - 1] + ["… " + lines[-1][-available + 2:]]
 
-        # Compute starting y to vertically center if needed
-        start_y = y - len(lines) // 2
-        for i, line in enumerate(lines):
-            if align == "center":
-                x_pos = max((w - len(line)) // 2, 0)
-            else:
-                x_pos = x
-            if 0 <= start_y + i < h:
-                win.addstr(start_y + i, x_pos, line, cur.color_pair(color_pair))
-        win.refresh()
-    except cur.error:
-        pass  # Silent ignore if window too small or offscreen
+            # Compute starting y to vertically center if needed
+            start_y = y - len(lines) // 2
+            for i, line in enumerate(lines):
+                if align == "center":
+                    x_pos = max((w - len(line)) // 2, 0)
+                else:
+                    x_pos = x
+                if 0 <= start_y + i < h:
+                    win.addstr(start_y + i, x_pos, line, cur.color_pair(color_pair))
+        except cur.error:
+            pass  # Silent ignore if window too small or offscreen
+    # win.refresh()
 
 def get_pos_neg_nods(cur_sent):
     if "nods" in cur_sent:
@@ -3722,6 +3785,28 @@ def get_nods(cur_sent, cur_nod):
     ni = max(0, min(ni, len(nods) - 1))
     return nods, ni
 
+def get_nod_color(sent, pos_color=SEL_COLOR, neg_color=WARNING_COLOR):
+    p_nods, n_nods = get_pos_neg_nods(sent)
+    if "nod" in sent and sent["nod"] in p_nods:
+        return pos_color
+    else:
+        return neg_color
+
+
+def print_visible_questions(cur_sent, q_index, width, text_win, sep=" ",
+                       pos_color=SEL_COLOR, neg_color=WARNING_COLOR):
+    """
+    Prints nods horizontally, ensuring the current nod is visible.
+    Adds leading/trailing ellipses (…) when parts of the nod list are clipped.
+    """
+    questions = cur_sent.get("questions", [])
+
+    if not questions:
+        return
+
+    colors = [TEXT_COLOR]
+    print_list(questions, q_index, width, colors, sep)
+
 def print_visible_nods(cur_sent, width, text_win, sep=" ",
                        pos_color=SEL_COLOR, neg_color=WARNING_COLOR):
     """
@@ -3730,14 +3815,8 @@ def print_visible_nods(cur_sent, width, text_win, sep=" ",
     """
     cur_nod = get_cur_nod(cur_sent)
     p_nods, n_nods = get_pos_neg_nods(cur_sent)
-    nods = n_nods + p_nods
+    nods = n_nods + p_nods 
     neg_count = len(n_nods)
-
-    if not nods:
-        return
-
-    full_text = sep.join(nods)
-    total_len = len(full_text)
 
     # Find current nod position
     try:
@@ -3745,15 +3824,25 @@ def print_visible_nods(cur_sent, width, text_win, sep=" ",
     except ValueError:
         nod_index = 0
         cur_nod = nods[0]
+    if not nods:
+        return
+
+    colors = [pos_color if n in pos_nods else neg_color for n in nods]
+    colors = [248]
+    print_list(nods, nod_index, width, colors, sep)
+
+def print_list(items, sel_index, width, colors, sep): 
+    full_text = sep.join(items)
+    total_len = len(full_text)
 
     # Compute character spans of nods
     offsets, pos = [], 0
-    for n in nods:
+    for n in items:
         start, end = pos, pos + len(n)
         offsets.append((n, start, end))
         pos = end + len(sep)
 
-    cur_start, cur_end = offsets[nod_index][1:3]
+    cur_start, cur_end = offsets[sel_index][1:3]
 
     # --- Determine visible window ---
     ellipsis_len = 1  # one '…' character
@@ -3788,10 +3877,10 @@ def print_visible_nods(cur_sent, width, text_win, sep=" ",
         visible_part = n[vis_start:vis_end]
 
         # Highlight color
-        if n == cur_nod:
-            color = pos_color if i >= neg_count else neg_color
+        if i == sel_index:
+            color = SEL_ITEM_COLOR
         else:
-            color = find_nod_color(n, fixed=True)
+            color = colors[i] if i < len(colors) else colors[-1]
 
         mprint(visible_part, text_win, color, end="")
 
@@ -4026,15 +4115,15 @@ def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, 
                 color = SEL_ITEM_COLOR
         else:
             color = ITEM_COLOR
-            if k.endswith(".art"):
+            if k.endswith(".nct"):
                 color = int(theme_menu["title-color"])
-            if k.endswith(".artid"):
+            if k.endswith(".nctid"):
                 color = int(theme_menu["I see!"])
             elif ".list" in k:
                 color = int(theme_menu["text-color"])
             elif k.endswith(".txt"):
                 color = int(theme_menu["interesting!"])
-            elif k.endswith(".txt.pdf") or k.endswith(".art.pdf"):
+            elif k.endswith(".txt.pdf") or k.endswith(".nct.pdf"):
                 color = int(theme_menu["dim-color"])
             elif k.endswith(".pdf"):
                 color = int(theme_menu["bright-color"])
@@ -4576,8 +4665,8 @@ def start(stdscr):
         elif ch == "m" or ch == "my articles":
             save_folder = doc_path + '/' + profile
             Path(save_folder).mkdir(parents=True, exist_ok=True)
-            cur_articles = load_docs("", ['.art'])
-            show_files(save_folder, exts=["*.list", "*.listid","*.artid", "*.pdf", "*.txt", '*.art', '*.html'])
+            cur_articles = load_docs("", ['.nct'])
+            show_files(save_folder, exts=["*.list", "*.listid","*.nctid", "*.pdf", "*.txt", '*.nct', '*.html'])
         elif ch == "last results":
             show_last_results()
         elif ch == 'v' or ch == "reviewed articles":
@@ -4646,11 +4735,11 @@ def start(stdscr):
         elif ch == 'n' or ch == "notes":
             save_folder = doc_path + "/Notes"
             Path(save_folder).mkdir(parents=True, exist_ok=True)
-            show_files(save_folder, exts=['*.txt','*.artid','*.art',"*.listid", '*.list','*.tag.art'], extract=True)
+            show_files(save_folder, exts=['*.txt','*.nctid','*.nct',"*.listid", '*.list','*.tag.nct'], extract=True)
         elif ch == 'o' or ch == "open file":
             save_folder = doc_path + "/" +  profile + '/Files'
             Path(save_folder).mkdir(parents=True, exist_ok=True)
-            show_files(save_folder, exts=['*.txt', '*.artid', "*.listid", '*.art','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
+            show_files(save_folder, exts=['*.txt', '*.nctid', "*.listid", '*.nct','*.pdf','*.list','*.json','*.squad','*.prc'], extract=True)
         last_visited = load_obj("last_visited", "articles", [])
         if False: #TODO
             if len(last_visited) > 0:
@@ -4818,7 +4907,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 fname = filepath.split("/")[-1]
                 _confirm = confirm("Are you sure you want to delete "+fname)
                 if _confirm == "y":
-                    if ext == ".artid":
+                    if ext == ".nctid":
                         _file = open(filepath, "r")
                         artid = _file.read().strip()
                         remove_saved_article(artid)
@@ -4924,7 +5013,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                     show_msg("This article already exists!")
                     if ch != 'a':
                         fname = save_pdf_folder + "/" + title
-                        ref_artid = fname + ".artid"
+                        ref_artid = fname + ".nctid"
                         with open(ref_artid, 'w') as outfile:
                             outfile.write(art["id"])
                         if not "refs" in art:
@@ -4946,7 +5035,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                     if fname:
                         insert_article(saved_articles, art)
                         save_obj(saved_articles, "saved_articles", "articles")
-                        ref_artid = fname + ".artid"
+                        ref_artid = fname + ".nctid"
                         with open(ref_artid, 'w') as outfile:
                             outfile.write(art["id"])
                         if not "refs" in art:
@@ -4973,7 +5062,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 group = filename
                 list_artids(artids, fid=name, group=group)
 
-            elif ext == ".artid":
+            elif ext == ".nctid":
                 art_id = _file.read()
                 show_info("opening article ...")
                 saved_articles = load_obj("saved_articles", "articles", {})
@@ -4987,10 +5076,11 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                     elif not ref_artid in art["refs"]:
                         art["refs"].append(ref_artid)
                     show_article(art)
-            elif ext == ".art":
+            elif ext == ".nct":
                 art = json.load(_file)
                 collect_art = "Notes/" in filename
                 art["save_folder"] = save_folder
+                art["path"] = filename
                 art = fix_article(art)
                 show_article(art, collect_art=collect_art)
             elif ext == ".prc":
@@ -5231,7 +5321,7 @@ def settings():
 
 cur_articles = {}
 def append_notes(note, arts):
-    n_art = load_doc(note + ".art","Notes",{})
+    n_art = load_doc(note + ".nct","Notes",{})
     if not n_art:
         n_art = {"id":note, "title": note ,"pdfUrl":"na", "sections":[]}
         new_sect = {"title":"all", "fragments":[]}
@@ -5263,7 +5353,7 @@ def append_notes(note, arts):
             frags.insert(0, frag)
     frags[-1]["end_mark"] = "True"
 
-    save_doc(n_art, note + ".art", "Notes")
+    save_doc(n_art, note + ".nct", "Notes")
 
 def list_comments():
     saved_articles = load_obj("saved_articles", "articles", [])
@@ -5344,7 +5434,7 @@ def refresh_notes_2(in_note="notes"):
     return opts, art_list
 
 def refresh_tags(save_folder):
-    saved_articles = load_docs_path(save_folder, [".art"])
+    saved_articles = load_docs_path(save_folder, [".nct"])
     art_num = {}
     art_list = {}
     tag_list = []
@@ -5453,7 +5543,7 @@ def website():
                 config.memoize_articles = False
                 try:
                     site = newspaper.build(site_addr, memoize_articles=False)  # config)
-                    # logger.info(site.article_urls())
+                    # logger.info(site.ncticle_urls())
                     # site.download()
                     # site.generate_articles()
                 except Exception as e:

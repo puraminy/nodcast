@@ -1,0 +1,412 @@
+{
+  "title": "Why We Forget Names but Remember Faces",
+  "sections": [
+    {
+      "title": "Why We Forget Names but Remember Faces",
+      "fragments": [
+        {
+          "id": "f1",
+          "sents": [
+            {
+              "id": "s1",
+              "text": "You’ve probably met someone, recognized their face instantly, but completely blanked on their name.",
+              "nods": {
+                "affirmative": [
+                  "@yes",
+                  "right",
+                  "exactly"
+                ],
+                "reflective": [
+                  "why?",
+                  "how come?"
+                ]
+              },
+              "questions": [
+                "@why do we forget names so easily?"
+              ]
+            },
+            {
+              "id": "s2",
+              "text": "It feels strange, because remembering a name should be easier than recalling a whole face.",
+              "nods": {
+                "affirmative": [
+                  "true",
+                  "I agree",
+                  "yeah"
+                ],
+                "reflective": [
+                  "really?",
+                  "is it though?"
+                ]
+              },
+              "questions": [
+                "@why does it seem easier to remember names?",
+                "what makes faces stick more?"
+              ]
+            },
+            {
+              "id": "s3",
+              "text": "But the brain doesn’t treat all information equally.",
+              "nods": {
+                "affirmative": [
+                  "hmm",
+                  "makes sense",
+                  "go on"
+                ],
+                "reflective": [
+                  "why not?",
+                  "how does it decide?"
+                ]
+              },
+              "questions": [
+                "@what kind of information does the brain prioritize?"
+              ]
+            },
+            {
+              "id": "s4",
+              "text": "Faces are processed in a special part of the brain called the fusiform face area, dedicated just to recognizing faces.",
+              "nods": {
+                "affirmative": [
+                  "oh!",
+                  "I see",
+                  "got it"
+                ],
+                "reflective": [
+                  "where exactly is that?",
+                  "why only faces?"
+                ]
+              },
+              "questions": [
+                "@what makes the fusiform area specialized for faces?"
+              ]
+            },
+            {
+              "id": "s5",
+              "text": "Names, however, are stored more like arbitrary labels without strong sensory or emotional connections.",
+              "nods": {
+                "affirmative": [
+                  "ah",
+                  "interesting",
+                  "that explains it"
+                ],
+                "reflective": [
+                  "so emotion helps memory?",
+                  "is that why I forget random facts too?"
+                ]
+              },
+              "questions": [
+                "@why do emotions strengthen memory?"
+              ]
+            },
+            {
+              "id": "s6",
+              "text": "This means when you see a face, your brain lights up with recognition patterns, but when you try to recall a name, it’s like searching through a messy drawer.",
+              "nods": {
+                "affirmative": [
+                  "haha",
+                  "true",
+                  "I know that feeling"
+                ],
+                "reflective": [
+                  "why is memory so disorganized?",
+                  "can we improve that?"
+                ]
+              },
+              "questions": [
+                "@what kind of memories are easiest to retrieve?"
+              ]
+            },
+            {
+              "id": "s7",
+              "text": "We also tend to hear a name only once or twice, while we see a face throughout a whole conversation, which reinforces the visual memory much more strongly.",
+              "nods": {
+                "affirmative": [
+                  "makes sense",
+                  "yes",
+                  "that’s true"
+                ],
+                "reflective": [
+                  "so repetition helps?",
+                  "how many times do we need to hear something to remember it?"
+                ]
+              },
+              "questions": [
+                "@how does repetition affect memory strength?"
+              ]
+            },
+            {
+              "id": "s8",
+              "text": "In short, our brains evolved to recognize people visually, not verbally.",
+              "nods": {
+                "affirmative": [
+                  "hmm",
+                  "right",
+                  "clear now"
+                ],
+                "reflective": [
+                  "why did evolution favor that?",
+                  "is it the same for other species?"
+                ]
+              },
+              "questions": [
+                "@what evolutionary benefit does face recognition give us?"
+              ]
+            },
+            {
+              "id": "s9",
+              "text": "So next time you forget someone’s name, remember—it’s not laziness or rudeness; it’s just how memory works.",
+              "nods": {
+                "affirmative": [
+                  "haha",
+                  "exactly",
+                  "good point"
+                ],
+                "reflective": [
+                  "so I shouldn’t feel guilty?",
+                  "can we train to be better at it?"
+                ]
+              },
+              "questions": [
+                "@can name memory be improved through practice?"
+              ]
+            },
+            {
+              "id": "s10",
+              "text": "Maybe we should start introducing ourselves with more than just our names—like a story, a gesture, or a funny moment to stick in memory.",
+              "nods": {
+                "affirmative": [
+                  "interesting idea",
+                  "nice thought",
+                  "yeah"
+                ],
+                "reflective": [
+                  "would that really help?",
+                  "should we teach that socially?"
+                ]
+              },
+              "questions": [
+                "@what other tricks help us remember people better?"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "",
+          "sents": [
+            {
+              "id": "",
+              "text": "end",
+              "nods": {
+                "affirmative": [
+                  "interesting article",
+                  "learned something new",
+                  "gave me something to think about",
+                  "clear and well explained",
+                  "nice conclusion",
+                  "makes sense overall",
+                  "left me curious",
+                  "good summary"
+                ],
+                "reflective": [
+                  "gave me something to think about",
+                  "thought-provoking piece",
+                  "a bit complex but worth it"
+                ]
+              },
+              "questions": []
+            }
+          ]
+        },
+        {
+          "id": "",
+          "sents": [
+            {
+              "id": "",
+              "text": "end",
+              "nods": {
+                "affirmative": [
+                  "interesting article",
+                  "learned something new",
+                  "gave me something to think about",
+                  "clear and well explained",
+                  "nice conclusion",
+                  "makes sense overall",
+                  "left me curious",
+                  "good summary"
+                ],
+                "reflective": [
+                  "gave me something to think about",
+                  "thought-provoking piece",
+                  "a bit complex but worth it"
+                ]
+              },
+              "questions": []
+            }
+          ]
+        },
+        {
+          "id": "",
+          "sents": [
+            {
+              "id": "",
+              "text": "end",
+              "nods": {
+                "affirmative": [
+                  "interesting article",
+                  "learned something new",
+                  "gave me something to think about",
+                  "clear and well explained",
+                  "nice conclusion",
+                  "makes sense overall",
+                  "left me curious",
+                  "good summary"
+                ],
+                "reflective": [
+                  "gave me something to think about",
+                  "thought-provoking piece",
+                  "a bit complex but worth it"
+                ]
+              },
+              "questions": []
+            }
+          ]
+        },
+        {
+          "id": "",
+          "sents": [
+            {
+              "id": "",
+              "text": "end",
+              "nods": {
+                "affirmative": [
+                  "interesting article",
+                  "learned something new",
+                  "gave me something to think about",
+                  "clear and well explained",
+                  "nice conclusion",
+                  "makes sense overall",
+                  "left me curious",
+                  "good summary"
+                ],
+                "reflective": [
+                  "gave me something to think about",
+                  "thought-provoking piece",
+                  "a bit complex but worth it"
+                ]
+              },
+              "questions": []
+            }
+          ]
+        },
+        {
+          "id": "",
+          "sents": [
+            {
+              "id": "",
+              "text": "end",
+              "nods": {
+                "affirmative": [
+                  "interesting article",
+                  "learned something new",
+                  "gave me something to think about",
+                  "clear and well explained",
+                  "nice conclusion",
+                  "makes sense overall",
+                  "left me curious",
+                  "good summary"
+                ],
+                "reflective": [
+                  "gave me something to think about",
+                  "thought-provoking piece",
+                  "a bit complex but worth it"
+                ]
+              },
+              "questions": []
+            }
+          ]
+        },
+        {
+          "id": "",
+          "sents": [
+            {
+              "id": "",
+              "text": "end",
+              "nods": {
+                "affirmative": [
+                  "interesting article",
+                  "learned something new",
+                  "gave me something to think about",
+                  "clear and well explained",
+                  "nice conclusion",
+                  "makes sense overall",
+                  "left me curious",
+                  "good summary"
+                ],
+                "reflective": [
+                  "gave me something to think about",
+                  "thought-provoking piece",
+                  "a bit complex but worth it"
+                ]
+              },
+              "questions": []
+            }
+          ]
+        },
+        {
+          "id": "",
+          "sents": [
+            {
+              "id": "",
+              "text": "end",
+              "nods": {
+                "affirmative": [
+                  "interesting article",
+                  "learned something new",
+                  "gave me something to think about",
+                  "clear and well explained",
+                  "nice conclusion",
+                  "makes sense overall",
+                  "left me curious",
+                  "good summary"
+                ],
+                "reflective": [
+                  "gave me something to think about",
+                  "thought-provoking piece",
+                  "a bit complex but worth it"
+                ]
+              },
+              "questions": []
+            }
+          ]
+        },
+        {
+          "id": "",
+          "sents": [
+            {
+              "id": "",
+              "text": "end",
+              "nods": {
+                "affirmative": [
+                  "interesting article",
+                  "learned something new",
+                  "gave me something to think about",
+                  "clear and well explained",
+                  "nice conclusion",
+                  "makes sense overall",
+                  "left me curious",
+                  "good summary"
+                ],
+                "reflective": [
+                  "gave me something to think about",
+                  "thought-provoking piece",
+                  "a bit complex but worth it"
+                ]
+              },
+              "questions": []
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
