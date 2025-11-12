@@ -2479,7 +2479,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     if not "remove" in _sent["notes"]:
                         _sent["visible"] = True
                 bmark = si = 0
-        if ch == ord('d'):
+        if ch == ord('d') and False:
             acc = notes_keys + ['l','o','q','d']
             _ch = confirm("Delete: Press d to see the list or choose from " + ",".join(acc),
                     acc=acc)
@@ -2669,6 +2669,14 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 elif cur_nod in cur_sent["nods"].get("reflective", []):
                     cur_sent["nods"]["reflective"].remove(cur_nod)
                     removed = True
+
+                if removed:
+                    # choose next valid nod
+                    all_nods = (
+                        cur_sent["nods"].get("affirmative", []) +
+                        cur_sent["nods"].get("reflective", [])
+                    )
+                    cur_sent["nod"] = all_nods[-1] if all_nods else None
             else:
                 questions = cur_sent.get("questions", [])
                 if 0 <= q_index < len(questions):
@@ -3237,6 +3245,39 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             theme_menu["hl-text-color"] = str(hl_colors[hl_index][1])
             reset_hl(theme_menu)
             save_obj(theme_menu, theme_menu["preset"], "theme", common= True)
+        if ch == ord('d'):
+            _ch = confirm("Delete: Are you sure you want to delete sentence? ", acc=['y','n'])
+            if _ch == 'y':
+                cur_sent_index = 0
+                if len(cur_frag["sents"]) > 0:
+                    cur_sent_index = cur_frag["sents"].index(cur_sent) 
+                    cur_frag["sents"].remove(cur_sent)
+                _index = min(len(cur_frag["sents"]) -1, cur_sent_index)
+                if _index > 0:
+                    cur_sent = cur_frag["sents"][_index]
+        if ch == ord('n'):
+            win_height = cur_sent["end_pos"] - cur_sent["start_pos"]
+            win_loc = cur_sent["start_pos"], left
+            win = cur.newwin(win_height + 2, width, win_loc[0], win_loc[1])
+            _default = prev_idea
+            enter_on =[cur.KEY_ENTER, 10, 13, '\n']
+            win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
+            _text, ret_ch = minput(win, 0, 0, "New:", 
+                                default="",
+                                exit_on=enter_on,
+                                enter_key="Enter",
+                                mode =MULTI_LINE, border=False)
+            if _text != "<ESC>":
+                _new_sent = new_sent(_text)
+                cur_sent_index = 0
+                if len(cur_frag["sents"]) > 0:
+                    cur_sent_index = cur_frag["sents"].index(cur_sent) 
+                _new_sent["index"] = cur_sent_index + 1
+                cur_frag["sents"].insert(cur_sent_index + 1, _new_sent)
+                cur_sent = _new_sent
+                total_sects, total_frags, total_sents, sents = refresh_offsets(art)
+                pos.append(0)
+            art_changed = True
         if ch == ord('e'):
             win_height = cur_sent["end_pos"] - cur_sent["start_pos"]
             win_loc = cur_sent["start_pos"] + 2, left
@@ -3244,7 +3285,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             _default = prev_idea
             enter_on =[cur.KEY_ENTER, 10, 13, '\n']
             win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
-            _text, ret_ch = minput(win, 0, 0, "Enter new text:", 
+            _text, ret_ch = minput(win, 0, 0, "Edit:", 
                                 default=cur_sent["text"], 
                                 exit_on=enter_on,
                                 enter_key="Enter",
@@ -3466,8 +3507,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if dif > 0:
                 pos += [0]*dif
             insert_article(saved_articles, art)
-        if safe_chr(ch) == "n" or ch == ord("n"):
-            if ch == ord("n"):
+        if safe_chr(ch) == "/":
+            if ch == ord("/"):
                 search,_ = minput(win_info, 0, 1, "/")
             _found = False
             for ii in range(si+1, len(sents)):
