@@ -321,23 +321,6 @@ def m_print(text, win, color, attr = None, end="\n", refresh = False, color_star
             #win.refresh()
             pass
 
-def print_there(x, y, text, win = None, color=0, attr = None, pad = False):
-    if win is not None:
-        c = cur.color_pair(color)
-        if attr is not None:
-            c = cur.color_pair(color) | attr
-        height, width = win.getmaxyx()
-        #win.addnstr(x, y, text, height*width-1, c)
-        _len = (height*width)-x
-        win.addstr(x, y, text[:_len].encode(code), c)
-        if pad:
-            pass #win.refresh(0,0, x,y, height -5, width)
-        else:
-            pass # win.refresh()
-    else:
-        sys.stdout.write("\x1b7\x1b[%d;%df%s\x1b8" % (x, y, text))
-        sys.stdout.flush()
-
 def clear_screen(win = None):
     if win is not None:
         win.erase()
@@ -372,27 +355,84 @@ def m_input(prompt=":", default=""):
     cmd, _ = minput(win_info, 0, 1, prompt, default=default, all_chars=True)
     return cmd
 
+def print_there_2(x, y, text, win=None, color=0, attr=None, pad=False):
+    if win is not None:
+        c = cur.color_pair(color)
+        if attr is not None:
+            c |= attr
+
+        height, width = win.getmaxyx()
+        safe_text = text[:max(0, width - y - 1)]
+        win.addstr(x, y, safe_text.encode(code), c)
+
+        # Refresh logic
+        if pad:
+            # Ensure the written line is visible in the pad view
+            top = max(0, x - height // 2)
+            left = max(0, y - width // 2)
+            bottom = min(top + height - 1, height * 2)
+            right = min(left + width - 1, width * 2)
+            try:
+                win.refresh(top, left, 0, 0, height - 1, width - 1)
+            except curses.error:
+                pass
+        else:
+            try:
+                win.refresh()
+            except cur.error:
+                pass
+    else:
+        sys.stdout.write(f"\x1b7\x1b[{x};{y}f{text}\x1b8")
+        sys.stdout.flush()
+
+def print_there(x, y, text, win = None, color=0, attr = None, pad = False):
+    if win is not None:
+        c = cur.color_pair(color)
+        if attr is not None:
+            c = cur.color_pair(color) | attr
+        height, width = win.getmaxyx()
+        #win.addnstr(x, y, text, height*width-1, c)
+        #_len = (height*width)-x
+        #win.addstr(x, y, text[:_len].encode(code), c)
+        safe_text = text[:max(0, width - y - 1)]
+        win.addstr(x, y, safe_text.encode(code), c)
+                
+        if pad:
+            pass #win.refresh(0,0, x,y, height -5, width)
+        else:
+            pass # win.refresh()
+    else:
+        sys.stdout.write("\x1b7\x1b[%d;%df%s\x1b8" % (x, y, text))
+        sys.stdout.flush()
+
 PROMPT_LINE = 0
 SINGLE_LINE = 1
 MULTI_LINE = 2
-def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMPT_LINE, footer="", color=HL_COLOR, return_on_char = False, all_chars=False):
+def minput(mwin, row, col, prompt_string, exit_on = [], default="", 
+           mode = PROMPT_LINE, footer="", color=HL_COLOR, 
+           return_on_char = False, all_chars=False, 
+           border=True, enter_key="Insert", win_loc=None):
     multi_line = mode == MULTI_LINE
     #subprocess.call('setxkbmap -layout ir', shell=True)
+    pad = win_loc is not None
     if mode > 0:
         mrows, mcols = mwin.getmaxyx()
-        mwin.border()
-        print_there(row, col, prompt_string, mwin)
+        if border: mwin.border() 
+        print_there(row, col, prompt_string, mwin, pad = pad)
         if footer == "":
-            footer =  "<Insert> or \: Insert | <ESC>: Close | Shift + Del: Clear | Shift + Left: Delete line"
+            footer =  f"<{enter_key}>: Insert | <ESC>: Close | Shift + Del: Clear | Shift + Left: Delete line "
             footer = textwrap.shorten(footer, mcols)
         if mode == MULTI_LINE:
-            print_there(mrows-1, col, footer, mwin)
-            win = mwin.derwin(mrows - 2, mcols-2, 1, 1)
+            print_there(mrows-1, col, footer, mwin, pad = pad)
+            win = mwin.derwin(mrows - 1, mcols, 0, 0)
         else:
-            print_there(mrows-1, col, footer, mwin)
-            win = mwin.derwin(mrows - 2, mcols-2, 1, 1)
+            print_there(mrows-1, col, footer, mwin, pad = pad)
+            win = mwin.derwin(mrows - 1, mcols, 0, 0)
         win.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
-        mwin.refresh()
+        if win_loc is not None:
+            mwin.refresh(0, 0, win_loc[0], win_loc[1], win_loc[0] + mrows, win_loc[1] +  mcols)
+        else:
+            mwin.refresh()
     else:
         win = mwin
         attr = cur.A_BOLD
@@ -400,10 +440,10 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
         win.addstr(row, col, prompt_string.encode(code), c)
         win.clrtobot()
     rows, cols = win.getmaxyx()
+    next_line = "\t"
     if not multi_line:
         exit_on = ['\n']
-        next_line = "+"
-    else:
+    elif not '\n' in exit_on:
         next_line = '\n'
         if not exit_on:
             exit_on = ['\t']
@@ -462,11 +502,34 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
                 win.clrtoeol()
             win.clrtobot()
         else:
-            win.addstr(row, start, inp.encode(code))
+            # Handle long text input that exceeds window width
+            visible_width = cols - start - 1
+            # Ensure pos is within range
+            pos = max(0, min(pos, len(inp)))
+
+            # Determine start offset for visible substring
+            if pos < visible_width:
+                offset = 0
+            else:
+                # offset = pos - visible_width + 1
+                offset = max(0, pos - int(visible_width * 0.8))
+
+            # Slice the visible text portion
+            visible_text = inp[offset:offset + visible_width]
+
+            # Draw only visible part
+            win.addstr(row, start, visible_text.encode(code))
             win.clrtoeol()
-            xloc = start + pos
-            yloc = row + (xloc // cols)
-            xloc = xloc % cols
+
+            # Compute on-screen cursor position relative to visible window
+            xloc = start + (pos - offset)
+            yloc = row
+
+            #win.addstr(row, start, inp.encode(code))
+            #win.clrtoeol()
+            #xloc = start + pos
+            #yloc = row + (xloc // cols)
+            #xloc = xloc % cols
         if yloc < rows:
             win.move(yloc, xloc)
         else:
@@ -513,10 +576,10 @@ def minput(mwin, row, col, prompt_string, exit_on = [], default="", mode = PROMP
                     pos += 1
                 else:
                     mbeep()
-                    print_there(mrows-1, col, f"You reached the maximum number of {max_lines} lines", mwin, color=WARNING_COLOR)
+                    print_there(mrows-1, col, f"You reached the maximum number of {max_lines} lines", mwin, color=WARNING_COLOR, pad = pad)
                     mwin.clrtoeol()
                     mwin.get_wch()
-                    print_there(mrows-1, col, footer, mwin)
+                    print_there(mrows-1, col, footer, mwin, pad = pad)
                     mwin.refresh()
         elif ch == cur.KEY_HOME:
             pos = 0
@@ -663,9 +726,10 @@ def show_msg(msg, color=MSG_COLOR, bottom=False, delay=-1):
         win.getch()
 
 
-def show_warn(msg, color=WARNING_COLOR, bottom=True, stop=True, delay=3000):
+def show_warn(msg, color=WARNING_COLOR, bottom=True, stop=True, delay=3000, press_key=True):
     if bottom:
-        msg += "; press any key..."
+        if press_key:
+            msg += "; press any key..."
         temp = old_msg
     win = show_info(msg, color, bottom)
     ch = ''

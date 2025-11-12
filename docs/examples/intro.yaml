@@ -1,0 +1,1499 @@
+title: 'Introducing NodCast: A Text-Based Reading Experience'
+sections:
+  - title: Introduction
+    fragments:
+      - id: ''
+        sents:
+          - id: ''
+            text: >-
+              NodCast is a reading environment that turns text into a responsive
+              conversation.
+            nods:
+              affirmative:
+                - '@how?'
+                - interesting!
+              reflective:
+                - so what?
+            questions:
+              - '@What does it mean for reading to become conversational?'
+          - id: ''
+            text: >
+              Instead of passively scanning lines, you react to each sentence
+              with short signals called nods
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - '@nods?!'
+            questions:
+              - '@What exactly are nods?'
+              - How do they change the reading experience?
+          - id: ''
+            text: >-
+              A nod is a quick acknowledgment — like saying I see or so — but
+              written, not spoken.
+            nods:
+              affirmative:
+                - '@I see!'
+                - well!
+                - interesting!
+              reflective: []
+            questions:
+              - '@Why would written nods matter?'
+              - How do they help comprehension?
+          - id: ''
+            text: >-
+              Each sentence in a NodCast article is a small unit of interaction.
+              After reading a sentence, you choose a nod that reflects your
+              understanding, confusion or curiosity. By responding as you read,
+              you stay mentally active and track what parts of the text spark
+              questions or clarity.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@What kinds of nods can I choose from?'
+          - id: ''
+            text: >-
+              There are two broad types: affirming nods like I get it, and
+              reflective ones like not sure or wait, what?
+            nods:
+              affirmative:
+                - '@I see!'
+              reflective:
+                - what?
+            questions:
+              - '@What does NodCast do with these responses?'
+          - id: ''
+            text: >-
+              NodCast learns which parts of the text engage you or confuse you
+              by observing the patterns of nods you make. In later versions,
+              your nod history could personalize reading speed, difficulty, or
+              even suggest explanations.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - '@didn''t get'
+            questions:
+              - '@So nods become a feedback signal to the system itself?'
+  - title: Choosing Suggested Nods
+    fragments:
+      - id: ''
+        sents:
+          - id: ''
+            text: >-
+              To make nodding fast and fluid, NodCast suggests possible nods
+              beneath each sentence. Suggested nods appear just below the active
+              line, and you can cycle through them quickly without leaving the
+              text.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - How are these suggestions chosen?
+              - '@Can I still write my own custom nods?'
+          - id: ''
+            text: >-
+              Yes. You can edit or create your own nods, which helps NodCast
+              better understand your personal reading habits.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@Does the interface make that easy to do?'
+  - title: Keyboard Interaction
+    fragments:
+      - id: ''
+        sents:
+          - id: ''
+            text: >-
+              NodCast uses simple keyboard gestures to keep your attention on
+              the text.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@Which keys control nodding?'
+          - id: ''
+            text: >-
+              Use the Right arrow for affirmative nods and the Left arrow for
+              reflective ones.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@And how do I move through sentences?'
+          - id: ''
+            text: >-
+              Press Down to advance to the next sentence or Up to revisit the
+              previous one.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@So the whole reading flow is navigable by arrows?'
+          - id: ''
+            text: 'Yes — that design keeps you in rhythm: read, nod, move on.'
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@Does this rhythm feel natural over long texts?'
+          - id: ''
+            text: >-
+              Readers often describe it as conversational, like listening to
+              someone explain an idea while you respond quietly.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@Is that why it’s called NodCast?'
+  - title: Studying an Article
+    fragments:
+      - id: ''
+        sents:
+          - id: ''
+            text: >-
+              NodCast can turn any paper or essay into a guided study
+              experience.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@How does it guide the reading process?'
+          - id: ''
+            text: >-
+              By pausing on each sentence, you slow down just enough to
+              understand its logic before moving forward.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@Can I adjust that pacing?'
+          - id: ''
+            text: >-
+              Yes, you can move sentence by sentence or switch to paragraph mode
+              for faster review.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@Can I annotate or take notes while nodding?'
+          - id: ''
+            text: >-
+              Each nod can be expanded into a short comment or note, helping you
+              connect ideas as you go.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@So over time, my nods become a map of what I understood?'
+          - id: ''
+            text: >-
+              Exactly — NodCast transforms reading into an active dialogue
+              between you and the text.
+            nods:
+              affirmative:
+                - I see!
+              reflective:
+                - didn't get
+            questions:
+              - '@Where does this approach lead for the future of reading?'
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []
+      - id: ''
+        sents:
+          - id: ''
+            text: end
+            nods:
+              affirmative:
+                - interesting article
+                - learned something new
+                - gave me something to think about
+                - clear and well explained
+                - nice conclusion
+                - makes sense overall
+                - left me curious
+                - good summary
+              reflective:
+                - gave me something to think about
+                - thought-provoking piece
+                - a bit complex but worth it
+            questions: []

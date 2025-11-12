@@ -1,5 +1,7 @@
 from nodcast.util.nlp_utils import *
 import json
+import yaml
+from pathlib import Path
 
 def new_sent(s):
     _new_sent = {"text":s,"type":"sentence", "end":'\n','eol':False, 'eob':False, 'eos':False, 'next':False, "block":"sent", "merged":False, "questions":[], "q_index":0, "block_id":-1, "nod":"", "countable":False, "visible":True, "hidden":False, 'can_skip':True, "passable":False, "nods":[], "user_nods":[], "rtime":0, "tries":1, "comment":"", "notes":{}}
@@ -289,7 +291,7 @@ def fix_article(art, split_level=1, use_default_nod = False):
         "sents": [end_sent]
     }
 
-    if not art["sections"]:
+    if not art["sections"] or art["sections"][-1].get("title", "").lower() != "end":
         # create a minimal dummy section if no sections exist
         art["sections"].append({
             "title": "End",
@@ -306,7 +308,8 @@ def fix_article(art, split_level=1, use_default_nod = False):
         last_sect = art["sections"][-1]
         # avoid duplication if a dummy end already exists
         last_texts = [f["text"].strip().lower() for f in last_sect.get("fragments", [])]
-        if "end" not in last_texts:
+        last_title = last_sect["title"].lower()
+        if "end" not in last_title:
             last_sect["fragments"].append(end_frag)
             last_sect["sents_num"] += 1
 
@@ -318,13 +321,23 @@ def fix_article(art, split_level=1, use_default_nod = False):
 
     return art
 
-def save_article(art, artid=False, minimal=False):
+
+def save_article(art, artid=False, minimal=False, use_yaml=True):
     """
-    Save an article JSON file.
-    If minimal=True, only essential content fields are saved (id, text, nods, questions),
-    with '@' prefixes marking the currently selected nod or question.
+    Save an article file.
+    Supports JSON or YAML output depending on `use_yaml` or file extension.
+    If minimal=True, only essential content fields are saved.
     """
     fname = art.get("path")
+    if not fname:
+        raise ValueError("Article missing 'path' field")
+
+    # Auto-switch to YAML if file extension suggests it
+    ext = Path(fname).suffix.lower()
+    if ext in [".yaml", ".yml"]:
+        use_yaml = True
+    elif ext == ".json":
+        use_yaml = False
 
     # Optional: write ID file
     if artid and Path(fname + ".nctid").is_file():
@@ -352,31 +365,25 @@ def save_article(art, artid=False, minimal=False):
                     selected_nod = s.get("nod", "")
 
                     # ---- encode questions with '@' marker ----
-                    q_encoded = []
-                    for i, q in enumerate(questions):
-                        if i == q_index:
-                            q_encoded.append(f"@{q}")
-                        else:
-                            q_encoded.append(q)
+                    q_encoded = [
+                        f"@{q}" if i == q_index else q
+                        for i, q in enumerate(questions)
+                    ]
 
                     # ---- encode nods with '@' marker ----
-                    encoded_nods = {}
                     if isinstance(nods, dict):
-                        for key in ("affirmative", "reflective"):
-                            vals = nods.get(key, [])
-                            encoded_list = []
-                            for n in vals:
-                                if isinstance(n, str):
-                                    if n == selected_nod:
-                                        encoded_list.append(f"@{n}")
-                                    else:
-                                        encoded_list.append(n)
-                            encoded_nods[key] = encoded_list
+                        encoded_nods = {
+                            key: [
+                                f"@{n}" if n == selected_nod else n
+                                for n in vals if isinstance(n, str)
+                            ]
+                            for key, vals in nods.items()
+                            if isinstance(vals, list)
+                        }
                     elif isinstance(nods, list):
                         encoded_nods = [
                             f"@{n}" if n == selected_nod else n
-                            for n in nods
-                            if isinstance(n, str)
+                            for n in nods if isinstance(n, str)
                         ]
                     else:
                         encoded_nods = nods
@@ -393,14 +400,34 @@ def save_article(art, artid=False, minimal=False):
                 min_section["fragments"].append(min_frag)
             minimal_art["sections"].append(min_section)
 
-        # Save to disk
-        if "path" in art:
-            with open(art["path"], 'w', encoding='utf-8') as outfile:
-                json.dump(minimal_art, outfile, indent=2, ensure_ascii=False)
-
-    # --- Full version ---
+        art_to_save = minimal_art
     else:
-        if "path" in art:
-            with open(art["path"], 'w', encoding='utf-8') as outfile:
-                json.dump(art, outfile, indent=2, ensure_ascii=False)
+        art_to_save = art
+
+    # --- Save to disk ---
+    with open(fname, 'w', encoding='utf-8') as outfile:
+        if use_yaml:
+            yaml.safe_dump(art_to_save, outfile, allow_unicode=True, sort_keys=False)
+        else:
+            json.dump(art_to_save, outfile, indent=2, ensure_ascii=False)
+
+
+def read_article(filename, ext=None):
+    """
+    Read an article file (JSON or YAML).
+    Automatically detects format from extension if not provided.
+    """
+    ext = ext or Path(filename).suffix.lower()
+
+    with open(filename, 'r', encoding='utf-8') as infile:
+        if ext in [".yaml", ".yml"]:
+            art = yaml.safe_load(infile)
+        else:
+            art = json.load(infile)
+
+    art["save_folder"] = filename
+    art["path"] = filename
+    art = fix_article(art)
+    return art
+
 
