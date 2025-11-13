@@ -2315,8 +2315,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         mode_info = main_info 
         #mode_info = f"start_row={start_row}, end_y={end_y}, max(pos)={max(pos)}"
 
-        #for uu in range(end_y):
-        #    mprint(str(uu), left_side_win, INFO_COLOR)
+        for uu in range(end_y):
+            mprint(str(uu), left_side_win, INFO_COLOR)
 
         # f" si={si}, section={cur_sect['title'] if 'title' in cur_sect else ''}"
         if not speak_enabled:
@@ -3262,8 +3262,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             left_side_win.noutrefresh(start_row + shift, 0, 2, 0, rows - 2, left - 1)
             right_side_win.noutrefresh(start_row + shift, 0, 2, left + width, rows - 2, cols - 1)
             cur.doupdate()
-            win_height = cur_sent["end_pos"] - cur_sent["start_pos"]
-            win_loc = cur_sent["end_pos"], left
+            win_height = 5 #
+            _top = cur_sent["end_pos"] - shift + 4 # - cur_sent["start_pos"]
+            win_loc = _top, left
             win = cur.newwin(win_height + 2, width, win_loc[0], win_loc[1])
             _default = prev_idea
             enter_on =[cur.KEY_ENTER, 10, 13, '\n']
