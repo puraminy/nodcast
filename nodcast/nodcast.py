@@ -86,15 +86,15 @@ if newspaper_imported:
 
 pdf2text_imported = True
 #try:
-from pdfminer.pdfparser import  PDFParser
-from pdfminer.pdfdocument import PDFDocument
-from pdfminer.layout import LAParams
-from pdfminer.converter import PDFPageAggregator
-from pdfminer.pdfpage import PDFTextExtractionNotAllowed
-from pdfminer.pdfinterp import PDFResourceManager
-from pdfminer.pdfinterp import PDFPageInterpreter
-from pdfminer.pdfpage import PDFPage
-from pdfminer.layout import LTTextBox,LTTextLine,LTChar, LTTextBoxHorizontal,LTFigure,LTImage
+#from pdfminer.pdfparser import  PDFParser
+#from pdfminer.pdfdocument import PDFDocument
+#from pdfminer.layout import LAParams
+#from pdfminer.converter import PDFPageAggregator
+#from pdfminer.pdfpage import PDFTextExtractionNotAllowed
+#from pdfminer.pdfinterp import PDFResourceManager
+#from pdfminer.pdfinterp import PDFPageInterpreter
+#from pdfminer.pdfpage import PDFPage
+#from pdfminer.layout import LTTextBox,LTTextLine,LTChar, LTTextBoxHorizontal,LTFigure,LTImage
 #except ImportError as e:
 #    pdf2text_imported = False
 
@@ -169,7 +169,7 @@ def extractPdfText(file):
 
 #xxxx
 from io import BytesIO
-from pdfminer.converter import TextConverter
+#from pdfminer.converter import TextConverter
 
 def convert_pdf_to_txt(path):
     rsrcmgr = PDFResourceManager()
@@ -2390,7 +2390,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             show_msg("Title was copied to the clipboard")
         if ch == ord('a'): 
             show_msg(" Total:" + art["total_prog"] + "% | Section:" +str(cur_sect["prog"]) + "% ")
-        if ch == ord('l'):
+        if ch == ord('h'):
             show_instruct = not show_instruct 
             nr_opts["show instructions"] = "Enabled" if show_instruct else "Disabled"
         if show_instruct:
@@ -2409,7 +2409,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             #right_side_win.refresh(start_row, 0, 2, left + width, rows - 2, cols - 1)
             #s_win.refresh(0, 0, rows - len(instructs) - 3, cols - 35, rows - 1, cols -1)
         else:
-            print_there(0, cols - 30, "l) list instructions", win_info, color=INFO_COLOR)
+            print_there(0, cols - 30, "h) list instructions", win_info, color=INFO_COLOR)
         win_info.refresh()
         cur.doupdate()
         # jjj
@@ -2566,7 +2566,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if ch == ord('I'):
             show_info(art["title"] + "\nTags: " + " ,".join(art["tags"] if "tags" in art else ["No tag"]), 
                        bottom=False)
-        if ch == ord('h'):  # article help
+        if ch == ord('h') and False:  # article help
             show_info(('\n'
                        '  Down)          expand the selection to the next sentence\n'
                        '  Right)         open a collapsed section\n'
@@ -3246,8 +3246,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             reset_hl(theme_menu)
             save_obj(theme_menu, theme_menu["preset"], "theme", common= True)
         if ch == ord('d'):
-            _ch = confirm("Delete: Are you sure you want to delete sentence? ", acc=['y','n'])
-            if _ch == 'y':
+            _ch = confirm("Delete: Are you sure you want to delete sentence? ", acc=['d','n'])
+            if _ch == 'd':
                 cur_sent_index = 0
                 if len(cur_frag["sents"]) > 0:
                     cur_sent_index = cur_frag["sents"].index(cur_sent) 
@@ -3256,8 +3256,14 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 if _index > 0:
                     cur_sent = cur_frag["sents"][_index]
         if ch == ord('n'):
+            text_win.overwrite(text_win)
+            shift = cur_sent["start_pos"] - start_row
+            text_win.noutrefresh(start_row + shift, 0, 2, left, rows - 2, left + width)
+            left_side_win.noutrefresh(start_row + shift, 0, 2, 0, rows - 2, left - 1)
+            right_side_win.noutrefresh(start_row + shift, 0, 2, left + width, rows - 2, cols - 1)
+            cur.doupdate()
             win_height = cur_sent["end_pos"] - cur_sent["start_pos"]
-            win_loc = cur_sent["start_pos"], left
+            win_loc = cur_sent["end_pos"], left
             win = cur.newwin(win_height + 2, width, win_loc[0], win_loc[1])
             _default = prev_idea
             enter_on =[cur.KEY_ENTER, 10, 13, '\n']
@@ -3274,9 +3280,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     cur_sent_index = cur_frag["sents"].index(cur_sent) 
                 _new_sent["index"] = cur_sent_index + 1
                 cur_frag["sents"].insert(cur_sent_index + 1, _new_sent)
-                cur_sent = _new_sent
                 total_sects, total_frags, total_sents, sents = refresh_offsets(art)
                 pos.append(0)
+                si, bmark = moveon(sents, si)
             art_changed = True
         if ch == ord('e'):
             win_height = cur_sent["end_pos"] - cur_sent["start_pos"]
@@ -4939,21 +4945,24 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             ch = "refresh"
         elif ch == "new article":
             filepath = save_folder 
-            if ch == "new article":
-                show_warn("This feature is not yet available.")
-                ch = ""
-            if False: #TODO
-                name = "new article"
-                filepath = save_folder + "/"+ name + ".txt"
+            rows, cols = std.getmaxyx()
+            width = cols - 10
+            win = cur.newwin(1, width - 1, mi, 5)
+            name, _ = minput(win, 0, 1, "Enter file name:", default="new article")
+            if name != "<ESC>":
+                filepath = save_folder + "/"+ name + ".yaml"
                 count = 1
+                initial_name = name
                 while Path(filepath).is_file():
-                    name = "new article (" + str(count) + ")"
-                    filepath = save_folder +  "/"+ name + ".txt"
+                    name = f"{initial_name} (" + str(count) + ")"
+                    filepath = save_folder +  "/"+ name + ".yaml"
                     count += 1
                 with open(filepath, "w") as f:
-                    print("Write your text file here, rename it and save, then refresh", file = f)
-                platform_open(filepath)
-                ch = "refresh"
+                    content = read_new_yaml()
+                    print(content, file = f)
+                art = read_article(filepath)
+                show_article(art)
+            ch = "refresh"
         elif ch == "browse articles (NodCast Hub)":
             show_warn("This feature is not yet available.")
         elif ch == "open folder":

@@ -4,7 +4,7 @@ import yaml
 from pathlib import Path
 
 def new_sent(s):
-    _new_sent = {"text":s,"type":"sentence", "end":'\n','eol':False, 'eob':False, 'eos':False, 'next':False, "block":"sent", "merged":False, "questions":[], "q_index":0, "block_id":-1, "nod":"", "countable":False, "visible":True, "hidden":False, 'can_skip':True, "passable":False, "nods":[], "user_nods":[], "rtime":0, "tries":1, "comment":"", "notes":{}}
+    _new_sent = {"text":s,"type":"sentence", "end":'\n','eol':False, 'eob':False, 'eos':False, 'next':False, "block":"sent", "merged":False, "questions":[], "q_index":0, "block_id":-1, "nod":"", "countable":False, "visible":True, "hidden":False, 'can_skip':True, "passable":False, "nods":{}, "user_nods":[], "rtime":0, "tries":1, "comment":"", "notes":{}}
     if len(s.split(' ')) <= 1:
         _new_sent["end"] = " "
     return _new_sent
@@ -425,6 +425,7 @@ def read_article(filename, ext=None):
         else:
             art = json.load(infile)
 
+    if art is None: return None
     art["save_folder"] = filename
     art["path"] = filename
     art = fix_article(art)

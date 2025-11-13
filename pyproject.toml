@@ -22,8 +22,7 @@ classifiers = [
 dependencies = [
     "requests",
     "appdirs",
-    "json",
-    "yaml",
+    "PyYAML",
     # "pdfminer.six",
     "gtts",
     "python-vlc"

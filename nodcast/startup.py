@@ -3,6 +3,29 @@ import shutil
 import importlib.resources as res
 import os
 import platform
+import yaml
+import shutil
+
+def read_new_yaml():
+    """
+    Read 'new.yaml' file from the parent of the 'nodcast' package's 'resources' directory
+    and return its parsed YAML content.
+    """
+    try:
+        # Locate the parent directory of the 'nodcast' package
+        parent_path = res.files("nodcast").parent
+        yaml_path = parent_path / "docs" / "new.yaml"
+
+        with res.as_file(yaml_path) as actual_yaml_path:
+            if not actual_yaml_path.exists():
+                raise FileNotFoundError(f"'new.yaml' not found at {actual_yaml_path}")
+            with open(actual_yaml_path, "r", encoding="utf-8") as f:
+                return yaml.safe_load(f)
+
+    except Exception as e:
+        print(f"Error reading new.yaml: {e}")
+        return None
+
 
 def get_documents_path(appname="nodcast", as_str=True):
     """Return cross-platform Documents/<appname> path and create it."""

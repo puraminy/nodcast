@@ -1,0 +1,19 @@
+title: "Untitled"
+sections:
+  - title: "Section 1"
+    fragments:
+      - id: "frag-1"
+        sents:
+          - id: "sent-1"
+            text: >
+              Press 'e' to edit the first segment, 'n' to add new segments,
+              ':' to add new nods to a segment, and '?' to add new questions
+              to each. For more shortcuts, press 'l'.
+            nods:
+              affirmative:
+                - "@how?"
+              reflective:
+                - "so what?"
+            questions:
+              - "sample question"
+
