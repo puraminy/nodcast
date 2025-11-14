@@ -3119,30 +3119,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 cur_nod = next_nod(cur_nod, key_pos, sents[si])
             sents[si]["nod"] = cur_nod
             sents[si]["block_id"] = si
-        if ch == ord(':') or ch == ord('?') or ch == ord('>'):
-            gg = 2 if ch == ord('?') else 1
-            win = cur.newwin(1, width - 1, pos[bmark+1] + gg, left)
-            win.bkgd(' ', cur.color_pair(INPUT_COLOR))  # | cur.A_REVERSE)
-            title = "new question:" if ch == ord('?') else "new nod:"
-            _input, ret_ch = minput(win, 0, 0, title, default="", 
-                                     mode =PROMPT_LINE, color=TEXT_COLOR)
-            _nod_or_q = ""
-            if _input != "<ESC>":
-                if ret_ch != "|":
-                    _nod_or_q = _input
-            if _nod_or_q != "":
-                if ch == ord('?'):
-                    cur_sent["questions"].append(_nod_or_q)
-                    cur_sent["default_question"] = _nod_or_q
-                    q_index = cur_sent["questions"].index(_nod_or_q)
-                else:
-                    if ch == ord(':'):
-                        cur_sent["nods"]["affirmative"].append(_nod_or_q)
-                    elif ch == ord('>'):
-                        cur_sent["nods"]["reflective"].append(_nod_or_q)
-                    cur_sent["nod"] = _nod_or_q
-            nod_set = True
-        art_changed = art_changed or nod_set
         if si > 0 and (expand == 0 and ch == UP and not cur_sect["opened"]) or ch == cur.KEY_PPAGE:
             sel_first_sent = True
             si = cur_sect["offset"] - 1
@@ -3284,6 +3260,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 total_sects, total_frags, total_sents, sents = refresh_offsets(art)
                 pos.append(0)
                 si, bmark = moveon(sents, si)
+                pos[bmark + 1] = _top + win_height 
+                cur_sent=_new_sent
+                ch = ord('?')
             art_changed = True
         if ch == ord('e'):
             win_height = cur_sent["end_pos"] - cur_sent["start_pos"]
@@ -3300,6 +3279,30 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             if _text != "<ESC>":
                 cur_sent["text"] = _text
             art_changed = True
+        if ch == ord(':') or ch == ord('?') or ch == ord('>'):
+            gg = 2 if ch == ord('?') else 1
+            win = cur.newwin(1, width - 1, pos[bmark+1] + gg, left)
+            win.bkgd(' ', cur.color_pair(INPUT_COLOR))  # | cur.A_REVERSE)
+            title = "new question:" if ch == ord('?') else "new nod:"
+            _input, ret_ch = minput(win, 0, 0, title, default="", 
+                                     mode =PROMPT_LINE, color=TEXT_COLOR)
+            _nod_or_q = ""
+            if _input != "<ESC>":
+                if ret_ch != "|":
+                    _nod_or_q = _input
+            if _nod_or_q != "":
+                if ch == ord('?'):
+                    cur_sent["questions"].append(_nod_or_q)
+                    cur_sent["default_question"] = _nod_or_q
+                    q_index = cur_sent["questions"].index(_nod_or_q)
+                else:
+                    if ch == ord(':'):
+                        cur_sent["nods"]["affirmative"].append(_nod_or_q)
+                    elif ch == ord('>'):
+                        cur_sent["nods"]["reflective"].append(_nod_or_q)
+                    cur_sent["nod"] = _nod_or_q
+            nod_set = True
+        art_changed = art_changed or nod_set
         if ch == ord('E') and False:
             win_input = cur.newwin(5, cols - 2*left, 5, left)
             prompt = "Paper title"
