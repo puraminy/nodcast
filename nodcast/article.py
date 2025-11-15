@@ -420,7 +420,7 @@ def read_article(filename, ext=None):
     ext = ext or Path(filename).suffix.lower()
 
     with open(filename, 'r', encoding='utf-8') as infile:
-        if ext in [".yaml", ".yml"]:
+        if ext in [".yaml", ".yml", ".nct"]:
             art = yaml.safe_load(infile)
         else:
             art = json.load(infile)

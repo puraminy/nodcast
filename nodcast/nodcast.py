@@ -1677,7 +1677,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         for _sect in art["sections"]:
             _sect["opened"] = True
     ch = 0
-    main_info = f"s) read aloud    q) quit "
+    main_info = f"q) quit "
     show_info(main_info)
     ni, fi = 0, 0
     last_pos = 0
@@ -1727,12 +1727,20 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
     rc_text = "rc_text" in art and art["rc_text"]
     instructs = {}
     instructs = {
-        "Down": "Go to next sentence",
-        "Up": "Go to previous sentence",
-        "Right": "Skip forward to next paragraph",
-        "Left": "Back to previous paragraph",
-        "Enter": "Play or expand current fragment",
+        "Down": "Go to next segment or question",
+        "Up": "Go to previous segment",
+        "Right/Left": "Cycle through nods or questions",
         "q": "Quit viewer",
+        "PageDown": "Go to next section",
+        "PageUp": "Go to previous section",
+        "Home": "Jump to beginning of article",
+        "End": "Jump to end of article",
+        "e": "Edit current segment",
+        "n": "Add new segment",
+        "?": "Add new question to current segment",
+        ":": "Add new nod to current segment",
+        "s": "Read aloud",
+        "z": "Toggle auto mode (automatically go to next segment)",
     }
     show_instruct = rc_text
     rc_mode = False
@@ -2183,13 +2191,14 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                                             mprint(sent_text, text_win, _color, attr=cur.A_BOLD, end=end)
                                         else:
                                             mprint(sent_text, text_win, _color, end=end)
-                                    else:
+                                    elif "index" in cur_sent:
                                         show_cond = (cur_sent["index"] - sent["index"] < 3 
                                               and cur_sent["index"] - sent["index"] > 0)
                                         if b == cur_sect:
                                             if sent["index"] < cur_sent["index"] and show_cond:
-                                                _color = get_nod_color(sent)
-                                                mprint(sent.get("default_question", ""), text_win, _color)
+                                                _color = WARNING_COLOR # get_nod_color(sent)
+                                                mprint(sent.get("default_question", ""), 
+                                                       text_win, _color)
                                         elif show_cond:
                                             _color = get_nod_color(sent)
                                             mprint(sent.get("default_question",""), text_win, _color)
@@ -2314,16 +2323,17 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         win_info.erase()
         mode_info = main_info 
         #mode_info = f"start_row={start_row}, end_y={end_y}, max(pos)={max(pos)}"
+        win_info.erase()
 
-        for uu in range(end_y):
-            mprint(str(uu), left_side_win, INFO_COLOR)
+        #for uu in range(start_row, end_y):
+        #    mprint(str(uu), left_side_win, INFO_COLOR)
 
         # f" si={si}, section={cur_sect['title'] if 'title' in cur_sect else ''}"
         if not speak_enabled:
-            mode = "s) speak"
+            mode = "s) read aloud"
             mode_colors[mode] = INFO_COLOR
         else:
-            mode = "s) speak"
+            mode = "s) read aloud"
             mode_colors[mode] = 250
         if auto_mode:
             sub_mode1 = "z) auto next"
@@ -2365,7 +2375,6 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 scroll_page = False
             
         # mode_info = f"start_row={start_row}, cur_y={cur_y}, top_margin={top_margin}"
-        win_info.erase()
         mprint(" " + mode_info, win_info, color = INFO_COLOR, end = "")
         if hotkey == "":
             text_win.overwrite(text_win)
@@ -2394,7 +2403,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             show_instruct = not show_instruct 
             nr_opts["show instructions"] = "Enabled" if show_instruct else "Disabled"
         if show_instruct:
-            print_there(0, cols -30, "l) hide insturctions", win_info, color=INFO_COLOR)
+            print_there(0, cols -30, "h) hide insturctions", win_info, color=INFO_COLOR)
             cur.init_pair(TEMP_COLOR, 35, int(theme_menu["input-color"]) % cur.COLORS)
             s_win = cur.newpad(rows, cols)
             s_win.bkgd(' ', cur.color_pair(INPUT_COLOR))  # | cur.A_REVERSE)
@@ -2402,7 +2411,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             for key,instruct in instructs.items():
                 if not key == "intro":
                     mprint(" " + key, s_win, color=TEMP_COLOR, end = ")")
-                instruct = textwrap.fill(instruct, 30)    
+                instruct = textwrap.fill(instruct, cols - 4)    
                 mprint(" " + instruct, s_win, color=INPUT_COLOR)
             _y, x = s_win.getyx()
             s_win.noutrefresh(0, 0, 3, left, rows - 2, cols -2)
@@ -2917,7 +2926,8 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     else:
                         if speak_enabled:
                             default_q = sfile_data.get("default_question", "")
-                            play(default_q, sents, art, bmark, part="default_question")
+                            if default_q:
+                                play(default_q, sents, art, bmark, part="default_question")
                         q_index = -1
                         si, bmark = moveon(sents, si)
 
@@ -3325,14 +3335,14 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 if "localPdfUrl" in art and art["localPdfUrl"]:
                     url = art["localPdfUrl"]
                 else:
-                    url = art["pdfUrl"]
+                    url = art["path"]
                 if not download_or_open(url, art, pdf_name, open_file = (ch == ord('o') or ch == ord('/'))):
                     win_input = cur.newwin(5, cols - 2*left, 5, left)
                     prompt = "File not found, new File localtion:"
                     win_input.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
                     new_loc, _ch = minput(win_input, 0, 0, prompt, mode = MULTI_LINE)
                     if new_loc != "<ESC>":
-                        art["localPdfUrl"] = "file://" + new_loc.strip()
+                        art["path"] = "file://" + new_loc.strip()
                         openFile(Path(new_loc))
 
                 art_changed = True
@@ -3712,6 +3722,9 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             insert_article(saved_articles, art)
         if "save_folder" in art:
             save_article(art, minimal=True)
+        if ch == ord('q') and show_instruct:  # before exiting artilce
+            show_instruct = False
+            ch = 0
         if ch == ord('q'):  # before exiting artilce
             win_info.erase()
             win_info.refresh()
@@ -3877,7 +3890,7 @@ def print_visible_questions(cur_sent, q_index, width, text_win, sep=" ",
         return
 
     colors = [TEXT_COLOR]
-    print_list(questions, q_index, width, colors, sep)
+    print_list(questions, q_index, width, colors, sep, sel_color=WARNING_COLOR)
 
 def print_visible_nods(cur_sent, width, text_win, sep=" ",
                        pos_color=SEL_COLOR, neg_color=WARNING_COLOR):
@@ -3902,7 +3915,7 @@ def print_visible_nods(cur_sent, width, text_win, sep=" ",
     colors = [248]
     print_list(nods, nod_index, width, colors, sep)
 
-def print_list(items, sel_index, width, colors, sep): 
+def print_list(items, sel_index, width, colors, sep, sel_color= SEL_COLOR): 
     full_text = sep.join(items)
     total_len = len(full_text)
 
@@ -3949,7 +3962,7 @@ def print_list(items, sel_index, width, colors, sep):
 
         # Highlight color
         if i == sel_index:
-            color = SEL_ITEM_COLOR
+            color = sel_color
         else:
             color = colors[i] if i < len(colors) else colors[-1]
 
@@ -4915,18 +4928,27 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             for ext in exts:
                 _files = [str(Path(f)) for f in Path(save_folder).glob(ext) if f.is_file()]
                 files.extend(_files)
-                #files = sorted(files)
+
+                # normal sorting logic
                 if save_folder.endswith("Files"):
                     files.sort(key=os.path.getctime, reverse=True)
                 else:
                     files = sorted(files)
-                #files = []
-                #for str_file in _files:
-                #    _file = Path(str_file)
-                #    mtime = datetime.datetime.fromtimestamp(_file.stat().st_ctime)
-                #    past = datetime.datetime.now() - datetime.timedelta(days=1)
-                #    if mtime > past: 
-                #        files.extend(_file)
+                if save_folder.endswith("Files"):
+                    files.sort(key=os.path.getctime, reverse=True)
+            readmes = [f for f in files if Path(f).stem.lower() == "readme"]
+            if readmes:
+                # Move README(s) to the front while preserving order of everything else
+                non_readmes = [f for f in files if f not in readmes]
+                files = readmes + non_readmes
+
+            #files = []
+            #for str_file in _files:
+            #    _file = Path(str_file)
+            #    mtime = datetime.datetime.fromtimestamp(_file.stat().st_ctime)
+            #    past = datetime.datetime.now() - datetime.timedelta(days=1)
+            #    if mtime > past: 
+            #        files.extend(_file)
             menu, sk, menu_len = refresh_files(save_folder, subfolders, files, depth, show_folders)
             mi = menu_len
 
