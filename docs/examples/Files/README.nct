@@ -70,14 +70,14 @@ sections:
       questions:
       - '@Are there other types of feedbacks?'
     - id: ''
-      text: Beyond nods, you can also enter questions while reading each segment.
+      text: Beyond nods, you can also enter questions while reading each segment—these can capture points of confusion, ambiguities, or gaps in understanding, complementing your nods and providing richer feedback on your comprehension.
       nods:
         affirmative:
         - I see!
         reflective:
         - didn't get
       questions:
-      - '@How NodCast uses thes feedbacks?'
+      - '@How NodCast uses these feedbacks?'
     - id: ''
       text: NodCast learns which parts engage you and which parts confuse you by observing
         your nods and questions. These signals are shared with article creators. Articles
@@ -86,11 +86,10 @@ sections:
       nods:
         affirmative:
         - '@I see!'
-        - '@I see!'
+        - '@Superb!'
         reflective:
         - didn't get
       questions:
-      - '@So nods become a feedback signal to the system itself?'
 - title: End
   fragments:
   - id: ''

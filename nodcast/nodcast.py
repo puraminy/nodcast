@@ -4860,7 +4860,7 @@ def refresh_files(save_folder, subfolders, files, depth=1, show_folders =False):
     menu["open folder"] = "button"
     #menu["tags"] = "button"
     menu["new article"] = "button"
-    menu["browse articles (NodCast Hub)"] = "button" 
+    menu["browse hot articles (NodCast Hub)"] = "button" 
     menu["refresh"] = "button-hidden"
     _folder = save_folder
     if len(_folder) > 80 or depth > 1:
@@ -4880,7 +4880,7 @@ def refresh_files(save_folder, subfolders, files, depth=1, show_folders =False):
     count = 1
     sk = {'q':"..", 'e':"open folder", 
           'h':'back home', 
-          'b':'browse articles (NodCast Hub)', 
+          'b':'browse hot articles (NodCast Hub)', 
           'n':'new article', 't':'tags'}
     rows, cols = std.getmaxyx()
     for ind, f in enumerate(files):
@@ -4989,8 +4989,8 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 art = read_article(filepath)
                 show_article(art)
             ch = "refresh"
-        elif ch == "browse articles (NodCast Hub)":
-            show_warn("This feature is not yet available.")
+        elif ch == "browse hot articles (NodCast Hub)":
+            webbrowser.open("https://puraminy.github.io/nodcast/hot-articles")
         elif ch == "open folder":
             filepath = save_folder 
             platform_open(filepath)
