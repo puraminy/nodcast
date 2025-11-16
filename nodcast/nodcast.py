@@ -1427,15 +1427,24 @@ def move_article(art, move_or_copy="move"):
         art["save_folder"] = temp
         return False
 
-def get_record_file(sound_folder,  file_index):
-  sound_folder = re.sub(r'[\[\]\(\)"\'\?]+', '', sound_folder)
-  p = str(Path.home()) + '/rec_files/'+ sound_folder
-  Path(p).mkdir(parents=True, exist_ok=True)
-  file_index = "".join(x for x in file_index if x.isalnum())
-  sound_file = p + "/" + file_index + ".mp3"
-  if not Path(sound_file).is_file() or os.path.getsize(sound_file) == 0:
-      return sound_file, False
-  return sound_file, True
+def get_record_file(sound_folder, file_index):
+    # sanitize the folder name for Windows compatibility
+    safe_folder = safe_filename(sound_folder)
+
+    # build path using sanitized name
+    p = os.path.join(doc_path, 'records', safe_folder)
+    Path(p).mkdir(parents=True, exist_ok=True)
+
+    # sanitize the file index (keep only alphanumeric)
+    file_index = "".join(x for x in file_index if x.isalnum())
+
+    sound_file = os.path.join(p, file_index + ".mp3")
+
+    # return file path + existence status
+    if not Path(sound_file).is_file() or os.path.getsize(sound_file) == 0:
+        return sound_file, False
+
+    return sound_file, True
 
 ref_seen = False
 
@@ -1501,6 +1510,15 @@ except ImportError:
 player = None
 recorder = None
 from urllib.parse import quote
+
+import re
+
+def safe_filename(name: str) -> str:
+    # Windows forbidden chars: \ / : * ? " < > |
+    name = re.sub(r'[\\/:*?"<>|]', '_', name)
+    # strip spaces or dots at ends
+    name = name.strip().strip('.')
+    return name
 
 def play(sound_file, sents, art, si, part="text", record_all=False):
     global player, recorder
@@ -4896,11 +4914,11 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
     mydate = datetime.datetime.now()
     create_date = mydate.strftime("%Y-%m-%d")
     if not doc_path in save_folder:
-        save_pdf_folder = doc_path + "/" + profile + "/Files/" + create_date
+        save_pdf_folder = os.path.join(doc_path, profile,"Files", create_date)
     else:
-        save_pdf_folder = save_folder + "/" + create_date
+        save_pdf_folder = os.path.join(save_folder, create_date)
     pdf_index = 0
-    art_list = save_folder + "/" + create_date + ".listid"
+    art_list = save_folder + os.sep + create_date + ".listid"
     if Path(art_list).is_file():
         with open(art_list, "r") as infile:
             artids = json.load(infile)
@@ -4942,7 +4960,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
 
         ch, menu, mi = show_menu(menu, options, mi=mi, hotkeys = {'r':'refresh','c':'convert options','a':'convert all pdfs', 'o':'open externally', 'f':'show folders' if not show_folders else 'hide folders'}, shortkeys = sk, title=title)
         if ch.startswith("[>"):
-            sfolder = save_folder + "/" + ch[4:]
+            sfolder = save_folder + os.sep + ch[4:]
             show_files(sfolder, exts, depth + 1)
         elif ch == ".." or ch.startswith("[<]"):
             ch = 'q'
@@ -4952,7 +4970,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             else:
                 mbeep()
         elif ch == "new folder":
-            filepath = save_folder + "/"+menu["new folder"] 
+            filepath = save_folder + os.sep + menu["new folder"] 
             ch = "refresh"
         elif ch == 'f':
             show_folders = not show_folders
@@ -4964,12 +4982,12 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             win = safe_newwin(cur, 1, width - 1, mi, 5)
             name, _ = minput(win, 0, 1, "Enter file name:", default="new article")
             if name != "<ESC>":
-                filepath = save_folder + "/"+ name + ".yaml"
+                filepath = save_folder + os.sep + name + ".yaml"
                 count = 1
                 initial_name = name
                 while Path(filepath).is_file():
                     name = f"{initial_name} (" + str(count) + ")"
-                    filepath = save_folder +  "/"+ name + ".yaml"
+                    filepath = save_folder +  os.sep + name + ".yaml"
                     count += 1
                 with open(filepath, "w") as f:
                     content = read_new_yaml()
@@ -4990,7 +5008,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                 index = int(parts[3]) 
                 filepath = files[index]
                 ext = os.path.splitext(filepath)[1]
-                fname = filepath.split("/")[-1]
+                fname = filepath.split(os.sep)[-1]
                 _confirm = confirm("Are you sure you want to delete "+fname)
                 if _confirm == "y":
                     if ext == ".nctid":
@@ -5001,8 +5019,8 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
                     Path(filepath).unlink()
             else:
                 index = int(parts[3])
-                filepath = save_folder + "/" + subfolders[index]
-                fname = filepath.split("/")[-1]
+                filepath = save_folder + os.sep + subfolders[index]
+                fname = filepath.split(os.sep)[-1]
                 is_empty = not any(Path(filepath).iterdir())
                 if not is_empty:
                     show_msg("The folder " + fname + " is not empty and can't be deleted!")
