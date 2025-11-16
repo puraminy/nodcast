@@ -8,7 +8,7 @@ sections:
             text: >
               Press 'e' to edit the first segment, 'n' to add new segments,
               ':' to add new nods to a segment, and '?' to add new questions
-              to each. For more shortcuts, press 'l'.
+              to each. For more shortcuts, press 'h'.
             nods:
               affirmative:
                 - "@how?"

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nodcast"
-version = "0.1.15"
+version = "0.1.17"
 description = "NodCast, a text-based article reader and manager"
 readme = "README.md"
 
@@ -26,7 +26,8 @@ dependencies = [
     "appdirs",
     "PyYAML",
     "gtts",
-    "python-vlc"
+    "python-vlc",
+    "importlib_resources"
 ]
 
 [project.optional-dependencies]
@@ -44,5 +45,5 @@ nodcast = "nodcast.nodcast:main"
 where = ["."]
 
 [tool.setuptools.package-data]
-nodcast = ["docs/examples/*", "docs/examples/**/*"]
+nodcast = ["docs/examples/*", "docs/**/*"]
 
