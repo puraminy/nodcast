@@ -678,6 +678,16 @@ def set_max_rows_cols(rows, cols):
     STD_ROWS = rows
     STD_COLS = cols
 
+def safe_newwin(cur, nrows, ncols, y, x):
+    max_rows, max_cols = STD_ROWS, STD_COLS
+
+    # clamp dimensions
+    nrows = max(1, min(nrows, max_rows - y))
+    ncols = max(1, min(ncols, max_cols - x))
+
+    return cur.newwin(nrows, ncols, y, x)
+
+
 win_info = None
 def show_info(msg, color=INFO_COLOR, bottom=True, title = "Info", acc =[], refresh=True):
     global win_info, old_msg 
@@ -698,7 +708,7 @@ def show_info(msg, color=INFO_COLOR, bottom=True, title = "Info", acc =[], refre
         mrows = nlines + 2
         start_row = (rows - mrows) // 2 
     old_msg = msg
-    win_info = cur.newwin(mrows, mcols, 2, 7)
+    win_info = safe_newwin(cur, mrows, mcols, 2, 7)
     win_info.bkgd(' ', cur.color_pair(color))  # | cur.A_REVERSE)
     win_info.border()
     win_info.erase()

@@ -1,4 +1,4 @@
-# Nodcast v 0.1.3
+# Nodcast v 0.1.15
 import requests
 import io
 import threading
@@ -59,7 +59,10 @@ from nodcast.article import *
 
 doc_path = get_documents_path(appname)
 app_path = user_data_dir(appname, appauthor)
-logFilename = "log_file.log" #app_path + '/log_file.log'
+log_dir = user_log_dir("nodcast")
+os.makedirs(log_dir, exist_ok=True)
+
+logFilename = os.path.join(log_dir, "nodcast.log")
 Path(app_path).mkdir(parents=True, exist_ok=True)
 # log only important messages
 logging.basicConfig(filename=logFilename, level=logging.INFO)
@@ -982,7 +985,7 @@ def list_articles(in_articles, fid, show_note=False, group="", filter_note="", n
             n_list = art_status
             if filter_note != "":
                 n_list = ["remove filter"] + art_status
-            nod_win = cur.newwin(9, 55, 7, 10)
+            nod_win = safe_newwin(cur, 9, 55, 7, 10)
             nod_win.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
             tmp, _ = select_box({"Notes":n_list}, nod_win, title = "Filter articles by:")
             _note = tmp if tmp != "NULL" else ""
@@ -1304,7 +1307,7 @@ def locate(art, si, sel_first_sent=False):
     return sect, frag, sent, min(si, s_start)
 
 def get_sel_name(path, ext="", cat = "Folder"):
-    _win = cur.newwin(10, 60, 2, 5)
+    _win = safe_newwin(cur, 10, 60, 2, 5)
     _win.bkgd(' ', cur.color_pair(HL_COLOR))  # | cur.A_REVERSE)
     _win.border()
     if ext == "":
@@ -1489,8 +1492,12 @@ def continue_recording(sents, art, si, to, part="text", background=True):
         show_err("Failed to connect. Probable cause: Unknown")
     except KeyboardInterrupt:
         pass
+try:
+    import vlc
+except ImportError:
+    vlc = None
+    show_warn("VLC module not available. Audio playback will be disabled.")
 
-import vlc
 player = None
 recorder = None
 from urllib.parse import quote
@@ -1553,26 +1560,6 @@ def play(sound_file, sents, art, si, part="text", record_all=False):
         else:
             continue_recording(sents, art, si, limit, background=False)
 
-def play2(sound_file, sents, art, si, record_all=False):
-    global player, recorder
-    if player is not None:
-        player.stop()
-
-    path = Path(sound_file)
-    if path.is_file():
-        try:
-            uri = "file://" + quote(str(path))
-            # create a VLC instance with verbosity=0
-            instance = vlc.Instance("--quiet", "--no-xlib", "--logmode", "none", "--intf", "dummy")
-            player = instance.media_player_new()
-            media = instance.media_new(uri)
-            player.set_media(media)
-            player.play()
-        except Exception as e:
-            show_err(f"VLC error: {e}")
-    else:
-        show_warn("Sound wasn't recorded, playing and recording ... please wait.")
-        # complete this
 
 def speak2(text):
     os.system(f'echo "{text}" | festival --tts')
@@ -2318,7 +2305,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
 
         first = False
         end_y, curx = text_win.getyx()
-        win_info = cur.newwin(1, cols, rows - 1, 0)
+        win_info = safe_newwin(cur, 1, cols, rows - 1, 0)
         win_info.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
         win_info.erase()
         mode_info = main_info 
@@ -2479,7 +2466,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             hotkey = "qq" if expand == 0 else "qqq"
         if ch == ord('F') and not rc_text:
             ypos = pos[bmark] - start_row
-            nod_win = cur.newwin(9, 50, ypos + 2, left)
+            nod_win = safe_newwin(cur, 9, 50, ypos + 2, left)
             nod_win.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
             tmp, _ = select_box({"Notes":["All"] + notes_list}, nod_win, title="Show only", in_row=True)
             show_note = tmp if tmp != "NULL" and tmp != "All" else ""
@@ -2735,7 +2722,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 win_title = "Note:"
                 n_list = {"Nods":nods_list}
                 _win_w = 35 
-            nod_win = cur.newwin(12, _win_w, ypos - 2, width - 10) 
+            nod_win = safe_newwin(cur, 12, _win_w, ypos - 2, width - 10) 
             nod_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
             tmp_note, note_index = select_box(n_list, nod_win, 0, ni = 4, in_row=False, border=False, in_colors = theme_menu, color = TEXT_COLOR)
             if tmp_note != 'NULL':
@@ -2754,7 +2741,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             _win_w = 75
             # NNN
             _y_pos = ypos + 2 if ypos + 2 < rows - 2 else rows - 10
-            nod_win = cur.newwin(9, _win_w, _y_pos, left)
+            nod_win = safe_newwin(cur, 9, _win_w, _y_pos, left)
             nod_win.bkgd(' ', cur.color_pair(INFO_COLOR))  # | cur.A_REVERSE)
             tmp_note, note_index = select_box(n_list, nod_win, 1, in_row=True)
             if tmp_note != 'NULL':
@@ -2993,7 +2980,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                     #        sents[ii]["okays"] += 1
 
                     #up_pos = (pos[si-1] + pos[si])//2 - start_row + 2
-                    #nod_win = cur.newwin(2,10, up_pos, left + width)
+                    #nod_win = safe_newwin(cur, 2,10, up_pos, left + width)
                     #nod_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
                     #print_there(0, 2, _next_nod, left_side_win, find_nod_color(_next_nod))
                     #nod_win.refresh()
@@ -3251,7 +3238,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             win_height = 5 #
             _top = cur_sent["end_pos"] - shift + 4 # - cur_sent["start_pos"]
             win_loc = _top, left
-            win = cur.newwin(win_height + 2, width, win_loc[0], win_loc[1])
+            win = safe_newwin(cur, win_height + 2, width, win_loc[0], win_loc[1])
             _default = prev_idea
             enter_on =[cur.KEY_ENTER, 10, 13, '\n']
             win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
@@ -3277,7 +3264,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
         if ch == ord('e'):
             win_height = cur_sent["end_pos"] - cur_sent["start_pos"]
             win_loc = cur_sent["start_pos"] + 2, left
-            win = cur.newwin(win_height, width, win_loc[0], win_loc[1])
+            win = safe_newwin(cur, win_height, width, win_loc[0], win_loc[1])
             _default = prev_idea
             enter_on =[cur.KEY_ENTER, 10, 13, '\n']
             win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
@@ -3291,7 +3278,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             art_changed = True
         if ch == ord(':') or ch == ord('?') or ch == ord('>'):
             gg = 2 if ch == ord('?') else 1
-            win = cur.newwin(1, width - 1, pos[bmark+1] + gg, left)
+            win = safe_newwin(cur, 1, width - 1, pos[bmark+1] + gg, left)
             win.bkgd(' ', cur.color_pair(INPUT_COLOR))  # | cur.A_REVERSE)
             title = "new question:" if ch == ord('?') else "new nod:"
             _input, ret_ch = minput(win, 0, 0, title, default="", 
@@ -3314,7 +3301,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             nod_set = True
         art_changed = art_changed or nod_set
         if ch == ord('E') and False:
-            win_input = cur.newwin(5, cols - 2*left, 5, left)
+            win_input = safe_newwin(cur, 5, cols - 2*left, 5, left)
             prompt = "Paper title"
             win_input.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
             new_tit, _ch = minput(win_input, 0, 0, prompt, default= cur_sent["text"],mode = MULTI_LINE)
@@ -3337,7 +3324,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 else:
                     url = art["path"]
                 if not download_or_open(url, art, pdf_name, open_file = (ch == ord('o') or ch == ord('/'))):
-                    win_input = cur.newwin(5, cols - 2*left, 5, left)
+                    win_input = safe_newwin(cur, 5, cols - 2*left, 5, left)
                     prompt = "File not found, new File localtion:"
                     win_input.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
                     new_loc, _ch = minput(win_input, 0, 0, prompt, mode = MULTI_LINE)
@@ -3368,7 +3355,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 else:
                     show_info(main_info)
         if type(ch) == str and safe_chr(ch) == '"':
-            win = cur.newwin(10, width, 6, left)
+            win = safe_newwin(cur, 10, width, 6, left)
             win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
             new_text, _ = minput(win, 0, 0, "New text", 
                     default="", mode =MULTI_LINE)
@@ -3416,7 +3403,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 if not note_file.endswith(".tag.list"):
                     note_file += ".tag.list"
                 note_title = note_file[:-4]
-                win = cur.newwin(win_height, width - 1, 6, left)
+                win = safe_newwin(cur, win_height, width - 1, 6, left)
                 _default = prev_idea
                 win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
                 _comment, ret_ch = minput(win, 0, 0, note_title, 
@@ -3570,7 +3557,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
                 inp_mode = MULTI_LINE
             _comment = ""
             _y_pos = ypos + 2 if ypos + 2 < rows - 2 else rows - _lines - 5
-            win = cur.newwin(_lines, width-1, _y_pos, left)
+            win = safe_newwin(cur, _lines, width-1, _y_pos, left)
             win.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
             if safe_chr(ch) not in ["+","-"]:
                 _comment, _ = minput(win, 0, 0, prompt, default=default, mode=inp_mode)
@@ -3680,7 +3667,7 @@ def show_article(art, show_note="", collect_art = False, ref_sent = ""):
             text_win.refresh(0, 0, 2, 0, rows - 2, cols - 1)
         if ch == ord('f'):  # show figures
             ypos = 5
-            fig_win = cur.newwin(10, width, ypos + 2, left)
+            fig_win = safe_newwin(cur,10, width, ypos + 2, left)
             fig_win.bkgd(' ', cur.color_pair(HL_COLOR))  # | cur.A_REVERSE)
             fig_win.border()
             opts = []
@@ -4259,7 +4246,7 @@ def refresh_menu(menu, menu_win, sel, options, shortkeys, subwins, start_row=0, 
             std.refresh()
             menu_win.refresh()
         for k, item in subwins.items():
-            sub_menu_win = cur.newwin(item["h"],
+            sub_menu_win = safe_newwin(cur, item["h"],
                                       item["w"],
                                       item["y"],
                                       item["x"])
@@ -4275,11 +4262,11 @@ def get_sel(menu, mi):
 
 def load_preset(new_preset, options, folder=""):
     global TEXT_COLOR
-    menu = load_obj(new_preset, folder, common =True)
-    if menu == None and folder == "theme":
+    menu = None # TODO load_obj(new_preset, folder, common =True)
+    if menu is None and folder == "theme":
         menu = load_obj("chk_def_" + new_preset, folder, data_dir=False)
         save_obj(menu, new_preset, folder, common=True)
-    if menu == None and folder == "theme":
+    if menu is None and folder == "theme":
         init = {'preset': 'default', "sep1": "colors", 'text-color': '247', 'back-color': '233', 'item-color': '71','cur-item-color': '251', 'sel-item-color': '33', 'title-color': '28', "sep2": "reading mode",           "dim-color": '241', 'bright-color':"251", "highlight-color": '236', "hl-text-color": "250", "inverse-highlight": "True", "bold-highlight": "True", "bold-text": "False", "input-color":"234", "sep5": "Feedback Colors"}
         default = load_obj("chk_def_default", folder, data_dir=False)
         light = load_obj("chk_def_light", folder, data_dir=False)
@@ -4410,18 +4397,18 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             _m = max([len(x) for x in menu.keys()]) + 5
             mode = PROMPT_LINE
             if sel_type.startswith("input-box-mline"):
-                win_input = cur.newwin(options[sel]["rows"], cols - 10, row + mi, col)
+                win_input = safe_newwin(cur, options[sel]["rows"], cols - 10, row + mi, col)
                 mode = MULTI_LINE
                 prompt = sel
                 cur_values = "\n".join([x.strip() for x in menu[sel].split(',')])
             elif sel_type == "input-box-sline":
                 _rows = options[sel]["rows"] if "rows" in options[sel] else 4 
-                win_input = cur.newwin(_rows, cols - 10, row + mi, col)
+                win_input = safe_newwin(cur, _rows, cols - 10, row + mi, col)
                 mode = SINGLE_LINE
                 prompt = sel
                 cur_values = menu[sel]
             else:
-                win_input = cur.newwin(1, cols - 10, row + mi, col)
+                win_input = safe_newwin(cur, 1, cols - 10, row + mi, col)
                 prompt = "{:<{}}".format(sel, _m) + ": "
                 cur_values = menu[sel]
             win_input.bkgd(' ', cur.color_pair(CUR_ITEM_COLOR))  # | cur.A_REVERSE)
@@ -4454,7 +4441,7 @@ def show_menu(menu, options, shortkeys={}, hotkeys={}, title="", mi=0, subwins={
             if menu[sel] in options[sel]['range']:
                 si = options[sel]['range'].index(menu[sel])
             rows, cols = std.getmaxyx()
-            sub_menu_win = cur.newwin(subwins[sel]["h"],
+            sub_menu_win = safe_newwin(cur, subwins[sel]["h"],
                                       subwins[sel]["w"],
                                       subwins[sel]["y"],
                                       subwins[sel]["x"])
@@ -4611,6 +4598,7 @@ def start(stdscr):
 
     rows, cols = std.getmaxyx()
     _ROWS, _COLS = std.getmaxyx()
+    set_max_rows_cols(_ROWS, _COLS)
     logging.info(f"========================= Starting program at {_ROWS}, {_COLS}")
     height = rows - 1
     width = cols
@@ -4625,7 +4613,7 @@ def start(stdscr):
     right_side_win.bkgd(' ', cur.color_pair(ITEM_COLOR))  # | cur.A_REVERSE)
     menu_win = cur.newpad(rows*MAX_MENU_PAGES , cols*2)
     menu_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
-    common_subwin = cur.newwin(rows - 6, width // 2 + 5, 5, width // 2 - 5)
+    common_subwin = safe_newwin(cur, rows - 6, width // 2 + 5, 5, width // 2 - 5)
     common_subwin.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
 
     cur.start_color()
@@ -4725,7 +4713,7 @@ def start(stdscr):
     # ESCDELAY = 25
     std.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     clear_screen(std)
-    top_win = cur.newwin(2, cols, 1, 0)
+    top_win = safe_newwin(cur, 2, cols, 1, 0)
     top_win.bkgd(' ', cur.color_pair(TEXT_COLOR))  # | cur.A_REVERSE)
     ch = ''
     shortkeys = {"m": "my articles", "l": "last results", "k": "keywords", "n": "notes", "r": "recent articles", "g":"Go!", "t": "tags", "s": "settings", "p": "webpage", "a": "advanced search", "w": "website articles", 'o': "open file"}
@@ -4973,7 +4961,7 @@ def show_files(save_folder, exts, depth = 1, title ="My Articles", extract = Fal
             filepath = save_folder 
             rows, cols = std.getmaxyx()
             width = cols - 10
-            win = cur.newwin(1, width - 1, mi, 5)
+            win = safe_newwin(cur, 1, width - 1, mi, 5)
             name, _ = minput(win, 0, 1, "Enter file name:", default="new article")
             if name != "<ESC>":
                 filepath = save_folder + "/"+ name + ".yaml"
@@ -5555,7 +5543,7 @@ def refresh_tags(save_folder):
     return opts, art_list
 
 def list_tags(save_folder):
-    tag_win = cur.newwin(10, 60, 2, 5)
+    tag_win = safe_newwin(cur, 10, 60, 2, 5)
     tag_win.bkgd(' ', cur.color_pair(HL_COLOR))  # | cur.A_REVERSE)
     tag_win.border()
     opts, art_list = refresh_tags(save_folder)

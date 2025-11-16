@@ -1,5 +1,3 @@
 # MANIFEST.in
 include README.md LICENSE
-recursive-include docs/examples *
-
-
+recursive-include nodcast/docs *

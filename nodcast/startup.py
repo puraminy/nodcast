@@ -37,26 +37,29 @@ def get_documents_path(appname="nodcast", as_str=True):
     path.mkdir(parents=True, exist_ok=True)
     return str(path) if as_str else path
 
-def copy_examples_to_docs(profile = "default", doc_path=None):
-    """Copy packaged examples to user's Documents/nodcast/examples/, only if missing."""
+def copy_examples_to_docs(profile="default", doc_path=None):
     if doc_path is None:
         doc_path = get_documents_path("nodcast", as_str=False)
     else:
         doc_path = Path(doc_path)
 
-    dest = doc_path / profile 
-    try:
-        # locate 'docs/examples' within installed package
-        examples_pkg_path = res.files("nodcast").parent / "docs" / "examples"
+    dest = doc_path / profile
 
-        with res.as_file(examples_pkg_path) as src_dir:
+    try:
+        # Access packaged examples directly from importlib.resources
+        examples_root = res.files("nodcast") / "docs" / "examples"
+
+        # Convert to a real filesystem path (works even if in a zip)
+        with res.as_file(examples_root) as tmp_dir:
+            src_dir = Path(tmp_dir)
+
             if not src_dir.exists():
                 print("No examples found in package.")
                 return
 
             dest.mkdir(parents=True, exist_ok=True)
-
             copied_any = False
+
             for item in src_dir.rglob("*"):
                 rel = item.relative_to(src_dir)
                 target = dest / rel

@@ -359,8 +359,8 @@ def save_article(art, artid=False, minimal=False, use_yaml=True):
 
                 for s in frag.get("sents", []):
                     text = s.get("text", "")
-                    nods = s.get("nods", {})
-                    questions = s.get("questions", [])
+                    nods = s.get("nods", {}) or []
+                    questions = s.get("questions", []) or []
                     q_index = s.get("q_index", 0)
                     selected_nod = s.get("nod", "")
 
